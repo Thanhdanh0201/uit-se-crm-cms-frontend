@@ -87,7 +87,6 @@ export default function AdminListDemo() {
         </Space>
       }
     >
-      <title>Người dùng - CMS Khoa CNPM</title>
       <Table<Row>
         rowKey="id"
         dataSource={pageRows}

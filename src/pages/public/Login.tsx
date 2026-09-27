@@ -5,6 +5,9 @@ import Alert from '../../components/ui/Alert'
 import Button from '../../components/ui/Button'
 import Card from '../../components/ui/Card'
 import { TextField } from '../../components/ui/Field'
+import { noIndex } from '../../lib/seo'
+
+export const meta = () => noIndex('Đăng nhập')
 
 const HOME = { admin: '/admin', editor: '/admin', student: '/' } as const
 

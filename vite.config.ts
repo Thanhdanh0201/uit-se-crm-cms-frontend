@@ -1,8 +1,9 @@
-import react from '@vitejs/plugin-react'
+import { reactRouter } from '@react-router/dev/vite'
 import { defineConfig } from 'vite'
 
 // Backend chưa bật CORS: proxy /api để cùng origin, cookie access_token tự gửi.
 export default defineConfig({
-  plugins: [react()],
+  // Vitest không cần plugin React Router (plugin này đòi file routes).
+  plugins: [!process.env.VITEST && reactRouter()],
   server: { proxy: { '/api': 'http://localhost:5179' } },
 })

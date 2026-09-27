@@ -14,14 +14,21 @@
 - Trang quản trị dùng Ant Design 6 (lazy-load, chỉ tải khi vào `/admin`), theme map từ token (`src/admin/theme.ts`).
 - Khung quản trị `src/admin/AdminLayout.tsx`: header + sidebar xanh đậm thu gọn được, menu lọc theo role (`src/admin/menu.tsx`, có test), mobile trượt đè.
 - Gộp `/editor` vào `/admin` (editor và admin cùng một khung, menu theo role).
+- Chuyển sang React Router 8 framework mode, bật SSR: trang public trả HTML đầy đủ + thẻ `og:*`, canonical (`src/lib/seo.ts`). Trang không tồn tại trả HTTP 404. `/admin` chỉ render ở client (`clientLoader.hydrate` + `HydrateFallback`), trả `noindex`.
+- Trang chủ (FR-PUB-01, FR-PUB-02): hero, khối Thông báo mới, truy cập nhanh, tin nổi bật, nhóm tin theo chuyên mục, sự kiện sắp diễn ra (trạng thái còn chỗ/đủ chỗ/hết hạn, có test), hỏi đáp. Dữ liệu từ `GET /api/public/home` (đề xuất), dev dùng dữ liệu mẫu khi API chưa có.
+- Header public có menu chính, menu mobile (`<details>`), link tìm kiếm, skip link; footer có địa chỉ, điện thoại, email của Khoa.
+- Khung trang chi tiết bài `/posts/:slug` (loader SSR + meta), dùng DTO tạm chờ backend.
 - Mẫu trang danh sách `/dev/admin/users`: lọc, tìm kiếm, phân trang, drawer tạo/sửa, khóa có xác nhận, trạng thái trên URL (`src/lib/useListParams.ts`).
 
 ## Kế tiếp
+- Các trang được trang chủ liên kết tới nhưng chưa có (đang trả 404): `/categories/:slug`, `/events`, `/events/:id`, `/pages/:slug`, `/contact`, `/search`.
 - FR-AUTH-05: màn hình đổi mật khẩu (`POST /api/auth/change-password`).
 - FR-AUTH-03/04: trang `/admin/users` thật, copy từ mẫu `AdminListDemo`, nối `/api/admin/users` (API đã có).
 - Chờ API backend: menu, chuyên mục, media (Sprint 2).
 
 ## Ghi chú
+- Deploy frontend giờ cần server Node (`npm run build && npm start`) + nginx chia `/api` sang backend.
+- Ảnh bìa bài public cần URL công khai không hết hạn để dùng cho `og:image` (báo nhóm backend).
 - `GET /api/auth/me` chỉ trả `userId`, `role`, `email`; sau khi F5 chưa có `fullName`. Cần backend bổ sung nếu UI hiển thị tên.
 
 ## Cập nhật lần cuối

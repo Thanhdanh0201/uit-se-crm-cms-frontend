@@ -9,7 +9,9 @@ export class ApiError extends Error {
   }
 }
 
-const BASE = import.meta.env.VITE_API_BASE_URL ?? ''
+// Trình duyệt: đường dẫn tương đối (Vite proxy / nginx cùng origin).
+// Server SSR: gọi thẳng backend, không có origin để tương đối.
+const BASE = typeof window === 'undefined' ? (process.env.API_URL ?? 'http://localhost:5179') : (import.meta.env.VITE_API_BASE_URL ?? '')
 
 // Backend trả ProblemDetails ({ title, detail, errors }) hoặc { message } (login 401).
 export function toApiError(status: number, body: unknown): ApiError {
