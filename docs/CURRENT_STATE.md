@@ -11,10 +11,14 @@
 - Bộ component `src/components/ui`: Button, TextField/TextArea/Select/Checkbox, Card, Badge + PostStatusBadge, Alert, ConfirmDialog, Pagination (có test), Skeleton, EmptyState, PageHeader, class bảng `.ui-table`.
 - Header/footer public và sidebar quản trị dùng theme mới; trang đăng nhập dùng component mới.
 - Style guide `/dev/ui` (chỉ khi dev).
+- Trang quản trị dùng Ant Design 6 (lazy-load, chỉ tải khi vào `/admin`), theme map từ token (`src/admin/theme.ts`).
+- Khung quản trị `src/admin/AdminLayout.tsx`: header + sidebar xanh đậm thu gọn được, menu lọc theo role (`src/admin/menu.tsx`, có test), mobile trượt đè.
+- Gộp `/editor` vào `/admin` (editor và admin cùng một khung, menu theo role).
+- Mẫu trang danh sách `/dev/admin/users`: lọc, tìm kiếm, phân trang, drawer tạo/sửa, khóa có xác nhận, trạng thái trên URL (`src/lib/useListParams.ts`).
 
 ## Kế tiếp
 - FR-AUTH-05: màn hình đổi mật khẩu (`POST /api/auth/change-password`).
-- FR-AUTH-03/04: quản lý người dùng Admin (`/api/admin/users`, API đã có).
+- FR-AUTH-03/04: trang `/admin/users` thật, copy từ mẫu `AdminListDemo`, nối `/api/admin/users` (API đã có).
 - Chờ API backend: menu, chuyên mục, media (Sprint 2).
 
 ## Ghi chú

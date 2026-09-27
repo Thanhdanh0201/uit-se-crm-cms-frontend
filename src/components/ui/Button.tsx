@@ -17,11 +17,12 @@ type Props = ButtonHTMLAttributes<HTMLButtonElement> & {
   icon?: ReactNode
 }
 
+// Nút chỉ có icon: bắt buộc truyền aria-label (và title để hiện tooltip).
 export default function Button({ variant, size, block, loading, icon, className, disabled, type = 'button', children, ...rest }: Props) {
   return (
     <button
       type={type}
-      className={`${buttonClass(variant, size, block)} ${className ?? ''}`}
+      className={`${buttonClass(variant, size, block)}${children ? '' : ' ui-btn--icon'} ${className ?? ''}`}
       disabled={disabled || loading}
       aria-busy={loading || undefined}
       {...rest}

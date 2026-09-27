@@ -6,7 +6,7 @@ import Button from '../../components/ui/Button'
 import Card from '../../components/ui/Card'
 import { TextField } from '../../components/ui/Field'
 
-const HOME = { admin: '/admin', editor: '/editor', student: '/' } as const
+const HOME = { admin: '/admin', editor: '/admin', student: '/' } as const
 
 export default function Login() {
   const { user, login } = useAuth()

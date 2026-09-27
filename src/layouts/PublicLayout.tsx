@@ -15,7 +15,7 @@ export default function PublicLayout() {
           </Link>
           <nav className="site-nav" aria-label="Điều hướng chính">
             <NavLink to="/" end>Trang chủ</NavLink>
-            {user && user.role !== 'student' && <NavLink to={user.role === 'admin' ? '/admin' : '/editor'}>Quản trị</NavLink>}
+            {user && user.role !== 'student' && <NavLink to="/admin">Quản trị</NavLink>}
             {user ? (
               <button type="button" className={buttonClass('ghost', 'sm')} onClick={logout}>Đăng xuất</button>
             ) : (
