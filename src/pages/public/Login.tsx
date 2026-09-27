@@ -1,6 +1,10 @@
 import { useState, type FormEvent } from 'react'
 import { Navigate, useNavigate, useSearchParams } from 'react-router'
 import { useAuth } from '../../lib/auth'
+import Alert from '../../components/ui/Alert'
+import Button from '../../components/ui/Button'
+import Card from '../../components/ui/Card'
+import { TextField } from '../../components/ui/Field'
 
 const HOME = { admin: '/admin', editor: '/editor', student: '/' } as const
 
@@ -29,14 +33,19 @@ export default function Login() {
   }
 
   return (
-    <form className="card narrow" onSubmit={onSubmit}>
-      <h1>Đăng nhập</h1>
-      <label htmlFor="usernameOrEmail">Email hoặc tên đăng nhập</label>
-      <input id="usernameOrEmail" name="usernameOrEmail" autoComplete="username" required />
-      <label htmlFor="password">Mật khẩu</label>
-      <input id="password" name="password" type="password" autoComplete="current-password" required />
-      {error && <p role="alert" className="error">{error}</p>}
-      <button type="submit" disabled={pending}>{pending ? 'Đang đăng nhập...' : 'Đăng nhập'}</button>
-    </form>
+    <div style={{ maxWidth: 420, margin: '32px auto' }}>
+      <Card>
+        <form className="stack" onSubmit={onSubmit}>
+          <div>
+            <h1 style={{ fontSize: 'var(--text-2xl)' }}>Đăng nhập</h1>
+            <p className="muted">Dùng tài khoản do Khoa cấp.</p>
+          </div>
+          <TextField label="Email hoặc tên đăng nhập" name="usernameOrEmail" autoComplete="username" required />
+          <TextField label="Mật khẩu" name="password" type="password" autoComplete="current-password" required />
+          {error && <Alert tone="danger">{error}</Alert>}
+          <Button type="submit" block loading={pending}>{pending ? 'Đang đăng nhập' : 'Đăng nhập'}</Button>
+        </form>
+      </Card>
+    </div>
   )
 }
