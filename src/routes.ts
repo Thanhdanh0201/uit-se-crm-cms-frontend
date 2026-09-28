@@ -25,6 +25,7 @@ export default [
   ]),
   route('admin', 'admin/AdminRoute.tsx', [
     index('pages/admin/Dashboard.tsx'),
+    route('users', 'pages/admin/Users.tsx'),
     route('*', 'pages/admin/ComingSoon.tsx'),
   ]),
   ...devRoutes,

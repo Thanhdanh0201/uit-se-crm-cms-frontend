@@ -6,9 +6,9 @@ import { Key, SidebarSimple, SignOut } from '@phosphor-icons/react'
 import { useAuth, type Role } from '../lib/auth'
 import { activePath, menuFor } from './menu'
 import { adminTheme } from './theme'
+import { ROLE_LABEL } from './roles'
 import './admin.css'
 
-const ROLE_LABEL: Record<Role, string> = { admin: 'Quản trị viên', editor: 'Biên tập viên', student: 'Sinh viên' }
 const COLLAPSE_KEY = 'admin.sidebarCollapsed'
 
 function readCollapsed() {
