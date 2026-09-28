@@ -65,7 +65,7 @@ Quy tắc:
 | Prefix | Ai vào | Guard |
 |---|---|---|
 | `/`, `/posts/:slug`, `/search`, `/events`, `/contact`, `/login` | Tất cả | không |
-| `/me/*` | đã đăng nhập | `<RequireRole roles={['student','editor','admin']}>` |
+| `/me`, `/me/*` | đã đăng nhập | `<RequireRole roles={['student','editor','admin']}>`. `/me` là khu tài khoản, mục chưa có API ghi "Sắp có" |
 | `/admin/*` | `editor`, `admin` | `<RequireRole roles={['editor','admin']}>` ở route cha; trang chỉ admin bọc thêm `<RequireRole roles={['admin']}>`. Menu lọc theo `roles` trong `src/admin/menu.tsx` |
 
-Guard chỉ là UX. Nhận 401 → chuyển `/login`. Nhận 403 → hiện "Bạn không có quyền".
+Guard chỉ là UX. Nhận 401 → refresh, thất bại thì chuyển `/login?next=`. Sai vai trò → `/403` (kèm `state.from`, trang 403 cho đăng nhập tài khoản khác rồi quay lại). Test guard: `src/routes.guard.test.tsx`.

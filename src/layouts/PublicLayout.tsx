@@ -34,7 +34,7 @@ export default function PublicLayout() {
   const account = user ? (
     <>
       {user.role !== 'student' && <Link to="/admin" className={buttonClass('secondary', 'sm')}>Quản trị</Link>}
-      <Link to="/me/password" className={buttonClass('ghost', 'sm')}>Đổi mật khẩu</Link>
+      <Link to="/me" className={buttonClass('ghost', 'sm')}>Tài khoản</Link>
       <button type="button" className={buttonClass('ghost', 'sm')} onClick={onLogout} disabled={loggingOut} aria-busy={loggingOut || undefined}>
         {loggingOut ? 'Đang đăng xuất' : 'Đăng xuất'}
       </button>

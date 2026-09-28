@@ -89,7 +89,7 @@ function ChangePasswordForm() {
       </fieldset>
 
       <Button type="submit" size="lg" block loading={pending}>{pending ? 'Đang đổi mật khẩu' : 'Đổi mật khẩu'}</Button>
-      <p className="auth__help"><Link to="/">Về trang chủ</Link></p>
+      <p className="auth__help"><Link to="/me">Về tài khoản của tôi</Link></p>
     </form>
   )
 }

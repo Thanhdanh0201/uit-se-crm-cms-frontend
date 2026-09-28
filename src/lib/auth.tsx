@@ -115,6 +115,7 @@ export function RequireRole({ roles, children }: { roles: Role[]; children: Reac
   const { pathname, search } = useLocation()
   if (loading) return <p className="muted">Đang tải...</p>
   if (!user) return <Navigate to={`/login?next=${encodeURIComponent(pathname + search)}`} replace />
-  if (!roles.includes(user.role)) return <Navigate to="/403" replace />
+  // Truyền trang bị chặn để trang 403 cho đăng nhập tài khoản khác rồi quay lại đúng chỗ.
+  if (!roles.includes(user.role)) return <Navigate to="/403" replace state={{ from: pathname + search }} />
   return children
 }

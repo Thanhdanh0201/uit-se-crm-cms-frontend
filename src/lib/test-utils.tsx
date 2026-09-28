@@ -15,13 +15,14 @@ export const reply = (status: number, body: unknown = {}) =>
 export function mockApi(routes: Record<string, Handler>) {
   const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input)
-    const handler = Object.entries(routes).find(([path]) => url.endsWith(path))?.[1]
+    // So khớp theo path, bỏ query (?page=...).
+    const handler = Object.entries(routes).find(([path]) => url.split('?')[0].endsWith(path))?.[1]
     return handler ? handler(url, init) : reply(404)
   })
   vi.stubGlobal('fetch', fetchMock)
   return {
     fetchMock,
-    calls: (path: string) => fetchMock.mock.calls.filter(([u]) => String(u).endsWith(path)),
+    calls: (path: string) => fetchMock.mock.calls.filter(([u]) => String(u).split('?')[0].endsWith(path)),
   }
 }
 

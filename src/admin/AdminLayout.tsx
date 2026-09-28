@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Link, Outlet, useLocation, useNavigate } from 'react-router'
 import { App, Avatar, Button, ConfigProvider, Dropdown, Grid, Layout, Menu } from 'antd'
 import viVN from 'antd/locale/vi_VN'
-import { Key, SidebarSimple, SignOut } from '@phosphor-icons/react'
+import { Key, SidebarSimple, SignOut, UserCircle } from '@phosphor-icons/react'
 import { useAuth, type Role } from '../lib/auth'
 import { activePath, menuFor } from './menu'
 import { adminTheme } from './theme'
@@ -78,6 +78,7 @@ export default function AdminLayout({ previewRole }: { previewRole?: Role }) {
                 items: [
                   { key: 'info', label: user?.email ?? 'Chế độ xem thử', disabled: true },
                   { type: 'divider' },
+                  { key: 'account', icon: <UserCircle size={16} />, label: 'Tài khoản của tôi', onClick: () => navigate('/me') },
                   { key: 'password', icon: <Key size={16} />, label: 'Đổi mật khẩu', onClick: () => navigate('/me/password') },
                   { key: 'logout', icon: <SignOut size={16} />, label: loggingOut ? 'Đang đăng xuất' : 'Đăng xuất', danger: true, disabled: loggingOut, onClick: onLogout },
                 ],
