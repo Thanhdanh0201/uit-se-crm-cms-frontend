@@ -5,7 +5,8 @@
 - Vite proxy `/api` sang backend `http://localhost:5179` (backend chưa bật CORS).
 - `src/lib/api.ts`: fetch wrapper gửi cookie, chuẩn hóa lỗi ProblemDetails và `{ message }` thành `ApiError`. Có test.
 - `src/lib/auth.tsx`: `AuthProvider` khôi phục phiên qua `GET /api/auth/me`, `login`/`logout`, guard `RequireRole` (chỉ là UX).
-- Trang đăng nhập (FR-AUTH-01), đăng xuất (FR-AUTH-02), khung trang quản trị `/admin`, `/editor`, trang 403 và 404.
+- Đăng nhập hoàn chỉnh (FR-AUTH-01): lỗi theo field từ validation backend, lỗi chung cho 401, hiện/ẩn mật khẩu, về lại trang trước qua `?next=` (chặn open redirect), chuẩn hóa role, xử lý hết phiên (401 bất kỳ → về trạng thái khách + thông báo). Có test.
+- Đăng nhập (FR-AUTH-01), đăng xuất (FR-AUTH-02), khung trang quản trị `/admin`, `/editor`, trang 403 và 404.
 
 - Theme xanh/trắng theo se.uit.edu.vn (`src/styles/tokens.css`), font Be Vietnam Pro, icon Phosphor.
 - Bộ component `src/components/ui`: Button, TextField/TextArea/Select/Checkbox, Card, Badge + PostStatusBadge, Alert, ConfirmDialog, Pagination (có test), Skeleton, EmptyState, PageHeader, class bảng `.ui-table`.
@@ -27,6 +28,7 @@
 - Chờ API backend: menu, chuyên mục, media (Sprint 2).
 
 ## Ghi chú
+- Việc cho backend (auth): (1) `LogoutAsync` gọi `SignOut()` trên Supabase client mới tạo theo request nên không thu hồi session thật, chỉ xóa cookie; (2) chưa có refresh token, phiên tối đa bằng `expiresIn`; (3) một số message 401/500 lộ chi tiết cấu hình (`ServiceRoleSecret`, `error: ex.Message`); (4) `LoginResponseDto.User.Role` chưa `ToLowerInvariant()` như `RbacMiddleware`.
 - Deploy frontend giờ cần server Node (`npm run build && npm start`) + nginx chia `/api` sang backend.
 - Ảnh bìa bài public cần URL công khai không hết hạn để dùng cho `og:image` (báo nhóm backend).
 - `GET /api/auth/me` chỉ trả `userId`, `role`, `email`; sau khi F5 chưa có `fullName`. Cần backend bổ sung nếu UI hiển thị tên.

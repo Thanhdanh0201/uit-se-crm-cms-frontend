@@ -7,7 +7,18 @@ export class ApiError extends Error {
     this.status = status
     this.errors = errors
   }
+
+  // Lỗi validation của một field. Backend trả key PascalCase ("UsernameOrEmail"), form dùng camelCase.
+  field(name: string): string | undefined {
+    const key = Object.keys(this.errors ?? {}).find((k) => k.toLowerCase() === name.toLowerCase())
+    return key ? this.errors![key][0] : undefined
+  }
 }
+
+// Phát khi API trả 401 lúc đang dùng (cookie hết hạn). AuthProvider nghe để đưa về trạng thái khách.
+export const AUTH_EXPIRED_EVENT = 'auth:expired'
+// 401 ở hai endpoint này là bình thường (sai mật khẩu, khách chưa đăng nhập), không phải hết phiên.
+const EXPECTED_401 = ['/api/auth/login', '/api/auth/me']
 
 // Trình duyệt: đường dẫn tương đối (Vite proxy / nginx cùng origin).
 // Server SSR: gọi thẳng backend, không có origin để tương đối.
@@ -29,6 +40,11 @@ export async function api<T>(path: string, init: RequestInit & { json?: unknown 
     body: json !== undefined ? JSON.stringify(json) : rest.body,
   })
   const body = res.headers.get('content-type')?.includes('json') ? await res.json() : undefined
-  if (!res.ok) throw toApiError(res.status, body)
+  if (!res.ok) {
+    if (res.status === 401 && typeof window !== 'undefined' && !EXPECTED_401.includes(path)) {
+      window.dispatchEvent(new Event(AUTH_EXPIRED_EVENT))
+    }
+    throw toApiError(res.status, body)
+  }
   return body as T
 }
