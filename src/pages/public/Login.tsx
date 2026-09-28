@@ -1,22 +1,22 @@
 import { useState, type FormEvent } from 'react'
+import { flushSync } from 'react-dom'
 import { Navigate, useNavigate, useSearchParams } from 'react-router'
-import { Eye, EyeSlash } from '@phosphor-icons/react'
 import { safeNext, useAuth, type Role } from '../../lib/auth'
 import { ApiError } from '../../lib/api'
 import { noIndex } from '../../lib/seo'
+import { focusFirstError, validateLogin, type FieldErrors, type LoginInput } from '../../lib/validate'
 import Alert from '../../components/ui/Alert'
 import Button from '../../components/ui/Button'
-import { Field, TextField } from '../../components/ui/Field'
-import './login.css'
+import { PasswordField, TextField } from '../../components/ui/Field'
+import '../../styles/auth.css'
 
 export const meta = () => noIndex('Đăng nhập')
 
 const HOME: Record<Role, string> = { admin: '/admin', editor: '/admin', student: '/' }
 
-type Errors = { form?: string; usernameOrEmail?: string; password?: string }
+type Errors = FieldErrors<keyof LoginInput> & { form?: string }
 
-// Lỗi chung cho sai tài khoản (FR-AUTH-01): không cho biết tài khoản có tồn tại hay không,
-// và không hiện message 401 của backend (có message lộ thông tin cấu hình server).
+// Lỗi chung cho sai tài khoản (FR-AUTH-01): không cho biết tài khoản có tồn tại hay không.
 export function loginErrors(err: unknown): Errors {
   if (!(err instanceof ApiError)) return { form: 'Không kết nối được máy chủ. Kiểm tra mạng rồi thử lại.' }
   if (err.status === 400 && err.errors) {
@@ -33,73 +33,64 @@ export default function Login() {
   const [params] = useSearchParams()
   const [errors, setErrors] = useState<Errors>({})
   const [pending, setPending] = useState(false)
-  const [showPassword, setShowPassword] = useState(false)
   const next = safeNext(params.get('next'))
 
-  if (user) return <Navigate to={next ?? HOME[user.role]} replace />
+  if (user && !pending) return <Navigate to={next ?? HOME[user.role]} replace />
 
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
-    const form = new FormData(e.currentTarget)
+    if (pending) return // chống submit lặp (Enter nhiều lần khi đang gửi)
+    const form = e.currentTarget
+    const data = new FormData(form)
+    const input = { usernameOrEmail: String(data.get('usernameOrEmail')).trim(), password: String(data.get('password')) }
+
+    const invalid = validateLogin(input)
+    setErrors(invalid)
+    if (Object.keys(invalid).length) return focusFirstError(form, invalid)
+
     setPending(true)
-    setErrors({})
     try {
-      const u = await login(String(form.get('usernameOrEmail')).trim(), String(form.get('password')))
+      const u = await login(input.usernameOrEmail, input.password)
       navigate(next ?? HOME[u.role], { replace: true })
     } catch (err) {
-      setErrors(loginErrors(err))
-      setPending(false)
+      const apiErrors = loginErrors(err)
+      // flushSync: fieldset phải hết disabled trong DOM thì mới focus được.
+      flushSync(() => {
+        setErrors(apiErrors)
+        setPending(false)
+      })
+      focusFirstError(form, apiErrors)
     }
   }
 
   return (
-    <div className="login">
-      <div className="login__intro">
+    <div className="auth">
+      <div className="auth__intro">
         <h1>Đăng nhập</h1>
         <p className="muted">Dùng tài khoản do Khoa Công nghệ Phần mềm cấp cho sinh viên, giảng viên và cán bộ.</p>
       </div>
 
-      <form className="login__card stack" onSubmit={onSubmit}>
+      <form className="auth__card stack" onSubmit={onSubmit} noValidate aria-busy={pending || undefined}>
         {sessionExpired && !errors.form && <Alert tone="warning">Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.</Alert>}
         {errors.form && <Alert tone="danger">{errors.form}</Alert>}
 
-        <TextField
-          label="Tên đăng nhập hoặc email"
-          name="usernameOrEmail"
-          autoComplete="username"
-          autoCapitalize="none"
-          spellCheck={false}
-          autoFocus
-          required
-          error={errors.usernameOrEmail}
-        />
-
-        <Field label="Mật khẩu" required error={errors.password}>
-          {(a11y) => (
-            <div className="login__password">
-              <input
-                {...a11y}
-                className="ui-input"
-                name="password"
-                type={showPassword ? 'text' : 'password'}
-                autoComplete="current-password"
-              />
-              <button
-                type="button"
-                className="login__reveal"
-                aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
-                aria-pressed={showPassword}
-                onClick={() => setShowPassword((s) => !s)}
-              >
-                {showPassword ? <EyeSlash size={18} aria-hidden /> : <Eye size={18} aria-hidden />}
-              </button>
-            </div>
-          )}
-        </Field>
+        <fieldset className="auth__fields" disabled={pending}>
+          <TextField
+            label="Tên đăng nhập hoặc email"
+            name="usernameOrEmail"
+            autoComplete="username"
+            autoCapitalize="none"
+            spellCheck={false}
+            autoFocus
+            required
+            error={errors.usernameOrEmail}
+          />
+          <PasswordField label="Mật khẩu" name="password" autoComplete="current-password" required error={errors.password} />
+        </fieldset>
 
         <Button type="submit" size="lg" block loading={pending}>{pending ? 'Đang đăng nhập' : 'Đăng nhập'}</Button>
 
-        <p className="login__help">
+        <p className="auth__help">
           Quên mật khẩu hoặc tài khoản bị khóa? Liên hệ Văn phòng Khoa qua <a href="mailto:se@uit.edu.vn">se@uit.edu.vn</a> để được cấp lại.
         </p>
       </form>

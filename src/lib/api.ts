@@ -15,10 +15,10 @@ export class ApiError extends Error {
   }
 }
 
-// Phát khi API trả 401 lúc đang dùng (cookie hết hạn). AuthProvider nghe để đưa về trạng thái khách.
+// Phát khi refresh cũng thất bại (phiên hết hạn hẳn). AuthProvider nghe để đưa về trạng thái khách.
 export const AUTH_EXPIRED_EVENT = 'auth:expired'
-// 401 ở hai endpoint này là bình thường (sai mật khẩu, khách chưa đăng nhập), không phải hết phiên.
-const EXPECTED_401 = ['/api/auth/login', '/api/auth/me']
+// Không tự refresh cho chính các endpoint auth: 401 ở đây là kết quả thật, và tránh vòng lặp.
+const NO_REFRESH = ['/api/auth/login', '/api/auth/refresh', '/api/auth/logout']
 
 // Trình duyệt: đường dẫn tương đối (Vite proxy / nginx cùng origin).
 // Server SSR: gọi thẳng backend, không có origin để tương đối.
@@ -31,20 +31,38 @@ export function toApiError(status: number, body: unknown): ApiError {
   return new ApiError(status, message, b.errors)
 }
 
+let refreshing: Promise<boolean> | null = null
+
+// Đổi refresh token (cookie HttpOnly, Path=/api/auth) lấy access token mới.
+// Nhiều request 401 cùng lúc chỉ gọi refresh một lần: refresh token của Supabase chỉ dùng được một lần.
+export function refreshSession(): Promise<boolean> {
+  refreshing ??= fetch(BASE + '/api/auth/refresh', { method: 'POST', credentials: 'include' })
+    .then((r) => r.ok)
+    .catch(() => false)
+    .finally(() => {
+      refreshing = null
+    })
+  return refreshing
+}
+
 export async function api<T>(path: string, init: RequestInit & { json?: unknown } = {}): Promise<T> {
   const { json, headers, ...rest } = init
-  const res = await fetch(BASE + path, {
-    credentials: 'include',
-    ...rest,
-    headers: { Accept: 'application/json', ...(json !== undefined && { 'Content-Type': 'application/json' }), ...headers },
-    body: json !== undefined ? JSON.stringify(json) : rest.body,
-  })
-  const body = res.headers.get('content-type')?.includes('json') ? await res.json() : undefined
-  if (!res.ok) {
-    if (res.status === 401 && typeof window !== 'undefined' && !EXPECTED_401.includes(path)) {
-      window.dispatchEvent(new Event(AUTH_EXPIRED_EVENT))
-    }
-    throw toApiError(res.status, body)
+  const send = () =>
+    fetch(BASE + path, {
+      credentials: 'include',
+      ...rest,
+      headers: { Accept: 'application/json', ...(json !== undefined && { 'Content-Type': 'application/json' }), ...headers },
+      body: json !== undefined ? JSON.stringify(json) : rest.body,
+    })
+
+  let res = await send()
+  // Access token hết hạn (khoảng 1 giờ): refresh rồi gửi lại đúng một lần. SSR không có cookie nên bỏ qua.
+  if (res.status === 401 && typeof window !== 'undefined' && !NO_REFRESH.includes(path)) {
+    if (await refreshSession()) res = await send()
+    if (res.status === 401) window.dispatchEvent(new Event(AUTH_EXPIRED_EVENT))
   }
+
+  const body = res.headers.get('content-type')?.includes('json') ? await res.json() : undefined
+  if (!res.ok) throw toApiError(res.status, body)
   return body as T
 }

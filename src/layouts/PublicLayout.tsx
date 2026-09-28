@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { Link, NavLink, Outlet, useLocation } from 'react-router'
+import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router'
 import { EnvelopeSimple, List, MagnifyingGlass, MapPin, Phone } from '@phosphor-icons/react'
 import { useAuth } from '../lib/auth'
 import { buttonClass } from '../components/ui/Button'
@@ -16,7 +16,8 @@ const NAV = [
 ]
 
 export default function PublicLayout() {
-  const { user, logout } = useAuth()
+  const { user, logout, loggingOut } = useAuth()
+  const navigate = useNavigate()
   const menuRef = useRef<HTMLDetailsElement>(null)
   const { pathname } = useLocation()
 
@@ -25,10 +26,18 @@ export default function PublicLayout() {
     if (menuRef.current) menuRef.current.open = false
   }, [pathname])
 
+  async function onLogout() {
+    await logout()
+    navigate('/login', { replace: true })
+  }
+
   const account = user ? (
     <>
       {user.role !== 'student' && <Link to="/admin" className={buttonClass('secondary', 'sm')}>Quản trị</Link>}
-      <button type="button" className={buttonClass('ghost', 'sm')} onClick={logout}>Đăng xuất</button>
+      <Link to="/me/password" className={buttonClass('ghost', 'sm')}>Đổi mật khẩu</Link>
+      <button type="button" className={buttonClass('ghost', 'sm')} onClick={onLogout} disabled={loggingOut} aria-busy={loggingOut || undefined}>
+        {loggingOut ? 'Đang đăng xuất' : 'Đăng xuất'}
+      </button>
     </>
   ) : (
     <Link to="/login" className={buttonClass('primary', 'sm')}>Đăng nhập</Link>

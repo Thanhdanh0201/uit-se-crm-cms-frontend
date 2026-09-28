@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Link, Outlet, useLocation, useNavigate } from 'react-router'
 import { App, Avatar, Button, ConfigProvider, Dropdown, Grid, Layout, Menu } from 'antd'
 import viVN from 'antd/locale/vi_VN'
-import { SidebarSimple, SignOut } from '@phosphor-icons/react'
+import { Key, SidebarSimple, SignOut } from '@phosphor-icons/react'
 import { useAuth, type Role } from '../lib/auth'
 import { activePath, menuFor } from './menu'
 import { adminTheme } from './theme'
@@ -22,7 +22,7 @@ function readCollapsed() {
 // Khung trang quản trị: header + sidebar xanh đậm, menu lọc theo role, nội dung trên nền xám.
 // previewRole chỉ dùng cho route /dev/admin (xem giao diện khi chưa có backend).
 export default function AdminLayout({ previewRole }: { previewRole?: Role }) {
-  const { user, logout } = useAuth()
+  const { user, logout, loggingOut } = useAuth()
   const role = previewRole ?? user?.role
   const navigate = useNavigate()
   const { pathname } = useLocation()
@@ -46,7 +46,7 @@ export default function AdminLayout({ previewRole }: { previewRole?: Role }) {
 
   async function onLogout() {
     await logout()
-    navigate('/login')
+    navigate('/login', { replace: true })
   }
 
   const items = menuFor(role).map((g, gi) => {
@@ -78,7 +78,8 @@ export default function AdminLayout({ previewRole }: { previewRole?: Role }) {
                 items: [
                   { key: 'info', label: user?.email ?? 'Chế độ xem thử', disabled: true },
                   { type: 'divider' },
-                  { key: 'logout', icon: <SignOut size={16} />, label: 'Đăng xuất', danger: true, onClick: onLogout },
+                  { key: 'password', icon: <Key size={16} />, label: 'Đổi mật khẩu', onClick: () => navigate('/me/password') },
+                  { key: 'logout', icon: <SignOut size={16} />, label: loggingOut ? 'Đang đăng xuất' : 'Đăng xuất', danger: true, disabled: loggingOut, onClick: onLogout },
                 ],
               }}
             >

@@ -5,7 +5,7 @@ import Badge, { POST_STATUS, PostStatusBadge, type PostStatus } from '../../comp
 import Button from '../../components/ui/Button'
 import Card from '../../components/ui/Card'
 import ConfirmDialog from '../../components/ui/ConfirmDialog'
-import { Checkbox, Select, TextArea, TextField } from '../../components/ui/Field'
+import { Checkbox, PasswordField, Select, TextArea, TextField } from '../../components/ui/Field'
 import Pagination from '../../components/ui/Pagination'
 import { EmptyState, PageHeader, Skeleton } from '../../components/ui/States'
 
@@ -59,6 +59,7 @@ export default function UiKit() {
             <option>Học bổng - Tuyển dụng</option>
             <option>Khoa học - Công nghệ</option>
           </Select>
+          <PasswordField label="Mật khẩu mới" autoComplete="new-password" hint="Tối thiểu 6 ký tự." />
           <TextArea label="Tóm tắt" hint="Hiện trên danh sách bài và kết quả tìm kiếm." />
           <Checkbox label="Đánh dấu bài nổi bật" />
         </form>

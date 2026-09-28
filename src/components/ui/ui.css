@@ -68,6 +68,24 @@
 textarea.ui-input { min-height: 96px; resize: vertical; line-height: var(--leading-normal); }
 select.ui-input { padding-right: var(--space-6); }
 
+.ui-password { position: relative; }
+.ui-password .ui-input { padding-right: var(--control-h); }
+.ui-password__reveal {
+  position: absolute;
+  top: 0;
+  right: 0;
+  display: grid;
+  place-items: center;
+  width: var(--control-h);
+  height: var(--control-h);
+  border: 0;
+  border-radius: 0 var(--radius-control) var(--radius-control) 0;
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+.ui-password__reveal:hover { color: var(--color-primary); }
+
 .ui-check { display: inline-flex; align-items: center; gap: var(--space-2); font-size: var(--text-sm); cursor: pointer; }
 .ui-check input { width: 16px; height: 16px; margin: 0; accent-color: var(--color-primary); }
 

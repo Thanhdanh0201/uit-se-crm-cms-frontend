@@ -21,6 +21,8 @@
 - Khung trang chi tiết bài `/posts/:slug` (loader SSR + meta), dùng DTO tạm chờ backend.
 - Mẫu trang danh sách `/dev/admin/users`: lọc, tìm kiếm, phân trang, drawer tạo/sửa, khóa có xác nhận, trạng thái trên URL (`src/lib/useListParams.ts`).
 
+- Task [FE] Đăng nhập, đăng xuất, đổi mật khẩu (FR-AUTH-01, 02, 05): validate trước khi gửi (`lib/validate.ts`), pending và khóa form, chống submit lặp, lỗi API theo field và focus field sai; trang đổi mật khẩu `/me/password` (reauth bằng mật khẩu hiện tại), vào từ header public và dropdown admin; đăng xuất chống bấm lặp, luôn về `/login`, đồng bộ nhiều tab (`BroadcastChannel`); `PasswordField`. Test component bằng Testing Library + jsdom. Còn nghiệm thu với backend thật.
+
 ## Kế tiếp
 - Các trang được trang chủ liên kết tới nhưng chưa có (đang trả 404): `/categories/:slug`, `/events`, `/events/:id`, `/pages/:slug`, `/contact`, `/search`.
 - FR-AUTH-05: màn hình đổi mật khẩu (`POST /api/auth/change-password`).
@@ -28,7 +30,9 @@
 - Chờ API backend: menu, chuyên mục, media (Sprint 2).
 
 ## Ghi chú
-- Việc cho backend (auth): (1) `LogoutAsync` gọi `SignOut()` trên Supabase client mới tạo theo request nên không thu hồi session thật, chỉ xóa cookie; (2) chưa có refresh token, phiên tối đa bằng `expiresIn`; (3) một số message 401/500 lộ chi tiết cấu hình (`ServiceRoleSecret`, `error: ex.Message`); (4) `LoginResponseDto.User.Role` chưa `ToLowerInvariant()` như `RbacMiddleware`.
+- Refresh token và logout thu hồi session đã làm ở cả backend (chưa commit trong repo backend) và frontend (`api.ts` tự refresh khi 401).
+- Còn lại: sau logout, access token (JWT) vẫn qua được kiểm tra chữ ký ở backend đến khi hết hạn. Nên giảm JWT expiry trong Supabase xuống 10-15 phút (đã có refresh nên người dùng không bị đăng xuất sớm).
+- `docker-compose.yml` đặt `ASPNETCORE_ENVIRONMENT=Development`: `GlobalExceptionMiddleware` sẽ trả message lỗi 500 thật. Deploy thật phải đặt `Production`.
 - Deploy frontend giờ cần server Node (`npm run build && npm start`) + nginx chia `/api` sang backend.
 - Ảnh bìa bài public cần URL công khai không hết hạn để dùng cho `og:image` (báo nhóm backend).
 - `GET /api/auth/me` chỉ trả `userId`, `role`, `email`; sau khi F5 chưa có `fullName`. Cần backend bổ sung nếu UI hiển thị tên.

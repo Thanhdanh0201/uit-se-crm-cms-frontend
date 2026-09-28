@@ -19,6 +19,7 @@ export default [
     index('pages/public/Home.tsx'),
     route('login', 'pages/public/Login.tsx'),
     route('posts/:slug', 'pages/public/PostDetail.tsx'),
+    route('me/password', 'pages/me/ChangePassword.tsx'),
     route('403', 'pages/public/Forbidden.tsx'),
     route('*', 'pages/public/NotFound.tsx'),
   ]),

@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
 import { Navigate, useLocation } from 'react-router'
 import { api, AUTH_EXPIRED_EVENT } from './api'
 
@@ -10,14 +10,23 @@ type Auth = {
   loading: boolean
   // true khi đang đăng nhập mà API trả 401 (cookie hết hạn). Trang đăng nhập hiện thông báo.
   sessionExpired: boolean
+  loggingOut: boolean
   login: (usernameOrEmail: string, password: string) => Promise<User>
   logout: () => Promise<void>
 }
 
+// Chuẩn hóa role chữ thường một chỗ, cho cả /me và /login.
+const toRole = (role: string) => role.toLowerCase() as Role
+
+type Me = { userId: string; role: string; email: string | null }
+const fromMe = (me: Me): User => ({ id: me.userId, role: toRole(me.role), email: me.email })
+
+// Đồng bộ giữa các tab: đăng xuất ở tab này thì tab khác về trạng thái khách ngay, không đợi lần gọi API sau.
+const CHANNEL = 'auth'
+type AuthMessage = 'login' | 'logout'
+
 const AuthContext = createContext<Auth | null>(null)
 
-// Backend trả role chữ thường ở /me nhưng không chắc ở /login: chuẩn hóa một chỗ.
-const toRole = (role: string) => role.toLowerCase() as Role
 
 // Chỉ nhận đường dẫn nội bộ ("/admin"), chặn open redirect kiểu "//evil.com" hoặc "https://evil.com".
 export function safeNext(next: string | null): string | null {
@@ -30,14 +39,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
   const [sessionExpired, setSessionExpired] = useState(false)
+  const [loggingOut, setLoggingOut] = useState(false)
+  const loggingOutRef = useRef(false)
+  const channelRef = useRef<BroadcastChannel | null>(null)
 
   useEffect(() => {
-    api<{ userId: string; role: string; email: string | null }>('/api/auth/me')
-      .then((me) => setUser({ id: me.userId, role: toRole(me.role), email: me.email }))
-      .catch(() => setUser(null))
-      .finally(() => setLoading(false))
+    const loadMe = () =>
+      api<Me>('/api/auth/me')
+        .then((me) => setUser(fromMe(me)))
+        .catch(() => setUser(null))
+    loadMe().finally(() => setLoading(false))
 
-    // Backend chưa có refresh token: hết hạn thì về trạng thái khách, RequireRole tự chuyển sang /login.
+    const channel = typeof BroadcastChannel === 'undefined' ? null : new BroadcastChannel(CHANNEL)
+    channelRef.current = channel
+    if (channel) {
+      channel.onmessage = (e: MessageEvent<AuthMessage>) => {
+        if (e.data === 'logout') setUser(null)
+        if (e.data === 'login') void loadMe()
+      }
+    }
+
+    // Refresh cũng thất bại (api.ts phát event): về trạng thái khách, RequireRole tự chuyển sang /login.
     const onExpired = () => {
       setUser((u) => {
         if (u) setSessionExpired(true)
@@ -45,7 +67,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       })
     }
     window.addEventListener(AUTH_EXPIRED_EVENT, onExpired)
-    return () => window.removeEventListener(AUTH_EXPIRED_EVENT, onExpired)
+    return () => {
+      window.removeEventListener(AUTH_EXPIRED_EVENT, onExpired)
+      channel?.close()
+    }
   }, [])
 
   async function login(usernameOrEmail: string, password: string) {
@@ -53,20 +78,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const u = { ...res.user, role: toRole(res.user.role) }
     setUser(u)
     setSessionExpired(false)
+    channelRef.current?.postMessage('login' satisfies AuthMessage)
     return u
   }
 
   async function logout() {
+    // Chống bấm lặp: đang đăng xuất thì bỏ qua lần bấm sau.
+    if (loggingOutRef.current) return
+    loggingOutRef.current = true
+    setLoggingOut(true)
     try {
       await api('/api/auth/logout', { method: 'POST' })
     } catch {
       // Cookie hết hạn hoặc mạng lỗi: vẫn đưa giao diện về trạng thái khách.
     } finally {
       setUser(null)
+      setSessionExpired(false)
+      channelRef.current?.postMessage('logout' satisfies AuthMessage)
+      loggingOutRef.current = false
+      setLoggingOut(false)
     }
   }
 
-  return <AuthContext value={{ user, loading, sessionExpired, login, logout }}>{children}</AuthContext>
+  return <AuthContext value={{ user, loading, sessionExpired, loggingOut, login, logout }}>{children}</AuthContext>
 }
 
 export function useAuth() {

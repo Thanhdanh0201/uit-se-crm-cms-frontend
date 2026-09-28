@@ -1,4 +1,5 @@
-import { useId, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from 'react'
+import { useId, useState, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from 'react'
+import { Eye, EyeSlash } from '@phosphor-icons/react'
 
 type A11y = { id: string; 'aria-invalid'?: true; 'aria-describedby'?: string; required?: boolean }
 
@@ -33,6 +34,29 @@ export function TextField({ label, hint, error, required, className, ...rest }: 
   return (
     <Field label={label} hint={hint} error={error} required={required}>
       {(a11y) => <input className={`ui-input ${className ?? ''}`} {...a11y} {...rest} />}
+    </Field>
+  )
+}
+
+// Ô mật khẩu có nút hiện/ẩn. autoComplete: "current-password" (đăng nhập, mật khẩu cũ) hoặc "new-password".
+export function PasswordField({ label, hint, error, required, className, ...rest }: Common & Omit<InputHTMLAttributes<HTMLInputElement>, 'type'>) {
+  const [visible, setVisible] = useState(false)
+  return (
+    <Field label={label} hint={hint} error={error} required={required}>
+      {(a11y) => (
+        <div className="ui-password">
+          <input className={`ui-input ${className ?? ''}`} {...a11y} {...rest} type={visible ? 'text' : 'password'} />
+          <button
+            type="button"
+            className="ui-password__reveal"
+            aria-label={visible ? `Ẩn ${label.toLowerCase()}` : `Hiện ${label.toLowerCase()}`}
+            aria-pressed={visible}
+            onClick={() => setVisible((v) => !v)}
+          >
+            {visible ? <EyeSlash size={18} aria-hidden /> : <Eye size={18} aria-hidden />}
+          </button>
+        </div>
+      )}
     </Field>
   )
 }
