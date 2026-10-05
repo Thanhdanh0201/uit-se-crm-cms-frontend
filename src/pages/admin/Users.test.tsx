@@ -4,7 +4,7 @@ import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/re
 import userEvent from '@testing-library/user-event'
 import { App } from 'antd'
 import Users, { usersQuery, type UserRow } from './Users'
-import { renderPage, reply } from '../../lib/test-utils'
+import { ok, renderPage, reply } from '../../lib/test-utils'
 
 beforeAll(() => {
   // antd dùng matchMedia (responsive) và ResizeObserver (Table, Select); jsdom không có sẵn.
@@ -32,8 +32,8 @@ const findDialog = (title: string, not?: HTMLElement) =>
     return dialog
   })
 
-const page = (items: UserRow[], total = items.length) => reply(200, { items, totalItems: total, page: 1, pageSize: 10, totalPages: 1 })
-const asAdmin = { '/api/auth/me': () => reply(200, { userId: 'me', role: 'admin', email: ME.email }) }
+const page = (items: UserRow[], total = items.length) => ok({ items, totalItems: total, page: 1, pageSize: 10, totalPages: 1 })
+const asAdmin = { '/api/auth/me': () => ok({ id: 'me', username: ME.username, fullName: ME.fullName, role: 'admin', email: ME.email }) }
 
 function open(path = '/admin/users') {
   return renderPage(path, '/admin/users', <App><Users /></App>)
@@ -78,14 +78,14 @@ test('khóa tài khoản: xác nhận, gọi PATCH, tải lại danh sách', asy
   const api = mockUsers({
     ...asAdmin,
     '/api/admin/users?*': () => page([ME, { ...AN, isActive: !locked }]),
-    '/api/admin/users/u2/status': () => ((locked = true), reply(200, { message: 'Khóa tài khoản thành công.', data: { ...AN, isActive: false } })),
+    '/api/admin/users/u2/status': () => ((locked = true), ok({ ...AN, isActive: false }, 'Cập nhật trạng thái tài khoản thành công.')),
   })
   open()
   await userEvent.click(await screen.findByRole('button', { name: 'Khóa Trần Minh An' }))
   expect(api.calls('PATCH', '/status')).toHaveLength(0) // chưa xác nhận thì chưa gọi
   await userEvent.click(await screen.findByRole('button', { name: 'Khóa' }))
 
-  expect(await screen.findByText('Khóa tài khoản thành công.')).toBeTruthy()
+  expect(await screen.findByText('Đã khóa tài khoản Trần Minh An.')).toBeTruthy()
   expect(JSON.parse(String(api.calls('PATCH', '/status')[0][1]?.body))).toEqual({ isActive: false })
   await waitFor(() => expect(within(screen.getByRole('row', { name: /Trần Minh An/ })).getByText('Đã khóa')).toBeTruthy())
   expect(api.calls('GET', '/api/admin/users?')).toHaveLength(2)
@@ -102,7 +102,7 @@ test('403 khi khóa: báo không có quyền, trạng thái trên UI không đ�
   await userEvent.click(await screen.findByRole('button', { name: 'Khóa' }))
 
   expect(await screen.findByText(/Bạn không có quyền thực hiện thao tác này/)).toBeTruthy()
-  expect(screen.queryByText('Khóa tài khoản thành công.')).toBeNull()
+  expect(screen.queryByText('Đã khóa tài khoản Trần Minh An.')).toBeNull()
   expect(within(screen.getByRole('row', { name: /Trần Minh An/ })).getByText('Hoạt động')).toBeTruthy()
 })
 
@@ -132,7 +132,7 @@ test('đổi vai trò: phải xác nhận; hủy thì không gửi, xác nhận 
     ...asAdmin,
     '/api/admin/users?*': () => page([ME, AN]),
     '/api/admin/users/u2': (_, init) =>
-      init?.method === 'PUT' ? reply(200, { message: 'Cập nhật thông tin người dùng thành công.', data: { ...fresh, role: 'editor' } }) : reply(200, fresh),
+      init?.method === 'PUT' ? ok({ ...fresh, role: 'editor' }, 'Cập nhật thông tin người dùng thành công.') : ok(fresh),
   })
   open('/admin/users?action=edit&id=u2')
 
@@ -151,5 +151,5 @@ test('đổi vai trò: phải xác nhận; hủy thì không gửi, xác nhận 
   expect(JSON.parse(String(api.calls('PUT', '/api/admin/users/u2')[0][1]?.body))).toEqual({
     username: 'an24520100', fullName: 'Trần Minh An', role: 'editor', isActive: false,
   })
-  expect(await screen.findByText('Cập nhật thông tin người dùng thành công.')).toBeTruthy()
+  expect(await screen.findByText('Đã lưu thay đổi của Trần Minh An.')).toBeTruthy()
 })

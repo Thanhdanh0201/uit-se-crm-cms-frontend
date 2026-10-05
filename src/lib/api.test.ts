@@ -13,3 +13,10 @@ test('đọc { message } của login 401', () => {
 test('body rỗng vẫn có message', () => {
   expect(toApiError(500, undefined).message).toBe('Yêu cầu thất bại (500).')
 })
+
+test('bóc lớp bọc { success, message, data } của backend', async () => {
+  const { unwrap } = await import('./api')
+  expect(unwrap({ success: true, message: 'Đăng nhập thành công.', data: { user: { id: 'u1' } } })).toEqual({ user: { id: 'u1' } })
+  expect(unwrap({ success: true, message: 'Đăng xuất thành công.' })).toBeUndefined()
+  expect(unwrap({ items: [] })).toEqual({ items: [] }) // response chưa bọc: giữ nguyên
+})

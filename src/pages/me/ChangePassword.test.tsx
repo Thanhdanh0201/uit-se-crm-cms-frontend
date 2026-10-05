@@ -3,14 +3,14 @@ import { afterEach, expect, test, vi } from 'vitest'
 import { cleanup, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import ChangePassword from './ChangePassword'
-import { mockApi, renderPage, reply } from '../../lib/test-utils'
+import { mockApi, ok, renderPage, reply } from '../../lib/test-utils'
 
 afterEach(() => {
   cleanup()
   vi.unstubAllGlobals()
 })
 
-const loggedIn = { '/api/auth/me': () => reply(200, { userId: 'u1', role: 'student', email: 'sv24520264@gm.uit.edu.vn' }) }
+const loggedIn = { '/api/auth/me': () => ok({ id: 'u1', username: 'sv24520264', fullName: 'Trần Minh An', role: 'student', email: 'sv24520264@gm.uit.edu.vn' }) }
 
 async function fill(current: string, next: string, confirm: string) {
   await userEvent.type(await screen.findByLabelText(/^Mật khẩu hiện tại/), current)
@@ -51,7 +51,7 @@ test('reauth thất bại (400 CurrentPassword): lỗi dưới ô mật khẩu h
 })
 
 test('thành công: báo thành công và xóa trắng form', async () => {
-  const api = mockApi({ ...loggedIn, '/api/auth/change-password': () => reply(200, { message: 'Đổi mật khẩu thành công.' }) })
+  const api = mockApi({ ...loggedIn, '/api/auth/change-password': () => ok(undefined, 'Đổi mật khẩu thành công.') })
   renderPage('/me/password', '/me/password', <ChangePassword />)
   await fill('mat-khau-cu', 'mat-khau-moi', 'mat-khau-moi')
 

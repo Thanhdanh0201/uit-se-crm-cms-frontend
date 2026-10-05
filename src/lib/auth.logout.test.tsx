@@ -4,7 +4,7 @@ import { cleanup, render, screen, waitFor, within } from '@testing-library/react
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router'
 import { AuthProvider, useAuth } from './auth'
-import { deferred, mockApi, reply } from './test-utils'
+import { deferred, mockApi, ok } from './test-utils'
 
 afterEach(() => {
   cleanup()
@@ -35,7 +35,7 @@ const tab = (name: string) => (
 test('đăng xuất: bấm lặp chỉ gọi API một lần, xóa phiên ở tab này và tab khác', async () => {
   const pending = deferred<Response>()
   const api = mockApi({
-    '/api/auth/me': () => reply(200, { userId: 'u1', role: 'admin', email: 'gv@uit.edu.vn' }),
+    '/api/auth/me': () => ok({ id: 'u1', username: 'gv', fullName: 'Lê Thu Hà', role: 'admin', email: 'gv@uit.edu.vn' }),
     '/api/auth/logout': () => pending.promise,
   })
   render(
@@ -53,14 +53,14 @@ test('đăng xuất: bấm lặp chỉ gọi API một lần, xóa phiên ở ta
   await userEvent.click(button)
   expect(api.calls('/api/auth/logout')).toHaveLength(1)
 
-  pending.resolve(reply(200, { message: 'Đăng xuất thành công.' }))
+  pending.resolve(ok(undefined, 'Đăng xuất thành công.'))
   expect(await tabA.findByText('Khách')).toBeTruthy()
   await waitFor(() => expect(tabB.getByText('Khách')).toBeTruthy())
 })
 
 test('đăng xuất khi mạng lỗi: vẫn về trạng thái khách', async () => {
   mockApi({
-    '/api/auth/me': () => reply(200, { userId: 'u1', role: 'student', email: 'sv@gm.uit.edu.vn' }),
+    '/api/auth/me': () => ok({ id: 'u1', username: 'sv', fullName: 'Trần Minh An', role: 'student', email: 'sv@gm.uit.edu.vn' }),
     '/api/auth/logout': () => Promise.reject(new TypeError('Failed to fetch')),
   })
   render(tab('Tab A'))

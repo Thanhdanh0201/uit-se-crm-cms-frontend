@@ -13,8 +13,9 @@ Endpoint chưa có trong backend → **không bịa DTO**. Hỏi nhóm backend h
 ## Quy ước chung
 
 - JSON **camelCase** (mặc định ASP.NET Core).
+- **Mọi response thành công được bọc** `{ success, message, data }` (`backend/Shared/Responses/ApiResponse.cs`). `api.ts` tự bóc (`unwrap()`), nơi gọi nhận thẳng `data`. Response chỉ có `message` (đăng xuất, đổi mật khẩu) trả `undefined`. **Không dùng `message` của server làm thông báo UI**: frontend tự viết tiếng Việt theo ngữ cảnh.
 - Mọi request: `credentials: 'include'` (cookie HttpOnly `access_token`).
-- Lỗi: `application/problem+json` → đọc `title`, `detail`, `errors` (validation). Riêng login 401 trả `{ message }` — wrapper phải xử lý cả hai.
+- Lỗi: `application/problem+json` (ProblemDetails) → đọc `title`, `detail`, `errors` (validation). `toApiError()` vẫn đọc được `{ message }` kiểu cũ.
 - Status: 400 validation, 401 chưa/sai đăng nhập, 403 thiếu quyền hoặc tài khoản bị khóa, 404 không tồn tại / không được xem, 409 trùng hoặc sai `version`, 422 sai nghiệp vụ, 429 rate limit.
 - Phân trang: `?page=&pageSize=`. Response: `{ items, totalItems, page, pageSize, totalPages }`. SRS đề xuất mặc định 20, tối đa 50 (users hiện mặc định 10).
 - Role: `"student" | "editor" | "admin"`.
@@ -27,7 +28,7 @@ Endpoint chưa có trong backend → **không bịa DTO**. Hỏi nhóm backend h
 | POST | `/api/auth/login` | `{ usernameOrEmail, password }` | Set cookie `access_token`. Trả `{ accessToken, refreshToken, expiresIn, user: { id, username, fullName, role, email } }` |
 | POST | `/api/auth/refresh` | – | Đọc cookie `refresh_token` (HttpOnly, `Path=/api/auth`), cấp cookie mới. 401 nếu hết hạn/bị thu hồi/tài khoản khóa. `api.ts` tự gọi khi gặp 401 |
 | POST | `/api/auth/logout` | – | Cho phép gọi khi đã hết hạn. Thu hồi session trên Supabase, xóa cả 2 cookie |
-| GET | `/api/auth/me` | – | `{ userId, role, email }` — dùng khôi phục phiên khi F5 |
+| GET | `/api/auth/me` | – | `UserProfileDto { id, username, fullName, role, email }` (cùng DTO với `user` khi đăng nhập). Dùng khôi phục phiên khi F5 |
 | POST | `/api/auth/change-password` | `{ currentPassword, newPassword, confirmNewPassword }` | Sai mật khẩu hiện tại: **400** `errors.CurrentPassword` (không phải 401, để không bị hiểu là hết phiên). Trang: `/me/password` |
 
 **Hành vi cần biết (đọc từ code backend):**
@@ -50,7 +51,7 @@ Endpoint chưa có trong backend → **không bịa DTO**. Hỏi nhóm backend h
 | PUT | `/api/admin/users/{id}` | `{ username, fullName, role, isActive }` |
 | PATCH | `/api/admin/users/{id}/status` | `{ isActive }` — khóa/mở khóa |
 
-User item: `{ id, email, username, fullName, role, isActive, createdAt }`. Tạo trả 201 `{ message, data }`; sửa/khóa trả `{ message, data }`; trùng username/email trả 400 `{ message }`. Trang: `/admin/users` (`src/pages/admin/Users.tsx`).
+User item: `{ id, email, username, fullName, role, isActive, createdAt }`. Tạo (201), sửa, khóa đều trả user trong `data`. Trùng username/email trả 400. Trang: `/admin/users` (`src/pages/admin/Users.tsx`).
 
 Cần biết khi dùng:
 - `PUT` bắt buộc có `isActive` và ghi đè luôn trạng thái khóa. Frontend lấy `GET /{id}` mới nhất khi mở form sửa rồi gửi lại đúng `isActive` đó; khóa/mở chỉ qua `PATCH /status`.
@@ -59,8 +60,9 @@ Cần biết khi dùng:
 
 ## Đề xuất — CHƯA CÓ (theo tài liệu hướng dẫn dev)
 
-- `/api/admin/menus`, `/api/admin/categories`, `/api/admin/tags` — CRUD + sắp thứ tự (Sprint 2).
-- `/api/media` — upload/list, Editor/Admin. URL file có hạn (~60s), không cache lâu.
+- **Menu, chuyên mục, thẻ: backend ĐÃ CÓ** (PR #1, #2 trên `backend` main). Nguồn sự thật là code backend và `FRONTEND_INTEGRATION_GUIDE` của backend, không phải bản đề xuất `frontend/docs/api/sprint2-dto.md` (backend làm khác: sắp xếp menu bằng `PUT /api/admin/menus/{id}/tree`, lỗi vượt cấp trả 400, thẻ không phân trang). Chưa chép bảng endpoint vào đây.
+  - **Quyền cần backend sửa:** `AdminMenuController`, `AdminMenuItemController`, `AdminCategoryController`, `AdminTagController` đang `[Authorize(Roles = "admin,editor")]` cho cả thao tác ghi. SRS 3.2: quản lý menu và chuyên mục chỉ Admin. Editor chỉ cần đọc chuyên mục/thẻ.
+- **Media (SCRUM-13): chưa có.** Bản đề xuất ở `frontend/docs/api/sprint2-dto.md` mục 4.
 - `/api/editor/posts`, `POST /api/editor/posts/{id}/submit` — update gửi kèm `version`; 409 → báo "Bài đã bị sửa ở nơi khác, tải lại".
 - `POST /api/admin/posts/{id}/review | publish | archive` — review "yêu cầu chỉnh sửa" bắt buộc `reason`.
 - `/api/admin/pages`, `/api/admin/home-sections`.

@@ -12,7 +12,6 @@ export const meta = () => noIndex('Người dùng')
 // DTO theo Business/DTOs/Admin (backend).
 export type UserRow = { id: string; email: string; username: string; fullName: string; role: Role; isActive: boolean; createdAt: string }
 type UsersPage = { items: UserRow[]; totalItems: number; page: number; pageSize: number }
-type Saved = { message: string; data: UserRow }
 type FormValues = { fullName: string; email?: string; username: string; password?: string; role: Role }
 
 const STATUS = [
@@ -140,15 +139,15 @@ function UsersPageContent() {
     setSaving(true)
     try {
       const res = editing
-        ? await api<Saved>(`/api/admin/users/${editing.id}`, {
+        ? await api<UserRow>(`/api/admin/users/${editing.id}`, {
             method: 'PUT',
             json: { username: values.username.trim(), fullName: values.fullName.trim(), role: values.role, isActive: editing.isActive },
           })
-        : await api<Saved>('/api/admin/users', {
+        : await api<UserRow>('/api/admin/users', {
             method: 'POST',
             json: { email: values.email!.trim(), password: values.password, username: values.username.trim(), fullName: values.fullName.trim(), role: values.role },
           })
-      message.success(res.message)
+      message.success(editing ? `Đã lưu thay đổi của ${res.fullName}.` : `Đã tạo tài khoản ${res.fullName}.`)
       list.closeDrawer()
       form.resetFields()
       // Người mới nằm đầu danh sách (sắp theo ngày tạo giảm dần): về trang 1. Sửa thì tải lại trang hiện tại.
@@ -165,8 +164,8 @@ function UsersPageContent() {
   async function toggleLock(row: UserRow) {
     setBusyId(row.id)
     try {
-      const res = await api<Saved>(`/api/admin/users/${row.id}/status`, { method: 'PATCH', json: { isActive: !row.isActive } })
-      message.success(res.message)
+      await api<UserRow>(`/api/admin/users/${row.id}/status`, { method: 'PATCH', json: { isActive: !row.isActive } })
+      message.success(row.isActive ? `Đã khóa tài khoản ${row.fullName}.` : `Đã mở khóa tài khoản ${row.fullName}.`)
       reload()
     } catch (err) {
       // Không đổi trạng thái trên UI khi server từ chối (kể cả 403).

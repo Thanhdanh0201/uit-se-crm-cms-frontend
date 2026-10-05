@@ -1,15 +1,24 @@
 import type { ReactNode } from 'react'
-import { render } from '@testing-library/react'
+import { configure, render } from '@testing-library/react'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router'
 import { vi } from 'vitest'
 import { AuthProvider } from './auth'
 
 // Chỉ dùng trong test component (môi trường jsdom).
 
+// Trang antd (Table, Drawer) render chậm khi máy bận hoặc chạy cả bộ test song song:
+// findBy/waitFor chờ tối đa 5 giây (mặc định 1 giây), mỗi test tối đa 20 giây (mặc định 5 giây).
+configure({ asyncUtilTimeout: 5000 })
+vi.setConfig({ testTimeout: 20_000 })
+
 type Handler = (url: string, init?: RequestInit) => Response | Promise<Response>
 
 export const reply = (status: number, body: unknown = {}) =>
   new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } })
+
+// Response thành công đúng format backend: { success, message, data } (ApiResponse).
+export const ok = (data?: unknown, message = '', status = 200) =>
+  reply(status, data === undefined ? { success: true, message } : { success: true, message, data })
 
 // Giả lập backend theo đường dẫn. Trả về mock để kiểm tra số lần gọi.
 export function mockApi(routes: Record<string, Handler>) {
