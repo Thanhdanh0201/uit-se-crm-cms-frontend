@@ -78,15 +78,45 @@ Cần biết khi dùng:
 - Editor chỉ sửa/xóa media do mình tải lên; admin sửa/xóa tất cả.
 - Upload dùng `upload()` trong `src/lib/api.ts` (XMLHttpRequest để có tiến độ), không dùng `api()`.
 
+## Bài viết — ĐÃ CÓ ở branch backend `feat/posts-draft`, `feat/posts-review` (`admin`, `editor`)
+
+| Method | Path | Body / Query | Ghi chú |
+|---|---|---|---|
+| GET | `/api/posts` | `?status&search&categoryId&mine&page&pageSize` (mặc định 20, tối đa 50) | Editor luôn chỉ thấy bài của mình; `mine` cho admin |
+| GET | `/api/posts/{id}` | – | `PostDetail` cho trình soạn thảo |
+| GET | `/api/posts/{id}/preview` | – | `PostView`, cùng dạng trang công khai. Chỉ tác giả hoặc admin |
+| POST | `/api/posts` | `{ title, slug?, summary, content, coverMediaId?, primaryCategoryId, categoryIds, tagIds }` | Luôn tạo nháp. Slug trống thì tự tạo |
+| PUT | `/api/posts/{id}` | như POST + `version` | Lệch version: 409 `version_conflict` (kèm `currentVersion`) |
+| POST | `/api/posts/{id}/status` | `{ toStatus, version, reason?, publishedAt?, expiresAt? }` | Vòng đời bài. `reason` bắt buộc khi `changes_requested` |
+| PUT | `/api/posts/{id}/featured` | `{ isFeatured, priority }` | Chỉ admin. Không đổi version |
+| GET | `/api/posts/{id}/history` | – | `[{ id, fromStatus, toStatus, reason, actor: { id, name }, createdAt }]`, mới nhất trước |
+| GET | `/api/public/posts/{slug}` | – | Khách. Chỉ bài published, đã tới `publishedAt`, chưa `expiresAt`; còn lại 404 |
+
+Type ở `src/admin/posts.ts`. Cần biết khi dùng:
+- `content` là JSON Tiptap. Backend lọc theo allowlist (`backend/Business/Services/RichTextContent.cs`): `paragraph`, `heading` (2-4), `bulletList`, `orderedList`, `listItem`, `blockquote`, `horizontalRule`, `hardBreak`, `text`, `image` (`attrs.mediaId`, `alt`), `video` (`attrs.mediaId`); mark `bold`, `italic`, `underline`, `strike`, `code`, `link` (http/https/mailto hoặc `/...`). Node, mark, thuộc tính khác bị bỏ.
+- Ảnh/video trong nội dung chỉ lưu `mediaId`. URL hiển thị nằm trong `media` (theo id) và `cover`, là signed URL có hạn, lấy mới mỗi lần đọc bài.
+- `allowedStatuses`: trạng thái người đang đăng nhập được chuyển tới. Nút thao tác hiện theo danh sách này, không tự suy luận.
+- Lỗi: 403 `not_owner` (bài người khác), 422 `post_locked` (editor sửa bài đang chờ duyệt/đã xuất bản), 403 `forbidden_transition` (editor tự duyệt), 422 `invalid_transition`, 400 `errors.Summary/CoverMediaId/Content` khi gửi duyệt hoặc xuất bản thiếu dữ liệu.
+
+## Trang tĩnh và trang chủ — ĐÃ CÓ ở branch backend `feat/pages-home` (`admin`)
+
+| Method | Path | Body / Query |
+|---|---|---|
+| GET | `/api/admin/pages` | `?status&search&page&pageSize` |
+| GET/PUT/DELETE | `/api/admin/pages/{id}` | PUT: `{ title, slug?, content, status, publishedAt?, expiresAt? }` |
+| POST | `/api/admin/pages` | như PUT |
+| GET/POST | `/api/admin/home-sections` | POST: `{ title, categoryId?, itemLimit, isVisible }` |
+| PUT/DELETE | `/api/admin/home-sections/{id}` | – |
+| PUT | `/api/admin/home-sections/order` | `{ ids }` (toàn bộ id theo thứ tự mới) |
+| GET | `/api/public/pages/{slug}` | Khách. Trang nháp/lưu trữ/hết hạn: 404 |
+| GET | `/api/public/home` | Khách. `{ featured, latest, sections: [{ title, categorySlug, posts }], events: [] }` |
+
+Xóa trang đang có trong menu: 409 `page_in_menu` kèm `menuItems`. Frontend chưa có màn hình trang tĩnh và cấu hình trang chủ (chưa có task FE trong Sprint 3).
+
 ## Đề xuất — CHƯA CÓ (theo tài liệu hướng dẫn dev)
 
 - **Menu, chuyên mục, thẻ: backend ĐÃ CÓ** (PR #1, #2 trên `backend` main). Nguồn sự thật là code backend và `FRONTEND_INTEGRATION_GUIDE` của backend, không phải bản đề xuất `frontend/docs/api/sprint2-dto.md` (backend làm khác: sắp xếp menu bằng `PUT /api/admin/menus/{id}/tree`, lỗi vượt cấp trả 400, thẻ không phân trang). Chưa chép bảng endpoint vào đây.
   - **Quyền cần backend sửa:** `AdminMenuController`, `AdminMenuItemController`, `AdminCategoryController`, `AdminTagController` đang `[Authorize(Roles = "admin,editor")]` cho cả thao tác ghi. SRS 3.2: quản lý menu và chuyên mục chỉ Admin. Editor chỉ cần đọc chuyên mục/thẻ.
-- `/api/editor/posts`, `POST /api/editor/posts/{id}/submit` — update gửi kèm `version`; 409 → báo "Bài đã bị sửa ở nơi khác, tải lại".
-- `POST /api/admin/posts/{id}/review | publish | archive` — review "yêu cầu chỉnh sửa" bắt buộc `reason`.
-- `/api/admin/pages`, `/api/admin/home-sections`.
-- **`GET /api/public/home`** (đề xuất mới): một request cho SSR trang chủ, trả `{ featured, latest, sections: [{ title, categorySlug, posts }], events }`. Type tạm ở `frontend/src/pages/public/home.data.ts`. `sections` lấy theo `home_sections` Admin cấu hình. Khi dev mà API chưa có, trang chủ dùng `home.sample.ts` (không vào bản build).
-- `GET /api/public/posts` (search, category, tag, date, page), `GET /api/public/posts/{slug}`, `GET /api/public/pages/{slug}`. Frontend đang dùng DTO tạm trong `src/pages/public/PostDetail.tsx` (`slug, title, summary, contentText, coverUrl, publishedAt, authorName, categoryName`), cần chốt với backend.
 - **Ảnh bìa bài public cần URL công khai, không hết hạn** (bucket public cho ảnh bài đã xuất bản, hoặc endpoint backend trả ảnh). URL ký 60 giây không dùng được cho `og:image`: Facebook/Zalo tải ảnh sau đó và cache lại.
 - `/api/admin/events`, `POST /api/events/{id}/registrations`, `DELETE /api/events/{id}/registrations/me`.
 - `POST /api/contact-requests` (khách được gửi), `/api/admin/contact-requests`, `GET /api/me/contact-requests` (Should).

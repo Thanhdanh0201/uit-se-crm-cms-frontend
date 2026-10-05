@@ -5,10 +5,9 @@ import { POST_STATUS, type PostStatus } from '../components/ui/Badge'
 // DTO theo backend Business/DTOs/Posts/PostDtos.cs (SCRUM-15, 16).
 export type { PostStatus }
 export type Ref = { id: string; name: string }
-export type PostMedia = { id: string; kind: 'image' | 'document' | 'video'; name: string; altText: string | null; url: string | null; videoId: string | null }
-
-// JSON Tiptap đã được backend lọc theo allowlist (Business/Services/RichTextContent.cs).
-export type RichNode = { type: string; text?: string; attrs?: Record<string, unknown>; marks?: { type: string; attrs?: Record<string, unknown> }[]; content?: RichNode[] }
+// JSON Tiptap đã được backend lọc theo allowlist (Business/Services/RichTextContent.cs). Type dùng chung với renderer public.
+export type { RichNode, ContentMedia as PostMedia } from '../components/PostArticle'
+import type { RichNode, ContentMedia as PostMedia } from '../components/PostArticle'
 
 export type PostListItem = {
   id: string

@@ -36,10 +36,17 @@
 
 - Task SCRUM-59 Tối ưu hiệu năng trang quản trị (05/10/2026): link sidebar tải trước JS của trang khi rê chuột hoặc focus (`prefetch="intent"`). Backend (branch `perf/admin-users-list`): danh sách người dùng lấy email từ Supabase Auth song song (tối đa 8 request cùng lúc) thay vì tuần tự, `pageSize` giới hạn 50. Đã kiểm tra: trang public không tải antd; chunk antd dùng chung của Users/Media khoảng 110 KB gzip.
 
+## Đã hoàn thành (Sprint 3), cập nhật 05/10/2026
+- Task SCRUM-39 [FE] Danh sách bài viết (FR-POST-03..05): `/admin/posts`, lọc trạng thái, chuyên mục, từ khóa, "Của tôi" (admin), phân trang server, bộ lọc trên URL. Nút sửa theo quyền, nút chuyển trạng thái theo `allowedStatuses` của server (gửi duyệt, về nháp, lưu trữ có xác nhận). 409 báo bài đã đổi và tải lại; 403 và lỗi nghiệp vụ hiện rõ.
+- Task SCRUM-40 [FE] Trình soạn thảo (FR-POST-01..04, 08; AT-02): `/admin/posts/new`, `/admin/posts/:id/edit` dùng Tiptap. Chèn ảnh/video từ thư viện media, ảnh đại diện qua `MediaPicker`, chuyên mục, thẻ, tóm tắt, đường dẫn. Lưu nháp kèm version, 409 hỏi tải lại; lỗi API giữ nội dung và sao lưu vào máy (khôi phục khi mở lại); cảnh báo rời trang chưa lưu; gửi duyệt từ trình soạn thảo. Xem trước dùng chung `PostArticle` với trang công khai (`/posts/:slug` nay gọi API thật). Trang `/admin/posts/:id/preview`.
+- Task SCRUM-41 [FE] Duyệt bài: `/admin/review` (chờ duyệt, đã xuất bản, lưu trữ) và `/admin/review/:id` (chỉ admin). Xuất bản qua hộp thoại xác nhận, hẹn giờ và hết hạn tùy chọn; yêu cầu chỉnh sửa bắt buộc lý do; lưu trữ, về nháp có xác nhận; đặt bài nổi bật; lịch sử trạng thái tải lại sau mỗi thao tác thành công.
+- Backend Sprint 3 (các branch `feat/posts-draft`, `feat/posts-review`, `feat/pages-home`): SCRUM-15, 16, 17. Xem `.kiro/steering/api-contract.md`.
+- Test: `Posts.test.tsx`, `PostEditor.test.tsx`, `ReviewDetail.test.tsx`, `PostArticle.test.tsx`. Còn nghiệm thu với backend thật.
+
 ## Kế tiếp
 - Các trang được trang chủ liên kết tới nhưng chưa có (đang trả 404): `/categories/:slug`, `/events`, `/events/:id`, `/pages/:slug`, `/contact`, `/search`.
 - FR-AUTH-05: màn hình đổi mật khẩu (`POST /api/auth/change-password`).
-- Chờ nối frontend: menu, chuyên mục, thẻ (backend đã có).
+- Chờ nối frontend: menu, chuyên mục, thẻ (backend đã có); trang tĩnh và cấu hình trang chủ (backend đã có ở `feat/pages-home`, chưa có task FE).
 
 ## Ghi chú
 - Refresh token và logout thu hồi session đã làm ở cả backend (chưa commit trong repo backend) và frontend (`api.ts` tự refresh khi 401).

@@ -148,3 +148,27 @@
 @media (prefers-reduced-motion: reduce) {
   .media-grid__item { transition: none; }
 }
+
+/* Trình soạn thảo bài viết (RichTextEditor). Nội dung dùng class .rich-text giống trang công khai. */
+.rich-editor {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  background: var(--color-surface);
+}
+.rich-editor:focus-within { border-color: var(--color-primary); box-shadow: 0 0 0 2px var(--color-primary-soft); }
+.rich-editor__toolbar {
+  position: sticky;
+  top: var(--admin-header-h);
+  z-index: 1;
+  padding: var(--space-2);
+  border-bottom: 1px solid var(--color-border);
+  border-radius: var(--radius-control) var(--radius-control) 0 0;
+  background: var(--color-surface);
+}
+.rich-editor__content { min-height: 360px; padding: var(--space-4); outline: none; }
+.rich-editor__content p.is-editor-empty:first-child::before { content: attr(data-placeholder); color: var(--color-text-subtle); float: left; height: 0; pointer-events: none; }
+.rich-editor__image { display: block; max-width: 100%; height: auto; border-radius: var(--radius-card); }
+.rich-editor__video { display: flex; flex-direction: column; gap: var(--space-1); max-width: 480px; }
+.rich-editor__video img { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; border-radius: var(--radius-card); background: var(--color-surface-muted); }
+.rich-editor__content .ProseMirror-selectednode { outline: 2px solid var(--color-primary); outline-offset: 2px; }
+.post-editor__title.ant-input { font-size: var(--text-2xl); font-weight: 600; }
