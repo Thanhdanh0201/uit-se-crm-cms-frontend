@@ -50,7 +50,9 @@ export default function AdminLayout({ previewRole }: { previewRole?: Role }) {
   }
 
   const items = menuFor(role).map((g, gi) => {
-    const children = g.items.map((m) => ({ key: m.path, icon: m.icon, label: <Link to={prefix + m.path}>{m.label}</Link> }))
+    // prefetch="intent": rê chuột hoặc focus vào mục menu là tải trước JS của trang (antd Table/Form khá nặng),
+    // nên khi bấm thì trang hiện ngay thay vì chờ tải chunk.
+    const children = g.items.map((m) => ({ key: m.path, icon: m.icon, label: <Link to={prefix + m.path} prefetch="intent">{m.label}</Link> }))
     return g.label ? { type: 'group' as const, key: `g${gi}`, label: g.label, children } : children
   }).flat()
 
