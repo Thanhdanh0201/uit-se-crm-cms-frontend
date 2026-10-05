@@ -1,12 +1,14 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router'
-import { EnvelopeSimple, List, MagnifyingGlass, MapPin, Phone } from '@phosphor-icons/react'
+import { CaretDown, EnvelopeSimple, List, MagnifyingGlass, MapPin, Phone } from '@phosphor-icons/react'
 import { useAuth } from '../lib/auth'
+import { api } from '../lib/api'
+import type { PublicMenuDto, PublicMenuItemDto } from '../admin/menus'
 import { buttonClass } from '../components/ui/Button'
 import './layout.css'
 
-// ponytail: menu cố định theo cấu trúc chuyên mục hiện tại của Khoa. Đổi sang menu do Admin cấu hình khi có API (FR-MENU).
-const NAV = [
+// Fallback menu cố định theo cấu trúc chuyên mục hiện tại của Khoa khi chưa có API hoặc đang tải.
+const FALLBACK_NAV = [
   { to: '/pages/gioi-thieu', label: 'Giới thiệu' },
   { to: '/categories/tin-tuc', label: 'Tin tức' },
   { to: '/events', label: 'Sự kiện' },
@@ -15,11 +17,51 @@ const NAV = [
   { to: '/contact', label: 'Liên hệ' },
 ]
 
+type NavItem = {
+  key: string
+  to: string
+  label: string
+  isExternal?: boolean
+  children?: NavItem[]
+}
+
 export default function PublicLayout() {
   const { user, logout, loggingOut } = useAuth()
   const navigate = useNavigate()
   const menuRef = useRef<HTMLDetailsElement>(null)
   const { pathname } = useLocation()
+  const [navItems, setNavItems] = useState<NavItem[]>(() =>
+    FALLBACK_NAV.map((n) => ({ key: n.to, to: n.to, label: n.label }))
+  )
+
+  useEffect(() => {
+    let active = true
+    api<PublicMenuDto>('/api/public/menus/main')
+      .then((res) => {
+        if (!active) return
+        if (res?.items?.length) {
+          function mapItem(item: PublicMenuItemDto): NavItem {
+            const label = item.label || item.title || 'Mục'
+            const to = item.url || '/'
+            const isExternal = item.kind === 'external' || /^https?:\/\//.test(to)
+            return {
+              key: item.id,
+              to,
+              label,
+              isExternal,
+              children: item.children?.length ? item.children.map(mapItem) : undefined,
+            }
+          }
+          setNavItems(res.items.map(mapItem))
+        }
+      })
+      .catch(() => {
+        // Giữ fallback NAV
+      })
+    return () => {
+      active = false
+    }
+  }, [])
 
   // Đóng menu mobile sau khi chuyển trang.
   useEffect(() => {
@@ -54,7 +96,42 @@ export default function PublicLayout() {
           </Link>
 
           <nav className="site-nav" aria-label="Điều hướng chính">
-            {NAV.map((n) => <NavLink key={n.to} to={n.to}>{n.label}</NavLink>)}
+            {navItems.map((n) =>
+              n.children?.length ? (
+                <div key={n.key} className="site-nav__item-group">
+                  {n.isExternal ? (
+                    <a href={n.to} target="_blank" rel="noopener noreferrer">
+                      {n.label} <CaretDown size={12} aria-hidden />
+                    </a>
+                  ) : (
+                    <NavLink to={n.to}>
+                      {n.label} <CaretDown size={12} aria-hidden />
+                    </NavLink>
+                  )}
+                  <div className="site-nav__dropdown" role="menu">
+                    {n.children.map((sub) =>
+                      sub.isExternal ? (
+                        <a key={sub.key} href={sub.to} target="_blank" rel="noopener noreferrer" role="menuitem">
+                          {sub.label}
+                        </a>
+                      ) : (
+                        <NavLink key={sub.key} to={sub.to} role="menuitem">
+                          {sub.label}
+                        </NavLink>
+                      )
+                    )}
+                  </div>
+                </div>
+              ) : n.isExternal ? (
+                <a key={n.key} href={n.to} target="_blank" rel="noopener noreferrer">
+                  {n.label}
+                </a>
+              ) : (
+                <NavLink key={n.key} to={n.to}>
+                  {n.label}
+                </NavLink>
+              )
+            )}
           </nav>
 
           <div className="site-actions">
@@ -67,7 +144,35 @@ export default function PublicLayout() {
                 <List size={20} aria-hidden />
               </summary>
               <nav className="site-menu__panel" aria-label="Điều hướng chính trên di động">
-                {NAV.map((n) => <NavLink key={n.to} to={n.to}>{n.label}</NavLink>)}
+                {navItems.map((n) =>
+                  n.children?.length ? (
+                    <details key={n.key} className="site-menu__sub">
+                      <summary>{n.label}</summary>
+                      <div className="site-menu__sub-items">
+                        <NavLink to={n.to}>{n.label} (Tất cả)</NavLink>
+                        {n.children.map((sub) =>
+                          sub.isExternal ? (
+                            <a key={sub.key} href={sub.to} target="_blank" rel="noopener noreferrer">
+                              {sub.label}
+                            </a>
+                          ) : (
+                            <NavLink key={sub.key} to={sub.to}>
+                              {sub.label}
+                            </NavLink>
+                          )
+                        )}
+                      </div>
+                    </details>
+                  ) : n.isExternal ? (
+                    <a key={n.key} href={n.to} target="_blank" rel="noopener noreferrer">
+                      {n.label}
+                    </a>
+                  ) : (
+                    <NavLink key={n.key} to={n.to}>
+                      {n.label}
+                    </NavLink>
+                  )
+                )}
                 <div className="site-menu__account">{account}</div>
               </nav>
             </details>
