@@ -35,6 +35,8 @@ export default [
     route('posts/new', 'pages/admin/PostEditor.tsx', { id: 'post-new' }),
     route('posts/:id/edit', 'pages/admin/PostEditor.tsx'),
     route('posts/:id/preview', 'pages/admin/PostPreview.tsx'),
+    route('review', 'pages/admin/Review.tsx'),
+    route('review/:id', 'pages/admin/ReviewDetail.tsx'),
     route('*', 'pages/admin/ComingSoon.tsx'),
   ]),
   ...devRoutes,
