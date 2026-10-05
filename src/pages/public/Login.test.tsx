@@ -3,7 +3,7 @@ import { afterEach, expect, test, vi } from 'vitest'
 import { cleanup, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import Login from './Login'
-import { deferred, mockApi, renderPage, reply } from '../../lib/test-utils'
+import { deferred, mockApi, ok, renderPage, reply } from '../../lib/test-utils'
 
 afterEach(() => {
   cleanup()
@@ -40,7 +40,7 @@ test('đang gửi: nút và ô nhập bị khóa, bấm lặp chỉ gửi một 
   expect(screen.getByRole('button', { name: /Đang đăng nhập/ }).hasAttribute('disabled')).toBe(true)
   expect(screen.getByLabelText(/Tên đăng nhập hoặc email/).closest('fieldset')?.disabled).toBe(true)
 
-  pending.resolve(reply(200, { accessToken: 'x', expiresIn: 3600, user }))
+  pending.resolve(ok({ accessToken: 'x', expiresIn: 3600, user }, 'Đăng nhập thành công.'))
   await waitFor(() => expect(screen.getByTestId('path').textContent).toBe('/me/password'))
 })
 

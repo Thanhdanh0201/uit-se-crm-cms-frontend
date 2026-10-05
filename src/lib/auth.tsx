@@ -18,8 +18,9 @@ type Auth = {
 // Chuẩn hóa role chữ thường một chỗ, cho cả /me và /login.
 const toRole = (role: string) => role.toLowerCase() as Role
 
-type Me = { userId: string; role: string; email: string | null }
-const fromMe = (me: Me): User => ({ id: me.userId, role: toRole(me.role), email: me.email })
+// UserProfileDto của backend, dùng chung cho /api/auth/me và user trong response đăng nhập.
+type Me = { id: string; username: string; fullName: string; role: string; email: string | null }
+const fromMe = (me: Me): User => ({ id: me.id, username: me.username, fullName: me.fullName, role: toRole(me.role), email: me.email })
 
 // Đồng bộ giữa các tab: đăng xuất ở tab này thì tab khác về trạng thái khách ngay, không đợi lần gọi API sau.
 const CHANNEL = 'auth'
@@ -74,8 +75,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   async function login(usernameOrEmail: string, password: string) {
-    const res = await api<{ user: User }>('/api/auth/login', { method: 'POST', json: { usernameOrEmail, password } })
-    const u = { ...res.user, role: toRole(res.user.role) }
+    const res = await api<{ user: Me }>('/api/auth/login', { method: 'POST', json: { usernameOrEmail, password } })
+    const u = fromMe(res.user)
     setUser(u)
     setSessionExpired(false)
     channelRef.current?.postMessage('login' satisfies AuthMessage)

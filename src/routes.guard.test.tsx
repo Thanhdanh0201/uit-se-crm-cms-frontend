@@ -6,7 +6,7 @@ import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router'
 import { AuthProvider, type Role } from './lib/auth'
-import { mockApi, reply } from './lib/test-utils'
+import { mockApi, ok, reply } from './lib/test-utils'
 import AdminRoute from './admin/AdminRoute'
 import Users from './pages/admin/Users'
 import Forbidden from './pages/public/Forbidden'
@@ -48,8 +48,8 @@ function openApp(path: string) {
   )
 }
 
-const me = (role: Role) => reply(200, { userId: `${role}-1`, role, email: `${role}@uit.edu.vn` })
-const users = () => reply(200, { items: [], totalItems: 0, page: 1, pageSize: 10, totalPages: 0 })
+const me = (role: Role) => ok({ id: `${role}-1`, username: role, fullName: `Tài khoản ${role}`, role, email: `${role}@uit.edu.vn` })
+const users = () => ok({ items: [], totalItems: 0, page: 1, pageSize: 10, totalPages: 0 })
 const menuItems = () => [...document.querySelectorAll('.admin-sider .ant-menu-item')].map((e) => e.textContent)
 
 test('khách mở thẳng URL admin: về đăng nhập, giữ đường quay lại', async () => {
@@ -90,7 +90,7 @@ test('Refresh trang khi access token đã hết hạn: tự refresh, vẫn ở �
   let refreshed = false
   mockApi({
     '/api/auth/me': () => (refreshed ? me('admin') : reply(401)),
-    '/api/auth/refresh': () => ((refreshed = true), reply(200, {})),
+    '/api/auth/refresh': () => ((refreshed = true), ok(undefined, 'Làm mới phiên đăng nhập thành công.')),
     '/api/admin/users': users,
   })
   openApp('/admin/users?status=locked')
@@ -99,7 +99,7 @@ test('Refresh trang khi access token đã hết hạn: tự refresh, vẫn ở �
 })
 
 test('Trang từ chối: "Đăng nhập tài khoản khác" đăng xuất rồi quay lại đúng trang bị chặn', async () => {
-  const api = mockApi({ '/api/auth/me': () => me('student'), '/api/auth/logout': () => reply(200, {}) })
+  const api = mockApi({ '/api/auth/me': () => me('student'), '/api/auth/logout': () => ok(undefined, 'Đăng xuất thành công.') })
   openApp('/admin/users')
   await userEvent.click(await screen.findByRole('button', { name: 'Đăng nhập tài khoản khác' }))
   await waitFor(() => expect(screen.getByTestId('login').textContent).toBe('/login?next=%2Fadmin%2Fusers'))

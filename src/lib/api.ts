@@ -64,5 +64,13 @@ export async function api<T>(path: string, init: RequestInit & { json?: unknown 
 
   const body = res.headers.get('content-type')?.includes('json') ? await res.json() : undefined
   if (!res.ok) throw toApiError(res.status, body)
-  return body as T
+  return unwrap(body) as T
+}
+
+// Backend bọc mọi response thành công: { success, message, data } (Shared/Responses/ApiResponse.cs).
+// Trả thẳng data cho nơi gọi. Response chỉ có message (đăng xuất, đổi mật khẩu) thì trả undefined.
+// Thông báo hiển thị cho người dùng do frontend tự viết, không dùng message của server.
+export function unwrap(body: unknown): unknown {
+  if (body && typeof body === 'object' && 'success' in body) return (body as { data?: unknown }).data
+  return body
 }
