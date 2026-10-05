@@ -58,11 +58,30 @@ Cần biết khi dùng:
 - `search` chỉ tìm trong `username` và `fullName` (không tìm email).
 - Việc cho backend: (1) chặn admin tự khóa / tự đổi role / hạ admin cuối cùng (hiện chỉ UI chặn); (2) giới hạn `pageSize` tối đa 50 (NFR-02); (3) bỏ `isActive` khỏi `PUT` hoặc thêm `version` để tránh ghi đè trạng thái; (4) mỗi trang gọi Supabase `GetUserById` cho từng dòng để lấy email (N+1, chậm khi pageSize lớn).
 
+## Media — ĐÃ CÓ ở branch backend `feat/media-library` (`admin`, `editor`)
+
+| Method | Path | Body / Query |
+|---|---|---|
+| GET | `/api/media` | `?kind=image\|document\|video&search&mine=true&page&pageSize` (mặc định 24, tối đa 50) |
+| GET | `/api/media/{id}` | – |
+| POST | `/api/media` | multipart: `file`, `name`, `altText` (bắt buộc với ảnh), `description` |
+| POST | `/api/media/videos` | `{ url, name, description }` (chỉ YouTube) |
+| PUT | `/api/media/{id}` | `{ name, altText, description }` |
+| GET | `/api/media/{id}/usages` | – → `{ coverOf, posts, pages, total }`, mỗi mục `{ id, title, status }` |
+| DELETE | `/api/media/{id}` | – |
+
+`MediaDto`: `{ id, kind, name, description, altText, mimeType, sizeBytes, externalUrl, url, thumbnailUrl, urlExpiresAt, usageCount, createdAt, createdBy: { id, fullName } }`. Type ở `src/admin/media.ts`.
+
+Cần biết khi dùng:
+- `url`/`thumbnailUrl` là signed URL có hạn (`urlExpiresAt`, mặc định 10 phút). Không lưu lại; cần thì gọi lại API.
+- Lỗi nghiệp vụ là ProblemDetails có `code` (đọc `ApiError.code`): `empty_file` 400, `file_too_large` 413, `unsupported_type` 415, `video_url_not_allowed` 422, `not_owner` 403, `media_in_use` 409 (kèm `usages`, đọc qua `ApiError.body`). `detail` là tiếng Việt, hiển thị được.
+- Editor chỉ sửa/xóa media do mình tải lên; admin sửa/xóa tất cả.
+- Upload dùng `upload()` trong `src/lib/api.ts` (XMLHttpRequest để có tiến độ), không dùng `api()`.
+
 ## Đề xuất — CHƯA CÓ (theo tài liệu hướng dẫn dev)
 
 - **Menu, chuyên mục, thẻ: backend ĐÃ CÓ** (PR #1, #2 trên `backend` main). Nguồn sự thật là code backend và `FRONTEND_INTEGRATION_GUIDE` của backend, không phải bản đề xuất `frontend/docs/api/sprint2-dto.md` (backend làm khác: sắp xếp menu bằng `PUT /api/admin/menus/{id}/tree`, lỗi vượt cấp trả 400, thẻ không phân trang). Chưa chép bảng endpoint vào đây.
   - **Quyền cần backend sửa:** `AdminMenuController`, `AdminMenuItemController`, `AdminCategoryController`, `AdminTagController` đang `[Authorize(Roles = "admin,editor")]` cho cả thao tác ghi. SRS 3.2: quản lý menu và chuyên mục chỉ Admin. Editor chỉ cần đọc chuyên mục/thẻ.
-- **Media (SCRUM-13): chưa có.** Bản đề xuất ở `frontend/docs/api/sprint2-dto.md` mục 4.
 - `/api/editor/posts`, `POST /api/editor/posts/{id}/submit` — update gửi kèm `version`; 409 → báo "Bài đã bị sửa ở nơi khác, tải lại".
 - `POST /api/admin/posts/{id}/review | publish | archive` — review "yêu cầu chỉnh sửa" bắt buộc `reason`.
 - `/api/admin/pages`, `/api/admin/home-sections`.

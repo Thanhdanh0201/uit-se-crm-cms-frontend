@@ -10,6 +10,7 @@ const devRoutes =
         route('dev', 'pages/dev/DevAdminRoute.tsx', [
           route('admin', 'pages/admin/Dashboard.tsx', { id: 'dev-dashboard' }),
           route('admin/users', 'pages/dev/AdminListDemo.tsx'),
+          route('admin/media', 'pages/admin/Media.tsx', { id: 'dev-media' }),
           route('admin/*', 'pages/admin/ComingSoon.tsx', { id: 'dev-coming-soon' }),
         ]),
       ]
@@ -27,6 +28,7 @@ export default [
   route('admin', 'admin/AdminRoute.tsx', [
     index('pages/admin/Dashboard.tsx'),
     route('users', 'pages/admin/Users.tsx'),
+    route('media', 'pages/admin/Media.tsx'),
     route('*', 'pages/admin/ComingSoon.tsx'),
   ]),
   ...devRoutes,
