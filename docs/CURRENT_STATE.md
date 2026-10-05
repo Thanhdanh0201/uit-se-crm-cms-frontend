@@ -34,11 +34,12 @@
 - Xem giao diện không cần backend: `/dev/admin/media` (dữ liệu lấy từ API thật, không có mock).
 - Test: `src/admin/media.test.ts`, `src/admin/MediaPicker.test.tsx`, `src/pages/admin/Media.test.tsx`. Còn nghiệm thu với backend thật (API media ở branch backend `feat/media-library`).
 
+- Task SCRUM-59 Tối ưu hiệu năng trang quản trị (05/10/2026): link sidebar tải trước JS của trang khi rê chuột hoặc focus (`prefetch="intent"`). Backend (branch `perf/admin-users-list`): danh sách người dùng lấy email từ Supabase Auth song song (tối đa 8 request cùng lúc) thay vì tuần tự, `pageSize` giới hạn 50. Đã kiểm tra: trang public không tải antd; chunk antd dùng chung của Users/Media khoảng 110 KB gzip.
+
 ## Kế tiếp
 - Các trang được trang chủ liên kết tới nhưng chưa có (đang trả 404): `/categories/:slug`, `/events`, `/events/:id`, `/pages/:slug`, `/contact`, `/search`.
 - FR-AUTH-05: màn hình đổi mật khẩu (`POST /api/auth/change-password`).
 - Chờ nối frontend: menu, chuyên mục, thẻ (backend đã có).
-- SCRUM-59: tối ưu hiệu năng trang quản trị.
 
 ## Ghi chú
 - Refresh token và logout thu hồi session đã làm ở cả backend (chưa commit trong repo backend) và frontend (`api.ts` tự refresh khi 401).
