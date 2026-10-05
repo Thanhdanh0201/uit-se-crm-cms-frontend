@@ -40,13 +40,20 @@
 - Task SCRUM-39 [FE] Danh sách bài viết (FR-POST-03..05): `/admin/posts`, lọc trạng thái, chuyên mục, từ khóa, "Của tôi" (admin), phân trang server, bộ lọc trên URL. Nút sửa theo quyền, nút chuyển trạng thái theo `allowedStatuses` của server (gửi duyệt, về nháp, lưu trữ có xác nhận). 409 báo bài đã đổi và tải lại; 403 và lỗi nghiệp vụ hiện rõ.
 - Task SCRUM-40 [FE] Trình soạn thảo (FR-POST-01..04, 08; AT-02): `/admin/posts/new`, `/admin/posts/:id/edit` dùng Tiptap. Chèn ảnh/video từ thư viện media, ảnh đại diện qua `MediaPicker`, chuyên mục, thẻ, tóm tắt, đường dẫn. Lưu nháp kèm version, 409 hỏi tải lại; lỗi API giữ nội dung và sao lưu vào máy (khôi phục khi mở lại); cảnh báo rời trang chưa lưu; gửi duyệt từ trình soạn thảo. Xem trước dùng chung `PostArticle` với trang công khai (`/posts/:slug` nay gọi API thật). Trang `/admin/posts/:id/preview`.
 - Task SCRUM-41 [FE] Duyệt bài: `/admin/review` (chờ duyệt, đã xuất bản, lưu trữ) và `/admin/review/:id` (chỉ admin). Xuất bản qua hộp thoại xác nhận, hẹn giờ và hết hạn tùy chọn; yêu cầu chỉnh sửa bắt buộc lý do; lưu trữ, về nháp có xác nhận; đặt bài nổi bật; lịch sử trạng thái tải lại sau mỗi thao tác thành công.
+- Task SCRUM-35 [FE] Quản lý Menu (FR-MENU-01..05, AT-01): `/admin/menus`. Quản lý danh sách menu và cây phân cấp tối đa 3 cấp. CRUD các loại mục (`page`, `category`, `external`); chuyển đổi ẩn/hiện nhanh; sắp xếp và thay đổi thứ tự cây cục bộ với banner thông báo chưa lưu + nút "Lưu thứ tự" (`PUT /api/admin/menus/{id}/tree`) và "Hủy thay đổi"; chặn chọn chính mình hoặc con cháu làm mục cha; hiển thị lỗi cấp 4 trực quan từ server; cảnh báo mục bị lỗi hoặc đã xóa trang/chuyên mục đích; đồng bộ hiển thị điều hướng public (`/api/public/menus/main`).
+- Task SCRUM-36 [FE] Quản lý Chuyên mục và Thẻ (FR-CAT-01..04): `/admin/categories`. Giao diện tab Chuyên mục và Thẻ theo Figma. Quản lý cây chuyên mục; tự động tạo slug chuẩn tiếng Việt và kiểm tra hợp lệ; xóa an toàn (Safe Delete) bắt buộc chọn chuyên mục đích nhận bài viết và danh mục con (chặn chọn chính nó hoặc con cháu); CRUD thẻ tag; không xóa lạc quan trên UI khi API xóa thất bại; tìm kiếm và lọc trên URL.
 - Backend Sprint 3 (các branch `feat/posts-draft`, `feat/posts-review`, `feat/pages-home`): SCRUM-15, 16, 17. Xem `.kiro/steering/api-contract.md`.
-- Test: `Posts.test.tsx`, `PostEditor.test.tsx`, `ReviewDetail.test.tsx`, `PostArticle.test.tsx`. Còn nghiệm thu với backend thật.
+- Sửa kết nối API Menu và Chuyên mục (05/10/2026):
+  + Menu Admin: Đổi endpoint tải cây menu sang `/api/admin/menus/{menuId}/items` khớp với backend `AdminMenuController`.
+  + Menu Public: `PublicLayout.tsx` hỗ trợ menu phân cấp đa cấp với dropdown desktop và sub-menu mobile.
+  + Chuyên mục Admin & Editor: Bổ sung fallback gọi `/api/public/categories` và `/api/public/tags` trong `PostEditor.tsx` và `Posts.tsx` để vai trò `editor` không bị lỗi 403 Forbidden.
+  + Trang Chuyên mục công khai (FR-CAT-01, FR-PUB-01): Tạo `src/pages/public/Category.tsx` (`/categories/:slug`), SSR loader gọi `/api/public/categories/:slug` và lấy bài viết tương ứng, breadcrumb, tiêu đề, mô tả, số bài viết, giao diện thẻ bài viết và EmptyState, SEO meta đầy đủ, trả 404 khi slug không tồn tại.
+- Test: `Posts.test.tsx`, `PostEditor.test.tsx`, `ReviewDetail.test.tsx`, `PostArticle.test.tsx`, `Menus.test.tsx`, `Categories.test.tsx`, `Category.test.tsx` (toàn bộ 103 test passed).
 
 ## Kế tiếp
-- Các trang được trang chủ liên kết tới nhưng chưa có (đang trả 404): `/categories/:slug`, `/events`, `/events/:id`, `/pages/:slug`, `/contact`, `/search`.
+- Các trang được trang chủ liên kết tới nhưng chưa có (đang trả 404): `/events`, `/events/:id`, `/pages/:slug`, `/contact`, `/search`.
 - FR-AUTH-05: màn hình đổi mật khẩu (`POST /api/auth/change-password`).
-- Chờ nối frontend: menu, chuyên mục, thẻ (backend đã có); trang tĩnh và cấu hình trang chủ (backend đã có ở `feat/pages-home`, chưa có task FE).
+- Trang tĩnh và cấu hình trang chủ (backend đã có ở `feat/pages-home`, chưa có task FE).
 
 ## Ghi chú
 - Refresh token và logout thu hồi session đã làm ở cả backend (chưa commit trong repo backend) và frontend (`api.ts` tự refresh khi 401).
@@ -57,4 +64,5 @@
 - `GET /api/auth/me` chỉ trả `userId`, `role`, `email`; sau khi F5 chưa có `fullName`. Cần backend bổ sung nếu UI hiển thị tên.
 
 ## Cập nhật lần cuối
-2026-09-27
+05/10/2026
+

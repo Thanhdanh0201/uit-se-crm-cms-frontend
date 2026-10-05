@@ -113,10 +113,50 @@ Type ở `src/admin/posts.ts`. Cần biết khi dùng:
 
 Xóa trang đang có trong menu: 409 `page_in_menu` kèm `menuItems`. Frontend chưa có màn hình trang tĩnh và cấu hình trang chủ (chưa có task FE trong Sprint 3).
 
+## Menu — ĐÃ CÓ (SCRUM-35: FR-MENU-01..05, AT-01) (`admin`)
+
+| Method | Path | Body / Query | Ghi chú |
+|---|---|---|---|
+| GET | `/api/admin/menus` | – | Danh sách Menu `MenuDto[]` hoặc `{ items: MenuDto[] }` |
+| POST | `/api/admin/menus` | `{ code, name }` | Tạo menu |
+| PUT | `/api/admin/menus/{id}` | `{ name }` | Đổi tên menu |
+| DELETE | `/api/admin/menus/{id}` | – | Xóa menu |
+| GET | `/api/admin/menus/{id}/tree` | – | Cây menu đầy đủ (bao gồm cả mục ẩn để Admin chỉnh sửa) |
+| POST | `/api/admin/menus/{id}/items` | `{ label, kind, pageId?, categoryId?, externalUrl?, parentId?, sortOrder?, isVisible? }` | Thêm mục menu (tối đa 3 cấp, vượt cấp trả 400) |
+| PUT | `/api/admin/menu-items/{id}` | `{ label, kind, pageId?, categoryId?, externalUrl?, parentId?, sortOrder?, isVisible? }` | Sửa mục menu |
+| PATCH | `/api/admin/menu-items/{id}/visibility` | `{ isVisible }` | Bật/tắt hiển thị nhanh |
+| DELETE | `/api/admin/menu-items/{id}` | – | Xóa mục menu |
+| PUT | `/api/admin/menus/{id}/tree` | `[{ id, parentId, sortOrder }]` | Lưu lại toàn bộ cấu trúc/thứ tự cây menu |
+| GET | `/api/public/menus/{code}` | – | Cây menu public (chỉ mục isVisible = true, tự cascade ẩn con) |
+
+Cần biết khi dùng:
+- Giới hạn tối đa 3 cấp cây (Root -> Cấp 2 -> Cấp 3). Tạo cấp 4 máy chủ trả 400.
+- Không cho phép chọn chính mình hoặc con cháu làm mục cha.
+- Sắp xếp cây được thực hiện cục bộ và bấm "Lưu thứ tự" để gửi `PUT /tree`.
+
+## Chuyên mục & Thẻ — ĐÃ CÓ (SCRUM-36: FR-CAT-01..04) (`admin`)
+
+| Method | Path | Body / Query | Ghi chú |
+|---|---|---|---|
+| GET | `/api/admin/categories/tree` | – | Cây chuyên mục đầy đủ |
+| GET | `/api/admin/categories` | `?search=` | Danh sách phẳng tìm kiếm |
+| POST | `/api/admin/categories` | `{ name, slug?, description?, parentId?, isVisible?, sortOrder? }` | Tạo chuyên mục mới |
+| PUT | `/api/admin/categories/{id}` | `{ name, slug, description?, parentId?, isVisible?, sortOrder? }` | Cập nhật chuyên mục |
+| DELETE | `/api/admin/categories/{id}` | `?targetCategoryId={targetId}` | Safe delete: bắt buộc truyền `targetCategoryId` khi có bài hoặc chuyên mục con |
+| GET | `/api/admin/tags` | `?search=` | Danh sách thẻ |
+| POST | `/api/admin/tags` | `{ name }` | Tạo thẻ mới |
+| PUT | `/api/admin/tags/{id}` | `{ name }` | Sửa tên thẻ |
+| DELETE | `/api/admin/tags/{id}` | – | Xóa thẻ |
+| GET | `/api/public/categories/tree` | – | Cây chuyên mục public |
+| GET | `/api/public/categories/{slug}` | – | Chi tiết chuyên mục |
+| GET | `/api/public/tags` | – | Danh sách thẻ kèm số bài viết |
+
+Cần biết khi dùng:
+- Xóa an toàn chuyên mục: Nếu chuyên mục có `postCount > 0` hoặc có chuyên mục con, người dùng phải chọn một chuyên mục khác (không phải chính nó và không phải con cháu) để nhận bài viết trước khi xóa.
+- Không xóa lạc quan trên UI khi API xóa thất bại.
+
 ## Đề xuất — CHƯA CÓ (theo tài liệu hướng dẫn dev)
 
-- **Menu, chuyên mục, thẻ: backend ĐÃ CÓ** (PR #1, #2 trên `backend` main). Nguồn sự thật là code backend và `FRONTEND_INTEGRATION_GUIDE` của backend, không phải bản đề xuất `frontend/docs/api/sprint2-dto.md` (backend làm khác: sắp xếp menu bằng `PUT /api/admin/menus/{id}/tree`, lỗi vượt cấp trả 400, thẻ không phân trang). Chưa chép bảng endpoint vào đây.
-  - **Quyền cần backend sửa:** `AdminMenuController`, `AdminMenuItemController`, `AdminCategoryController`, `AdminTagController` đang `[Authorize(Roles = "admin,editor")]` cho cả thao tác ghi. SRS 3.2: quản lý menu và chuyên mục chỉ Admin. Editor chỉ cần đọc chuyên mục/thẻ.
 - **Ảnh bìa bài public cần URL công khai, không hết hạn** (bucket public cho ảnh bài đã xuất bản, hoặc endpoint backend trả ảnh). URL ký 60 giây không dùng được cho `og:image`: Facebook/Zalo tải ảnh sau đó và cache lại.
 - `/api/admin/events`, `POST /api/events/{id}/registrations`, `DELETE /api/events/{id}/registrations/me`.
 - `POST /api/contact-requests` (khách được gửi), `/api/admin/contact-requests`, `GET /api/me/contact-requests` (Should).
