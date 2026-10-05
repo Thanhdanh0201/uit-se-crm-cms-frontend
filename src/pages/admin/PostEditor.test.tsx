@@ -164,3 +164,12 @@ test('editor mở bài đang chờ duyệt: chỉ xem, không lưu được', as
   expect(screen.getByRole('button', { name: 'Lưu nháp' }).hasAttribute('disabled')).toBe(true)
   expect(screen.queryByRole('button', { name: /Gửi duyệt/ })).toBeNull()
 })
+
+test('mở bài kết thúc bằng trích dẫn: không báo "Chưa lưu" khi chưa sửa gì', async () => {
+  const quoteLast = { ...POST, content: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Hạn nộp 30/10.' }] }, { type: 'blockquote', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Nộp trễ không được xét.' }] }] }] } }
+  mockApi({ ...editor, ...lists, '/api/posts/p1': () => ok(quoteLast) })
+  open('/admin/posts/p1/edit')
+  expect(await screen.findByText('Nộp trễ không được xét.')).toBeTruthy()
+  await new Promise((r) => setTimeout(r, 300))
+  expect(screen.queryByText('Chưa lưu')).toBeNull()
+})
