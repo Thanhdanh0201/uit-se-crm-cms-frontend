@@ -20,6 +20,16 @@ const EMPTY_DOC: RichNode = { type: 'doc', content: [{ type: 'paragraph' }] }
 const EMPTY_VALUES: Values = { title: '', slug: '', summary: '', categoryIds: [], tagIds: [] }
 const backupKey = (id: string | undefined) => `post-backup:${id ?? 'new'}`
 
+// Ảnh chụp để so "có thay đổi chưa lưu". Bỏ đoạn trống cuối bài: Tiptap tự thêm khi bài kết thúc bằng ảnh,
+// danh sách, trích dẫn... nên không tính là người dùng sửa.
+// Giá trị form lấy theo thứ tự key cố định: antd trả object với thứ tự key khác nhau tùy lúc.
+function snap(values: Partial<Values>, doc: RichNode, cover: PostMedia | null) {
+  const c = [...(doc.content ?? [])]
+  while (c.length && c[c.length - 1].type === 'paragraph' && !c[c.length - 1].content?.length) c.pop()
+  const v = [values.title ?? '', values.slug ?? '', values.summary ?? '', values.primaryCategoryId ?? '', values.categoryIds ?? [], values.tagIds ?? []]
+  return JSON.stringify({ v, c: { ...doc, content: c }, cv: cover?.id ?? null })
+}
+
 // Sao lưu bản đang soạn vào máy (localStorage), để không mất nội dung khi API lỗi, mất mạng hoặc hết phiên (SCRUM-40).
 function readBackup(id: string | undefined): Backup | null {
   try {
@@ -74,7 +84,7 @@ export default function PostEditor() {
   const editable = !post || canEdit(post, me)
 
   const snapshot = useCallback(
-    (c = content, cv = cover) => JSON.stringify({ v: form.getFieldsValue(true), c, cv: cv?.id ?? null }),
+    (c = content, cv = cover) => snap(form.getFieldsValue(true), c, cv),
     [form, content, cover],
   )
 
@@ -96,7 +106,7 @@ export default function PostEditor() {
       setCover(p.cover)
       setContent(doc)
       setEditorKey((k) => k + 1)
-      savedRef.current = JSON.stringify({ v: form.getFieldsValue(true), c: doc, cv: p.cover?.id ?? null })
+      savedRef.current = snap(form.getFieldsValue(true), doc, p.cover)
       dirtyRef.current = false
       setDirty(false)
     },
@@ -106,7 +116,7 @@ export default function PostEditor() {
   const load = useCallback(async () => {
     if (!id) {
       form.setFieldsValue(EMPTY_VALUES)
-      savedRef.current = JSON.stringify({ v: form.getFieldsValue(true), c: EMPTY_DOC, cv: null })
+      savedRef.current = snap(form.getFieldsValue(true), EMPTY_DOC, null)
       setBackup(readBackup(undefined))
       return
     }
@@ -307,12 +317,15 @@ export default function PostEditor() {
           showIcon
           style={{ marginBottom: 16 }}
           title={`Có bản chưa lưu trên máy này (${formatDateTime(backup.at)})`}
-          description="Bản này được sao lưu khi lần lưu trước chưa thành công hoặc bạn rời trang khi chưa lưu."
-          action={
-            <Space>
-              <Button size="small" type="primary" onClick={restoreBackup}>Khôi phục</Button>
-              <Button size="small" onClick={discardBackup}>Bỏ bản sao lưu</Button>
-            </Space>
+          // Nút nằm dưới nội dung (không dùng action) để màn hẹp không bóp chữ thành cột.
+          description={
+            <Flex vertical gap={8} align="flex-start">
+              Bản này được sao lưu khi lần lưu trước chưa thành công hoặc bạn rời trang khi chưa lưu.
+              <Space wrap>
+                <Button size="small" type="primary" onClick={restoreBackup}>Khôi phục</Button>
+                <Button size="small" onClick={discardBackup}>Bỏ bản sao lưu</Button>
+              </Space>
+            </Flex>
           }
         />
       )}
@@ -334,6 +347,12 @@ export default function PostEditor() {
               initial={content}
               editable={editable && !saving}
               labelledBy="content-label"
+              onReady={(doc) => {
+                // Chưa sửa gì thì lấy bản chuẩn hóa làm mốc "đã lưu".
+                if (dirtyRef.current) return
+                setContent(doc)
+                savedRef.current = snap(form.getFieldsValue(true), doc, cover)
+              }}
               onChange={(doc) => {
                 setContent(doc)
                 setContentError('')
@@ -393,7 +412,7 @@ export default function PostEditor() {
 
             <Card title="Tóm tắt và đường dẫn" size="small">
               <Form.Item name="summary" label="Tóm tắt" extra="Hiện ở danh sách bài và khi chia sẻ lên mạng xã hội. Bắt buộc khi gửi duyệt." rules={[{ max: 500, message: 'Tóm tắt tối đa 500 ký tự.' }]}>
-                <Input.TextArea maxLength={500} showCount autoSize={{ minRows: 3, maxRows: 6 }} />
+                <Input.TextArea maxLength={500} autoSize={{ minRows: 3, maxRows: 6 }} />
               </Form.Item>
               <Form.Item
                 name="slug"

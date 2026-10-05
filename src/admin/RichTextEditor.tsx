@@ -80,6 +80,7 @@ export function RichTextEditor({
   initial,
   editable = true,
   onChange,
+  onReady,
   onMediaAdded,
   labelledBy,
 }: {
@@ -87,6 +88,8 @@ export function RichTextEditor({
   initial: RichNode
   editable?: boolean
   onChange: (doc: RichNode) => void
+  // Nội dung sau khi Tiptap chuẩn hóa (thêm thuộc tính mặc định). Dùng làm mốc để biết người dùng đã sửa chưa.
+  onReady?: (doc: RichNode) => void
   onMediaAdded: (media: MediaDto) => void
   labelledBy: string
 }) {
@@ -104,6 +107,7 @@ export function RichTextEditor({
     ],
     content: initial,
     editorProps: { attributes: { class: 'rich-text rich-editor__content', role: 'textbox', 'aria-multiline': 'true', 'aria-labelledby': labelledBy } },
+    onCreate: ({ editor }) => onReady?.(editor.getJSON() as RichNode),
     onUpdate: ({ editor }) => onChange(editor.getJSON() as RichNode),
   })
 
