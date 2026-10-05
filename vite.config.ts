@@ -5,5 +5,9 @@ import { defineConfig } from 'vite'
 export default defineConfig({
   // Vitest không cần plugin React Router (plugin này đòi file routes).
   plugins: [!process.env.VITEST && reactRouter()],
-  server: { proxy: { '/api': 'http://localhost:5179' } },
+  server: {
+    proxy: { '/api': 'http://localhost:5179' },
+    // Cho phép mở dev server qua Cloudflare Tunnel (demo tạm). Vite mặc định chặn host lạ.
+    allowedHosts: ['.trycloudflare.com'],
+  },
 })
