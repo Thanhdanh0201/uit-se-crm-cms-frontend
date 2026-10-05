@@ -12,6 +12,7 @@ const devRoutes =
           route('admin/users', 'pages/dev/AdminListDemo.tsx'),
           route('admin/media', 'pages/admin/Media.tsx', { id: 'dev-media' }),
           route('admin/posts', 'pages/admin/Posts.tsx', { id: 'dev-posts' }),
+          route('admin/posts/new', 'pages/admin/PostEditor.tsx', { id: 'dev-post-new' }),
           route('admin/*', 'pages/admin/ComingSoon.tsx', { id: 'dev-coming-soon' }),
         ]),
       ]
@@ -31,6 +32,9 @@ export default [
     route('users', 'pages/admin/Users.tsx'),
     route('media', 'pages/admin/Media.tsx'),
     route('posts', 'pages/admin/Posts.tsx'),
+    route('posts/new', 'pages/admin/PostEditor.tsx', { id: 'post-new' }),
+    route('posts/:id/edit', 'pages/admin/PostEditor.tsx'),
+    route('posts/:id/preview', 'pages/admin/PostPreview.tsx'),
     route('*', 'pages/admin/ComingSoon.tsx'),
   ]),
   ...devRoutes,
