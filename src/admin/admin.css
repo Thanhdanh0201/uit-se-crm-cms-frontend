@@ -1,5 +1,6 @@
 .admin-shell {
   min-height: 100vh;
+  overflow-x: hidden;
 }
 
 .admin-header {
@@ -55,6 +56,7 @@
 .admin-content {
   min-width: 0;
   padding: var(--space-4);
+  overflow-x: hidden;
 }
 @media (min-width: 768px) {
   .admin-content { padding: var(--space-5); }
@@ -172,3 +174,11 @@
 .rich-editor__video img { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; border-radius: var(--radius-card); background: var(--color-surface-muted); }
 .rich-editor__content .ProseMirror-selectednode { outline: 2px solid var(--color-primary); outline-offset: 2px; }
 .post-editor__title.ant-input { font-size: var(--text-2xl); font-weight: 600; }
+
+/* Hàng menu có trang/chuyên mục đích bị lỗi hoặc đã xóa */
+.menu-row--broken {
+  background-color: #fff1f0 !important;
+}
+.menu-row--broken:hover > td {
+  background-color: #ffe5e5 !important;
+}
