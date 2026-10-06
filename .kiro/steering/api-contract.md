@@ -113,10 +113,50 @@ Type ở `src/admin/posts.ts`. Cần biết khi dùng:
 
 Xóa trang đang có trong menu: 409 `page_in_menu` kèm `menuItems`. Frontend chưa có màn hình trang tĩnh và cấu hình trang chủ (chưa có task FE trong Sprint 3).
 
+## Menu — ĐÃ CÓ (backend main, PR #1) — trang `/admin/menus` (SCRUM-35)
+
+| Method | Path | Body / Query | Ghi chú |
+|---|---|---|---|
+| GET | `/api/admin/menus` | – | `MenuResponseDto[]`: `{ id, code, name, itemCount }` |
+| POST | `/api/admin/menus` | `{ code, name }` | `code` chỉ `a-z0-9-`, trùng mã: 400 |
+| PUT | `/api/admin/menus/{id}` | `{ code, name }` | Bắt buộc gửi cả `code` |
+| DELETE | `/api/admin/menus/{id}` | – | Xóa mềm menu và các mục |
+| GET | `/api/admin/menus/{id}/items` | – | Cây `MenuItemTreeDto[]` gồm cả mục ẩn: `{ id, parentId, label, kind, pageId, pageTitle, categoryId, categoryName, externalUrl, resolvedUrl, targetWarning, targetWarningMessage, sortOrder, isVisible, depth, children }` |
+| POST | `/api/admin/menus/{id}/items` | `{ label, kind, parentId?, pageId?, categoryId?, externalUrl?, sortOrder?, isVisible }` | `kind`: `page` / `category` / `external`; chỉ gửi đích đúng loại, còn lại `null` |
+| PUT | `/api/admin/menus/{id}/tree` | `{ items: [{ id, parentId, sortOrder }] }` | Lưu thứ tự và cấp cả cây trong một transaction, trả cây mới |
+| GET | `/api/admin/menu-items/{id}` | – | |
+| PUT | `/api/admin/menu-items/{id}` | như POST, `sortOrder` bắt buộc | |
+| PATCH | `/api/admin/menu-items/{id}/visibility` | `{ isVisible }` | |
+| DELETE | `/api/admin/menu-items/{id}` | – | Xóa mềm cả cây con |
+| GET | `/api/admin/menu-items/warnings` | – | Mục trỏ đích không xem được công khai (Dashboard) |
+| GET | `/api/public/menus/{code}` | – | Khách. Đã bỏ mục ẩn và nhánh con của mục ẩn, đã sắp xếp. Header public dùng mã `main` (loader SSR ở `PublicLayout`, lỗi thì dùng menu dự phòng) |
+
+Cần biết khi dùng:
+- Tối đa 3 cấp. Lỗi nghiệp vụ (vượt cấp, vòng lặp, đích bị xóa/ẩn, trùng mã) là **400 chỉ có `detail`**, không có `code`: `ArgumentException` / `InvalidOperationException` của backend. Frontend chặn trước ở client và vẫn hiện `detail` của server.
+- Chuyên mục đang ẩn không chọn làm đích được (400).
+
+## Chuyên mục và thẻ — ĐÃ CÓ (backend main, PR #2) — trang `/admin/categories` (SCRUM-36)
+
+| Method | Path | Body / Query | Ghi chú |
+|---|---|---|---|
+| GET | `/api/admin/categories/tree` | – | `CategoryTreeDto[]`: `{ id, parentId, name, slug, description, sortOrder, isVisible, postCount, children }` |
+| GET | `/api/admin/categories` | `?search&parentId` | Danh sách phẳng, có `parentName` (bộ chọn chuyên mục ở trang khác) |
+| POST | `/api/admin/categories` | `{ name, slug?, description?, parentId?, sortOrder, isVisible }` | `slug` trống thì tự tạo từ tên |
+| PUT | `/api/admin/categories/{id}` | như POST | Không có API bật/tắt riêng: gửi lại đủ trường |
+| DELETE | `/api/admin/categories/{id}` | `?targetCategoryId=` | Còn bài hoặc con thì bắt buộc `targetCategoryId` (không phải chính nó/con cháu); chuyển rồi xóa mềm trong một transaction |
+| GET | `/api/admin/tags` | `?search` | `TagDto[]`: `{ id, name, slug, postCount }`. Chưa phân trang |
+| POST / PUT | `/api/admin/tags[/{id}]` | `{ name, slug? }` | |
+| DELETE | `/api/admin/tags/{id}` | – | Xóa hẳn, gỡ khỏi các bài |
+| GET | `/api/public/categories/tree`, `/api/public/categories/{slug}`, `/api/public/tags` | – | Khách |
+
+Cần biết khi dùng:
+- `slug` chỉ `a-z0-9-` (tối đa 150 với chuyên mục, 100 với thẻ). Trùng slug: 400 `detail` "Slug '...' đã tồn tại".
+- Chọn chính nó hoặc con cháu làm cha: 400 `detail`.
+- Chưa có API công khai lấy bài theo chuyên mục (trang `/categories/:slug` chờ API).
+- **Quyền cần backend sửa:** các controller menu, chuyên mục, thẻ đang `[Authorize(Roles = "admin,editor")]` cho cả thao tác ghi. SRS 3.2: quản lý menu và chuyên mục chỉ Admin. Frontend đã chỉ cho admin vào hai trang này.
+
 ## Đề xuất — CHƯA CÓ (theo tài liệu hướng dẫn dev)
 
-- **Menu, chuyên mục, thẻ: backend ĐÃ CÓ** (PR #1, #2 trên `backend` main). Nguồn sự thật là code backend và `FRONTEND_INTEGRATION_GUIDE` của backend, không phải bản đề xuất `frontend/docs/api/sprint2-dto.md` (backend làm khác: sắp xếp menu bằng `PUT /api/admin/menus/{id}/tree`, lỗi vượt cấp trả 400, thẻ không phân trang). Chưa chép bảng endpoint vào đây.
-  - **Quyền cần backend sửa:** `AdminMenuController`, `AdminMenuItemController`, `AdminCategoryController`, `AdminTagController` đang `[Authorize(Roles = "admin,editor")]` cho cả thao tác ghi. SRS 3.2: quản lý menu và chuyên mục chỉ Admin. Editor chỉ cần đọc chuyên mục/thẻ.
 - **Ảnh bìa bài public cần URL công khai, không hết hạn** (bucket public cho ảnh bài đã xuất bản, hoặc endpoint backend trả ảnh). URL ký 60 giây không dùng được cho `og:image`: Facebook/Zalo tải ảnh sau đó và cache lại.
 - `/api/admin/events`, `POST /api/events/{id}/registrations`, `DELETE /api/events/{id}/registrations/me`.
 - `POST /api/contact-requests` (khách được gửi), `/api/admin/contact-requests`, `GET /api/me/contact-requests` (Should).

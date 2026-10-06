@@ -63,7 +63,7 @@ function ReviewList() {
         rowKey="id"
         loading={loading}
         dataSource={data?.items ?? []}
-        scroll={{ x: 760 }}
+        scroll={{ x: 'max-content' }}
         locale={{
           emptyText: error ? ' ' : <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={status === 'pending' ? 'Không có bài nào chờ duyệt.' : 'Không có bài nào.'} />,
         }}

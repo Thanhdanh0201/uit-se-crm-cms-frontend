@@ -1,22 +1,17 @@
 import type { ReactNode } from 'react'
 import {
-  Article,
-  CalendarDots,
-  ChatCircleText,
-  CheckSquareOffset,
-  ClockCounterClockwise,
-  File,
-  FolderSimple,
+  ChatsCircle,
+  Gear,
   House,
-  ImageSquare,
-  ListBullets,
-  SquaresFour,
-  Users,
+  Newspaper,
+  TreeStructure,
 } from '@phosphor-icons/react'
 import type { Role } from '../lib/auth'
 
-export type MenuEntry = { path: string; label: string; icon: ReactNode; roles: Role[] }
-export type MenuGroup = { label: string; items: MenuEntry[] }
+// Mục con trong nhóm không có icon (giống menu dạng cây), chỉ mục cấp đầu và nhóm có icon.
+export type MenuEntry = { path: string; label: string; icon?: ReactNode; roles: Role[] }
+// Nhóm có label hiện thành mục cha thu gọn được (submenu), không label thì các mục nằm thẳng ở cấp đầu.
+export type MenuGroup = { label: string; icon?: ReactNode; items: MenuEntry[] }
 
 const EA: Role[] = ['editor', 'admin']
 const A: Role[] = ['admin']
@@ -30,33 +25,37 @@ export const ADMIN_MENU: MenuGroup[] = [
   },
   {
     label: 'Nội dung',
+    icon: i(Newspaper),
     items: [
-      { path: '/admin/posts', label: 'Bài viết', icon: i(Article), roles: EA },
-      { path: '/admin/review', label: 'Duyệt bài', icon: i(CheckSquareOffset), roles: A },
-      { path: '/admin/pages', label: 'Trang tĩnh', icon: i(File), roles: A },
-      { path: '/admin/media', label: 'Thư viện media', icon: i(ImageSquare), roles: EA },
+      { path: '/admin/posts', label: 'Bài viết', roles: EA },
+      { path: '/admin/review', label: 'Duyệt bài', roles: A },
+      { path: '/admin/pages', label: 'Trang tĩnh', roles: A },
+      { path: '/admin/media', label: 'Thư viện media', roles: EA },
     ],
   },
   {
     label: 'Cấu trúc website',
+    icon: i(TreeStructure),
     items: [
-      { path: '/admin/menus', label: 'Menu', icon: i(ListBullets), roles: A },
-      { path: '/admin/categories', label: 'Chuyên mục và thẻ', icon: i(FolderSimple), roles: A },
-      { path: '/admin/home-sections', label: 'Trang chủ', icon: i(SquaresFour), roles: A },
+      { path: '/admin/menus', label: 'Menu', roles: A },
+      { path: '/admin/categories', label: 'Chuyên mục và thẻ', roles: A },
+      { path: '/admin/home-sections', label: 'Trang chủ', roles: A },
     ],
   },
   {
     label: 'Tương tác',
+    icon: i(ChatsCircle),
     items: [
-      { path: '/admin/events', label: 'Sự kiện', icon: i(CalendarDots), roles: A },
-      { path: '/admin/contacts', label: 'Liên hệ', icon: i(ChatCircleText), roles: A },
+      { path: '/admin/events', label: 'Sự kiện', roles: A },
+      { path: '/admin/contacts', label: 'Liên hệ', roles: A },
     ],
   },
   {
     label: 'Hệ thống',
+    icon: i(Gear),
     items: [
-      { path: '/admin/users', label: 'Người dùng', icon: i(Users), roles: A },
-      { path: '/admin/activity-logs', label: 'Nhật ký', icon: i(ClockCounterClockwise), roles: A },
+      { path: '/admin/users', label: 'Người dùng', roles: A },
+      { path: '/admin/activity-logs', label: 'Nhật ký', roles: A },
     ],
   },
 ]
@@ -70,4 +69,10 @@ export function menuFor(role: Role | undefined): MenuGroup[] {
 export function activePath(pathname: string): string {
   const all = ADMIN_MENU.flatMap((g) => g.items.map((m) => m.path))
   return all.filter((p) => pathname === p || pathname.startsWith(p + '/')).sort((a, b) => b.length - a.length)[0] ?? '/admin'
+}
+
+// Nhóm chứa trang hiện tại, để mở sẵn nhóm đó khi vào thẳng URL hoặc F5.
+export function activeGroup(pathname: string): string | undefined {
+  const path = activePath(pathname)
+  return ADMIN_MENU.find((g) => g.label && g.items.some((m) => m.path === path))?.label
 }
