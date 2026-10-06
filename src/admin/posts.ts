@@ -21,6 +21,7 @@ export type PostListItem = {
   reviewReason: string | null
   version: number
   publishedAt: string | null
+  expiresAt: string | null
   updatedAt: string
   allowedStatuses: PostStatus[]
 }

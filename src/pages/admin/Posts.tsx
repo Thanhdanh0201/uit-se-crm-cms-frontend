@@ -6,6 +6,7 @@ import { api, ApiError } from '../../lib/api'
 import { useAuth } from '../../lib/auth'
 import { noIndex } from '../../lib/seo'
 import { useListParams } from '../../lib/useListParams'
+import { SCHEDULE_LABEL, scheduleState } from '../../admin/vnTime'
 import {
   ACTION_LABEL,
   canEdit,
@@ -192,6 +193,12 @@ export default function Posts() {
             render: (s: PostStatus, p) => (
               <Space orientation="vertical" size={2}>
                 <Tag color={STATUS_COLOR[s]}>{statusLabel(s)}</Tag>
+                {(() => {
+                  const st = scheduleState(p)
+                  if (st === 'scheduled') return <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-primary)' }}>Hẹn giờ {formatDateTime(p.publishedAt!)}</span>
+                  if (st === 'expired') return <Tag>{SCHEDULE_LABEL.expired.label}</Tag>
+                  return null
+                })()}
                 {s === 'changes_requested' && p.reviewReason && (
                   <span className="muted" style={{ fontSize: 'var(--text-xs)' }}>Lý do: {p.reviewReason}</span>
                 )}

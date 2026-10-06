@@ -73,7 +73,7 @@ test('xuất bản: phải xác nhận trong hộp thoại, xuất bản ngay kh
   open()
   await userEvent.click(await screen.findByRole('button', { name: 'Xuất bản' }))
   expect(api.calls('/api/posts/p1/status')).toHaveLength(0) // mới mở hộp thoại, chưa gửi
-  const dialog = await findDialog('Hẹn giờ xuất bản')
+  const dialog = await findDialog('Hẹn giờ xuất bản (giờ Việt Nam)')
   await userEvent.click(within(dialog).getByRole('button', { name: 'Xuất bản' }))
   expect(await screen.findByText('Đã xuất bản "Thông báo học bổng học kỳ 1".')).toBeTruthy()
   expect(JSON.parse(String(api.calls('/api/posts/p1/status')[0][1]?.body))).toEqual({ toStatus: 'published', version: 2 })
@@ -88,7 +88,7 @@ test('lỗi API khi xuất bản: hiện lý do, không báo thành công', asyn
   })
   open()
   await userEvent.click(await screen.findByRole('button', { name: 'Xuất bản' }))
-  await userEvent.click(within(await findDialog('Hẹn giờ xuất bản')).getByRole('button', { name: 'Xuất bản' }))
+  await userEvent.click(within(await findDialog('Hẹn giờ xuất bản (giờ Việt Nam)')).getByRole('button', { name: 'Xuất bản' }))
   expect(await screen.findByText('Chọn ảnh đại diện trước khi gửi duyệt.')).toBeTruthy()
   expect(screen.queryByText(/Đã xuất bản/)).toBeNull()
 })

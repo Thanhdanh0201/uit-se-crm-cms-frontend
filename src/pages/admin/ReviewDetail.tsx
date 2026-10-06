@@ -5,7 +5,9 @@ import { ArrowLeft } from '@phosphor-icons/react'
 import { api, ApiError } from '../../lib/api'
 import { RequireRole } from '../../lib/auth'
 import { noIndex } from '../../lib/seo'
+import type { Dayjs } from 'dayjs'
 import { PostArticle } from '../../components/PostArticle'
+import { SCHEDULE_LABEL, scheduleState, vnPickerToUtc } from '../../admin/vnTime'
 import {
   ACTION_LABEL,
   formatDateTime,
@@ -19,9 +21,7 @@ import {
 
 export const meta = () => noIndex('Duyệt bài')
 
-// Giá trị DatePicker của antd (dayjs). Chỉ cần đổi sang ISO, không import dayjs.
-type Picked = { toISOString(): string } | null | undefined
-type PublishValues = { publishedAt?: Picked; expiresAt?: Picked }
+type PublishValues = { publishedAt?: Dayjs | null; expiresAt?: Dayjs | null }
 
 function ReviewDetailContent() {
   const { id } = useParams()
@@ -77,8 +77,8 @@ function ReviewDetailContent() {
 
   async function onPublish(values: PublishValues) {
     const ok = await change('published', {
-      ...(values.publishedAt && { publishedAt: values.publishedAt.toISOString() }),
-      ...(values.expiresAt && { expiresAt: values.expiresAt.toISOString() }),
+      ...(values.publishedAt && { publishedAt: vnPickerToUtc(values.publishedAt) }),
+      ...(values.expiresAt && { expiresAt: vnPickerToUtc(values.expiresAt) }),
     })
     if (ok) {
       setDialog(null)
@@ -182,6 +182,17 @@ function ReviewDetailContent() {
             )}
           </Card>
 
+          {post.publishedAt && (
+            <Card title="Lịch hiển thị" size="small">
+              <Flex vertical gap={6}>
+                {scheduleState(post) && <div><Tag color={SCHEDULE_LABEL[scheduleState(post)!].color}>{SCHEDULE_LABEL[scheduleState(post)!].label}</Tag></div>}
+                <div>Xuất bản: {formatDateTime(post.publishedAt)}</div>
+                <div>Hết hạn: {post.expiresAt ? formatDateTime(post.expiresAt) : 'Không hết hạn'}</div>
+                <div className="muted" style={{ fontSize: 'var(--text-xs)' }}>Giờ Việt Nam (UTC+7)</div>
+              </Flex>
+            </Card>
+          )}
+
           <Card title="Bài nổi bật" size="small">
             <Flex vertical gap={8}>
               <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -229,20 +240,21 @@ function ReviewDetailContent() {
         onCancel={() => setDialog(null)}
         destroyOnHidden
       >
-        <p>Bài hiện trên trang công khai từ thời điểm xuất bản. Bỏ trống để xuất bản ngay.</p>
+        <p>Bài hiện trên trang công khai từ thời điểm xuất bản. Bỏ trống để xuất bản ngay. Giờ nhập là giờ Việt Nam (UTC+7).</p>
         <Form form={publishForm} layout="vertical" onFinish={onPublish}>
-          <Form.Item name="publishedAt" label="Hẹn giờ xuất bản">
+          <Form.Item name="publishedAt" label="Hẹn giờ xuất bản (giờ Việt Nam)">
             <DatePicker showTime format="DD/MM/YYYY HH:mm" style={{ width: '100%' }} placeholder="Xuất bản ngay" />
           </Form.Item>
           <Form.Item
             name="expiresAt"
-            label="Hết hiển thị lúc"
+            label="Hết hiển thị lúc (giờ Việt Nam)"
             dependencies={['publishedAt']}
             rules={[
               ({ getFieldValue }) => ({
-                validator: (_, v: Picked) => {
-                  const from = (getFieldValue('publishedAt') as Picked)?.toISOString() ?? new Date().toISOString()
-                  return !v || v.toISOString() > from ? Promise.resolve() : Promise.reject(new Error('Thời điểm hết hạn phải sau thời điểm xuất bản.'))
+                validator: (_, v: Dayjs | null) => {
+                  const pub = getFieldValue('publishedAt') as Dayjs | null
+                  const from = pub ? vnPickerToUtc(pub) : new Date().toISOString()
+                  return !v || vnPickerToUtc(v) > from ? Promise.resolve() : Promise.reject(new Error('Thời điểm hết hạn phải sau thời điểm xuất bản.'))
                 },
               }),
             ]}
