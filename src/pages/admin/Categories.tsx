@@ -1,935 +1,551 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Alert, App, Button, Card, Drawer, Empty, Flex, Form, Input, InputNumber, Modal, Popconfirm, Segmented, Skeleton, Space, Table, Tag, TreeSelect } from 'antd'
-import { FolderSimple, PencilSimple, Plus, Tag as TagIcon, Trash } from '@phosphor-icons/react'
+import { Alert, App, Button, Card, Drawer, Empty, Flex, Form, Input, InputNumber, Modal, Popconfirm, Segmented, Select, Space, Switch, Table, Tag } from 'antd'
+import { CaretDown, CaretRight, EyeSlash, Info, PencilSimple, Plus, Trash, Warning } from '@phosphor-icons/react'
 import { api, ApiError } from '../../lib/api'
 import { RequireRole } from '../../lib/auth'
 import { noIndex } from '../../lib/seo'
 import { useListParams } from '../../lib/useListParams'
-import {
-  categoryErrorMessage,
-  findCategoryDescendantIds,
-  flattenCategoryTree,
-  generateSlug,
-  SLUG_PATTERN,
-  tagErrorMessage,
-  type CategoryDetailDto,
-  type CategoryTreeDto,
-  type TagDto,
-} from '../../admin/categories'
+import { findNode, flatten, subtreeIds } from '../../admin/tree'
 
 export const meta = () => noIndex('Chuyên mục và thẻ')
 
-type CategoryFormValues = {
-  name: string
-  slug?: string
-  description?: string
-  parentId?: string | null
-  sortOrder?: number
-  isVisible?: boolean
+// DTO theo backend: CategoryTreeDto (GET /api/admin/categories/tree), TagDto (GET /api/admin/tags).
+export type Category = { id: string; parentId: string | null; name: string; slug: string; description: string | null; sortOrder: number; isVisible: boolean; postCount: number; children: Category[] }
+type Tag = { id: string; name: string; slug: string; postCount: number }
+type CategoryValues = { name: string; slug?: string; description?: string; parentId?: string | null; sortOrder: number; isVisible: boolean }
+type TagValues = { name: string; slug?: string }
+
+const SLUG = /^[a-z0-9-]+$/ // cùng quy tắc FluentValidation backend
+
+// Gợi ý đường dẫn từ chữ có dấu: "Thông báo học vụ" -> "thong-bao-hoc-vu".
+export function slugify(s: string): string {
+  return s.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/gi, 'd').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
 }
 
-type TagFormValues = {
-  name: string
-  slug?: string
+const slugRule = (max: number) => ({
+  validator: (_: unknown, v?: string) => {
+    if (!v) return Promise.resolve()
+    if (v.length > max) return Promise.reject(new Error(`Đường dẫn tối đa ${max} ký tự.`))
+    if (SLUG.test(v)) return Promise.resolve()
+    const hint = slugify(v)
+    return Promise.reject(new Error(`Đường dẫn chỉ gồm chữ thường không dấu, chữ số và dấu gạch ngang.${hint ? ` Ví dụ: ${hint}` : ''}`))
+  },
+})
+
+const errorMessage = (err: unknown) =>
+  !(err instanceof ApiError) ? 'Không kết nối được máy chủ. Kiểm tra mạng rồi thử lại.'
+    : err.status === 403 ? 'Bạn không có quyền thực hiện thao tác này.'
+      : err.status === 404 ? 'Dữ liệu không còn tồn tại. Danh sách đã được tải lại.'
+        : err.status >= 500 ? 'Máy chủ đang gặp sự cố. Vui lòng thử lại sau.'
+          : err.message
+
+// Gắn lỗi backend vào ô của form: validation (errors theo field) hoặc lỗi nghiệp vụ chỉ có detail (trùng slug, vòng lặp cha).
+function applyError<T>(form: ReturnType<typeof Form.useForm<T>>[0], err: unknown, fields: Record<string, keyof T>, detailField: (msg: string) => keyof T | undefined): string {
+  if (err instanceof ApiError && err.errors) {
+    form.setFields(Object.entries(err.errors).flatMap(([k, errors]) => (fields[k.toLowerCase()] ? [{ name: fields[k.toLowerCase()] as never, errors }] : [])))
+    return ''
+  }
+  if (err instanceof ApiError && err.status === 400) {
+    const f = detailField(err.message)
+    if (f) return form.setFields([{ name: f as never, errors: [err.message] }]), ''
+  }
+  return errorMessage(err)
 }
 
-function fieldErrors(err: unknown) {
-  if (!(err instanceof ApiError) || !err.errors) return []
-  return Object.entries(err.errors).map(([key, errors]) => ({
-    name: (key[0].toLowerCase() + key.slice(1)) as keyof CategoryFormValues,
-    errors,
-  }))
+// Giữ chuyên mục khớp từ khóa và các chuyên mục cha của nó, để vẫn thấy vị trí trong cây.
+function filterTree(nodes: Category[], q: string): Category[] {
+  if (!q) return nodes
+  return nodes.flatMap((n) => {
+    const children = filterTree(n.children, q)
+    return n.name.toLowerCase().includes(q) || children.length ? [{ ...n, children }] : []
+  })
 }
 
-function CategoriesContent() {
-  const { message } = App.useApp()
+// antd Table hiện nút mở rộng khi có mảng children, kể cả rỗng.
+type Row = Omit<Category, 'children'> & { children?: Row[]; hiddenByParent: boolean }
+const toRows = (nodes: Category[], parentHidden = false): Row[] =>
+  nodes.map((n) => ({ ...n, hiddenByParent: parentHidden, children: n.children.length ? toRows(n.children, parentHidden || !n.isVisible) : undefined }))
+
+function CategoriesTab({ keyword }: { keyword: string }) {
+  const { message, modal } = App.useApp()
   const list = useListParams()
-  const activeTab = list.params.get('tab') === 'tags' ? 'tags' : 'categories'
-  const searchKeyword = list.params.get('search') ?? ''
+  const [tree, setTree] = useState<Category[] | null>(null)
+  const [error, setError] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [reloadKey, setReloadKey] = useState(0)
+  const [deleting, setDeleting] = useState<Category | null>(null)
+  const reload = () => setReloadKey((k) => k + 1)
 
-  // State cho chuyên mục
-  const [categoriesTree, setCategoriesTree] = useState<CategoryTreeDto[]>([])
-  const [categoriesLoading, setCategoriesLoading] = useState(true)
-  const [categoriesError, setCategoriesError] = useState('')
-  const [catReloadKey, setCatReloadKey] = useState(0)
-  const reloadCategories = () => setCatReloadKey((k) => k + 1)
-
-  // Drawer sửa/tạo chuyên mục
-  const [catForm] = Form.useForm<CategoryFormValues>()
-  const [editingCat, setEditingCat] = useState<CategoryDetailDto | null>(null)
-  const [catDetailLoading, setCatDetailLoading] = useState(false)
-  const [catDrawerError, setCatDrawerError] = useState('')
-  const [catSaving, setCatSaving] = useState(false)
-
-  // Safe delete modal cho chuyên mục
-  const [deletingCat, setDeletingCat] = useState<CategoryTreeDto | null>(null)
-  const [targetCatId, setTargetCatId] = useState<string | null>(null)
-  const [safeDeleteLoading, setSafeDeleteLoading] = useState(false)
-  const [safeDeleteError, setSafeDeleteError] = useState('')
-
-  // State cho Thẻ (Tags)
-  const [tags, setTags] = useState<TagDto[]>([])
-  const [tagsLoading, setTagsLoading] = useState(true)
-  const [tagsError, setTagsError] = useState('')
-  const [tagReloadKey, setTagReloadKey] = useState(0)
-  const reloadTags = () => setTagReloadKey((k) => k + 1)
-
-  // Modal tạo/sửa thẻ
-  const [tagForm] = Form.useForm<TagFormValues>()
-  const [tagModalOpen, setTagModalOpen] = useState(false)
-  const [editingTag, setEditingTag] = useState<TagDto | null>(null)
-  const [tagSaving, setTagSaving] = useState(false)
-  const [tagModalError, setTagModalError] = useState('')
-
-  // Tải danh sách chuyên mục dạng cây
   useEffect(() => {
-    if (activeTab !== 'categories') return
     const ctrl = new AbortController()
-    setCategoriesLoading(true)
-    setCategoriesError('')
+    setError('')
+    api<Category[]>('/api/admin/categories/tree', { signal: ctrl.signal })
+      .then(setTree)
+      .catch((err) => !ctrl.signal.aborted && setError(errorMessage(err)))
+    return () => ctrl.abort()
+  }, [reloadKey])
 
-    const endpoint = searchKeyword
-      ? `/api/admin/categories?search=${encodeURIComponent(searchKeyword)}`
-      : '/api/admin/categories/tree'
+  const rows = useMemo(() => toRows(filterTree(tree ?? [], keyword.toLowerCase())), [tree, keyword])
+  const expandKeys = useMemo(() => flatten(tree ?? []).filter((f) => f.node.children.length).map((f) => f.node.id), [tree])
+  const [collapsed, setCollapsed] = useState<string[]>([])
 
-    api<CategoryTreeDto[] | CategoryDetailDto[] | { items: unknown[] }>(endpoint, { signal: ctrl.signal })
-      .then((res) => {
-        const rawList = (Array.isArray(res) ? res : (res as { items?: unknown[] })?.items || []) as (CategoryTreeDto[] | CategoryDetailDto[])
-        if (searchKeyword) {
-          // Khi tìm kiếm: kết quả trả về dạng phẳng, ta map về cây đơn giản
-          const flatItems = rawList as CategoryDetailDto[]
-          const mapped: CategoryTreeDto[] = flatItems.map((c) => ({
-            id: c.id,
-            parentId: c.parentId,
-            name: c.name,
-            slug: c.slug,
-            description: c.description,
-            sortOrder: c.sortOrder,
-            isVisible: c.isVisible,
-            postCount: c.postCount,
-            children: [],
-          }))
-          setCategoriesTree(mapped)
-        } else {
-          setCategoriesTree(rawList as CategoryTreeDto[])
+  async function toggle(c: Category) {
+    if (busy) return
+    setBusy(true)
+    try {
+      // Backend chưa có API bật/tắt riêng: gửi lại đủ trường hiện có.
+      await api(`/api/admin/categories/${c.id}`, { method: 'PUT', json: { name: c.name, slug: c.slug, description: c.description, parentId: c.parentId, sortOrder: c.sortOrder, isVisible: !c.isVisible } })
+      message.success(c.isVisible ? `Đã ẩn "${c.name}" khỏi website.` : `Đã hiện "${c.name}" trên website.`)
+    } catch (err) {
+      message.error(errorMessage(err))
+    } finally {
+      setBusy(false)
+      reload()
+    }
+  }
+
+  function onDelete(c: Category) {
+    // Còn bài hoặc chuyên mục con: phải chọn nơi nhận. Không thì xác nhận thường.
+    if (c.postCount > 0 || c.children.length > 0) return setDeleting(c)
+    modal.confirm({
+      title: `Xóa chuyên mục "${c.name}"?`,
+      content: 'Chuyên mục chưa có bài viết. Đây là xóa mềm: dữ liệu còn trong cơ sở dữ liệu nhưng giao diện không có nút khôi phục.',
+      okText: 'Xóa',
+      cancelText: 'Hủy',
+      okButtonProps: { danger: true },
+      onOk: async () => {
+        try {
+          await api(`/api/admin/categories/${c.id}`, { method: 'DELETE' })
+          message.success(`Đã xóa chuyên mục "${c.name}".`)
+        } catch (err) {
+          message.error(errorMessage(err))
         }
-      })
-      .catch((err) => {
-        if (ctrl.signal.aborted) return
-        setCategoriesTree([])
-        setCategoriesError(categoryErrorMessage(err))
-      })
-      .finally(() => !ctrl.signal.aborted && setCategoriesLoading(false))
+        reload()
+      },
+    })
+  }
 
-    return () => ctrl.abort()
-  }, [activeTab, searchKeyword, catReloadKey])
+  const editing = list.action === 'edit' && list.id && tree ? findNode(tree, list.id) ?? null : null
 
-  // Tải chi tiết chuyên mục khi mở form sửa
+  return (
+    <>
+      <Flex gap={8} align="center" className="muted" style={{ fontSize: 'var(--text-xs)', marginBottom: 12 }}>
+        <Info size={14} aria-hidden />
+        Chuyên mục cha bị ẩn thì chuyên mục con cũng không hiện ở trang công khai. Xóa chuyên mục đang có bài hoặc có con phải chọn nơi nhận.
+      </Flex>
+      {error && <Alert type="error" showIcon style={{ marginBottom: 16 }} title="Không tải được danh sách chuyên mục" description={error} action={<Button size="small" onClick={reload}>Thử lại</Button>} />}
+      <Table<Row>
+        rowKey="id"
+        size="middle"
+        loading={!tree && !error}
+        dataSource={rows}
+        pagination={false}
+        scroll={{ x: 'max-content' }}
+        expandable={{
+          expandedRowKeys: keyword ? flatten(rows as Category[]).map((f) => f.node.id) : expandKeys.filter((k) => !collapsed.includes(k)),
+          onExpand: (open, r) => setCollapsed((c) => (open ? c.filter((k) => k !== r.id) : [...c, r.id])),
+          expandIcon: ({ expanded, onExpand, record }) =>
+            record.children ? (
+              <button type="button" className="tree-toggle" aria-expanded={expanded} aria-label={`${expanded ? 'Thu gọn' : 'Mở'} "${record.name}"`} onClick={(e) => onExpand(record, e)}>
+                {expanded ? <CaretDown size={14} aria-hidden /> : <CaretRight size={14} aria-hidden />}
+              </button>
+            ) : (
+              <span className="tree-toggle" aria-hidden />
+            ),
+        }}
+        locale={{
+          emptyText: error ? ' ' : keyword ? (
+            <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="Không có chuyên mục khớp từ khóa."><Button onClick={() => list.update({ keyword: null })}>Xóa từ khóa</Button></Empty>
+          ) : (
+            <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="Chưa có chuyên mục nào."><Button type="primary" onClick={() => list.update({ action: 'create', id: null, parent: null })}>Thêm chuyên mục đầu tiên</Button></Empty>
+          ),
+        }}
+        columns={[
+          {
+            title: 'Tên chuyên mục',
+            key: 'name',
+            render: (_, c) => (
+              <div className={!c.isVisible || c.hiddenByParent ? 'muted' : undefined}>
+                <Space size={6} wrap>
+                  <span style={{ fontWeight: c.parentId ? 400 : 600 }}>{c.name}</span>
+                  {!c.isVisible && <Tag>Đang ẩn</Tag>}
+                  {c.isVisible && c.hiddenByParent && <EyeSlash size={14} aria-label="không hiện công khai" />}
+                </Space>
+                {c.isVisible && c.hiddenByParent && <div style={{ fontSize: 'var(--text-xs)' }}>Không hiện công khai vì chuyên mục cha đang ẩn</div>}
+              </div>
+            ),
+          },
+          { title: 'Đường dẫn', dataIndex: 'slug', render: (s: string) => <span className="muted">/categories/{s}</span> },
+          { title: 'Số bài', dataIndex: 'postCount', align: 'right', width: 90 },
+          { title: 'Thứ tự', dataIndex: 'sortOrder', align: 'right', width: 80 },
+          {
+            title: 'Hiển thị',
+            key: 'visible',
+            width: 90,
+            render: (_, c) => <Switch size="small" checked={c.isVisible} disabled={busy} onChange={() => toggle(findNode(tree!, c.id)!)} aria-label={`${c.isVisible ? 'Ẩn' : 'Hiện'} chuyên mục "${c.name}"`} />,
+          },
+          {
+            title: '',
+            key: 'actions',
+            align: 'right',
+            width: 130,
+            render: (_, c) => (
+              <Space size={2}>
+                <Button type="text" size="small" icon={<Plus size={16} />} title="Thêm chuyên mục con" aria-label={`Thêm chuyên mục con cho "${c.name}"`} onClick={() => list.update({ action: 'create', id: null, parent: c.id })} />
+                <Button type="text" size="small" icon={<PencilSimple size={16} />} title="Sửa" aria-label={`Sửa "${c.name}"`} onClick={() => list.update({ action: 'edit', id: c.id, parent: null })} />
+                <Button type="text" size="small" danger icon={<Trash size={16} />} title="Xóa" aria-label={`Xóa "${c.name}"`} disabled={busy} onClick={() => onDelete(findNode(tree!, c.id)!)} />
+              </Space>
+            ),
+          },
+        ]}
+      />
+      {tree && (
+        <CategoryDrawer
+          tree={tree}
+          open={list.action === 'create' || !!editing}
+          editing={editing}
+          parentId={list.params.get('parent')}
+          onClose={() => list.update({ action: null, id: null, parent: null })}
+          onSaved={() => (list.update({ action: null, id: null, parent: null }), reload())}
+        />
+      )}
+      {tree && <DeleteCategoryModal tree={tree} category={deleting} onClose={() => setDeleting(null)} onDone={() => (setDeleting(null), reload())} />}
+    </>
+  )
+}
+
+const CATEGORY_FIELDS: Record<string, keyof CategoryValues> = { name: 'name', slug: 'slug', description: 'description', parentid: 'parentId', sortorder: 'sortOrder' }
+
+function CategoryDrawer({ tree, open, editing, parentId, onClose, onSaved }: { tree: Category[]; open: boolean; editing: Category | null; parentId: string | null; onClose: () => void; onSaved: () => void }) {
+  const { message } = App.useApp()
+  const [form] = Form.useForm<CategoryValues>()
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  const name = Form.useWatch('name', form)
+
   useEffect(() => {
-    setCatDrawerError('')
-    if (list.action !== 'edit' || !list.id || activeTab !== 'categories') {
-      setEditingCat(null)
-      return
-    }
-    const ctrl = new AbortController()
-    setCatDetailLoading(true)
-    api<CategoryDetailDto>(`/api/admin/categories/${list.id}`, { signal: ctrl.signal })
-      .then((cat) => {
-        setEditingCat(cat)
-        catForm.setFieldsValue({
-          name: cat.name,
-          slug: cat.slug,
-          description: cat.description ?? undefined,
-          parentId: cat.parentId,
-          sortOrder: cat.sortOrder,
-          isVisible: cat.isVisible,
-        })
-      })
-      .catch((err) => {
-        if (ctrl.signal.aborted) return
-        setCatDrawerError(categoryErrorMessage(err))
-        if (err instanceof ApiError && err.status === 404) reloadCategories()
-      })
-      .finally(() => !ctrl.signal.aborted && setCatDetailLoading(false))
+    if (!open) return
+    setError('')
+    if (editing) form.setFieldsValue({ name: editing.name, slug: editing.slug, description: editing.description ?? '', parentId: editing.parentId, sortOrder: editing.sortOrder, isVisible: editing.isVisible })
+    else form.setFieldsValue({ name: '', slug: '', description: '', parentId, sortOrder: (parentId ? findNode(tree, parentId)?.children.length ?? 0 : tree.length) + 1, isVisible: true })
+  }, [open, editing, parentId, tree, form])
 
-    return () => ctrl.abort()
-  }, [list.action, list.id, activeTab, catForm])
+  const blocked = editing ? subtreeIds(editing) : new Set<string>()
+  const options = flatten(tree, (c) => c.name).filter((f) => !blocked.has(f.node.id)).map((f) => ({ value: f.node.id, label: f.path.join(' / ') }))
 
-  // Tải danh sách Thẻ
-  useEffect(() => {
-    if (activeTab !== 'tags') return
-    const ctrl = new AbortController()
-    setTagsLoading(true)
-    setTagsError('')
-
-    const url = searchKeyword ? `/api/admin/tags?search=${encodeURIComponent(searchKeyword)}` : '/api/admin/tags'
-    api<TagDto[] | { items: TagDto[] }>(url, { signal: ctrl.signal })
-      .then((res) => setTags(Array.isArray(res) ? res : res?.items || []))
-      .catch((err) => {
-        if (ctrl.signal.aborted) return
-        setTags([])
-        setTagsError(tagErrorMessage(err))
-      })
-      .finally(() => !ctrl.signal.aborted && setTagsLoading(false))
-
-    return () => ctrl.abort()
-  }, [activeTab, searchKeyword, tagReloadKey])
-
-  // Danh sách phẳng của chuyên mục (dùng cho TreeSelect và Safe Delete)
-  const flatCategories = useMemo(() => flattenCategoryTree(categoriesTree), [categoriesTree])
-
-  const [expandedRowKeys, setExpandedRowKeys] = useState<React.Key[]>([])
-
-  useEffect(() => {
-    if (categoriesTree.length > 0) {
-      setExpandedRowKeys(flatCategories.map((c) => c.id))
-    }
-  }, [categoriesTree, flatCategories])
-
-  // ID các node con cháu của chuyên mục đang sửa hoặc đang xóa
-  const editingDescendantIds = useMemo(() => {
-    if (!editingCat) return new Set<string>()
-    return findCategoryDescendantIds(categoriesTree, editingCat.id)
-  }, [categoriesTree, editingCat])
-
-  const deletingDescendantIds = useMemo(() => {
-    if (!deletingCat) return new Set<string>()
-    return findCategoryDescendantIds(categoriesTree, deletingCat.id)
-  }, [categoriesTree, deletingCat])
-
-  // Tạo cây options cho TreeSelect chọn mục cha
-  const parentTreeData = useMemo(() => {
-    type CategoryTreeNode = {
-      value: string
-      title: string
-      disabled: boolean
-      children?: CategoryTreeNode[]
-    }
-
-    function mapNode(node: CategoryTreeDto): CategoryTreeNode {
-      const isSelfOrDescendant = editingCat ? node.id === editingCat.id || editingDescendantIds.has(node.id) : false
-      return {
-        value: node.id,
-        title: node.name,
-        disabled: isSelfOrDescendant,
-        children: node.children?.length ? node.children.map(mapNode) : undefined,
-      }
-    }
-    return [
-      { value: 'root', title: 'Không có (cấp cao nhất)', disabled: false },
-      ...categoriesTree.map(mapNode),
-    ]
-  }, [categoriesTree, editingCat, editingDescendantIds])
-
-  // Danh sách chuyên mục đích hợp lệ để chuyển bài khi xóa
-  const validTargetCategories = useMemo(() => {
-    if (!deletingCat) return []
-    return flatCategories.filter((c) => c.id !== deletingCat.id && !deletingDescendantIds.has(c.id))
-  }, [flatCategories, deletingCat, deletingDescendantIds])
-
-  // Lưu chuyên mục (tạo hoặc sửa)
-  async function onSaveCategory(values: CategoryFormValues) {
-    if (catSaving) return
-    setCatDrawerError('')
-    setCatSaving(true)
-
-    const finalSlug = values.slug?.trim() || generateSlug(values.name)
-    const payload = {
-      name: values.name.trim(),
-      slug: finalSlug,
-      description: values.description?.trim() || null,
-      parentId: values.parentId === 'root' || !values.parentId ? null : values.parentId,
-      sortOrder: values.sortOrder ?? 0,
-      isVisible: values.isVisible ?? true,
-    }
-
+  async function onFinish(v: CategoryValues) {
+    if (busy) return
+    setBusy(true)
+    setError('')
+    const body = { name: v.name.trim(), slug: v.slug?.trim() || null, description: v.description?.trim() || null, parentId: v.parentId ?? null, sortOrder: v.sortOrder, isVisible: v.isVisible }
     try {
-      if (editingCat) {
-        await api<CategoryDetailDto>(`/api/admin/categories/${editingCat.id}`, {
-          method: 'PUT',
-          json: payload,
-        })
-        message.success(`Đã cập nhật chuyên mục "${payload.name}".`)
-      } else {
-        await api<CategoryDetailDto>('/api/admin/categories', {
-          method: 'POST',
-          json: payload,
-        })
-        message.success(`Đã tạo chuyên mục "${payload.name}".`)
-      }
-      list.closeDrawer()
-      catForm.resetFields()
-      reloadCategories()
+      if (editing) await api(`/api/admin/categories/${editing.id}`, { method: 'PUT', json: body })
+      else await api('/api/admin/categories', { method: 'POST', json: body })
+      message.success(editing ? 'Đã lưu chuyên mục.' : `Đã thêm chuyên mục "${body.name}".`)
+      onSaved()
     } catch (err) {
-      catForm.setFields(fieldErrors(err))
-      setCatDrawerError(fieldErrors(err).length ? '' : categoryErrorMessage(err))
+      setError(applyError(form, err, CATEGORY_FIELDS, (m) => (/slug/i.test(m) ? (body.slug ? 'slug' : 'name') : /cha|vòng lặp/i.test(m) ? 'parentId' : undefined)))
+      if (err instanceof ApiError && err.status === 404) onSaved()
     } finally {
-      setCatSaving(false)
+      setBusy(false)
     }
-  }
-
-  // Bật/tắt nhanh hiển thị chuyên mục
-  async function toggleCategoryVisibility(row: CategoryTreeDto, checked: boolean) {
-    try {
-      await api<CategoryDetailDto>(`/api/admin/categories/${row.id}`, {
-        method: 'PUT',
-        json: {
-          name: row.name,
-          slug: row.slug,
-          description: row.description,
-          parentId: row.parentId,
-          sortOrder: row.sortOrder,
-          isVisible: checked,
-        },
-      })
-      message.success(`Đã ${checked ? 'bật' : 'tắt'} hiển thị chuyên mục "${row.name}".`)
-      reloadCategories()
-    } catch (err) {
-      message.error(categoryErrorMessage(err))
-      reloadCategories()
-    }
-  }
-
-  // Mở modal xóa chuyên mục
-  function onRequestDeleteCategory(row: CategoryTreeDto) {
-    const hasChildren = row.children && row.children.length > 0
-    const hasPosts = row.postCount > 0
-    if (hasChildren || hasPosts) {
-      setDeletingCat(row)
-      setTargetCatId(null)
-      setSafeDeleteError('')
-    } else {
-      // Chuyên mục rỗng: xóa trực tiếp với Popconfirm (xử lý ở render)
-    }
-  }
-
-  // Xác nhận xóa an toàn chuyên mục có bài hoặc có con
-  async function onConfirmSafeDelete() {
-    if (!deletingCat) return
-    if (!targetCatId) {
-      setSafeDeleteError('Vui lòng chọn chuyên mục đích để chuyển giao.')
-      return
-    }
-
-    setSafeDeleteLoading(true)
-    setSafeDeleteError('')
-    try {
-      await api(`/api/admin/categories/${deletingCat.id}?targetCategoryId=${targetCatId}`, {
-        method: 'DELETE',
-      })
-      message.success(`Đã xóa chuyên mục "${deletingCat.name}" và chuyển giao dữ liệu thành công.`)
-      setDeletingCat(null)
-      setTargetCatId(null)
-      reloadCategories()
-    } catch (err) {
-      setSafeDeleteError(categoryErrorMessage(err))
-    } finally {
-      setSafeDeleteLoading(false)
-    }
-  }
-
-  // Xóa trực tiếp chuyên mục rỗng
-  async function onDeleteEmptyCategory(row: CategoryTreeDto) {
-    try {
-      await api(`/api/admin/categories/${row.id}`, { method: 'DELETE' })
-      message.success(`Đã xóa chuyên mục "${row.name}".`)
-      reloadCategories()
-    } catch (err) {
-      message.error(categoryErrorMessage(err))
-      reloadCategories()
-    }
-  }
-
-  // Mở modal tạo/sửa thẻ
-  function openCreateTag() {
-    setEditingTag(null)
-    setTagModalError('')
-    tagForm.resetFields()
-    setTagModalOpen(true)
-  }
-
-  function openEditTag(t: TagDto) {
-    setEditingTag(t)
-    setTagModalError('')
-    tagForm.setFieldsValue({ name: t.name, slug: t.slug })
-    setTagModalOpen(true)
-  }
-
-  // Lưu thẻ
-  async function onSaveTag(values: TagFormValues) {
-    if (tagSaving) return
-    setTagModalError('')
-    setTagSaving(true)
-
-    const finalSlug = values.slug?.trim() || generateSlug(values.name)
-    const payload = { name: values.name.trim(), slug: finalSlug }
-
-    try {
-      if (editingTag) {
-        await api<TagDto>(`/api/admin/tags/${editingTag.id}`, {
-          method: 'PUT',
-          json: payload,
-        })
-        message.success(`Đã cập nhật thẻ "${payload.name}".`)
-      } else {
-        await api<TagDto>('/api/admin/tags', {
-          method: 'POST',
-          json: payload,
-        })
-        message.success(`Đã tạo thẻ "${payload.name}".`)
-      }
-      setTagModalOpen(false)
-      tagForm.resetFields()
-      reloadTags()
-    } catch (err) {
-      setTagModalError(tagErrorMessage(err))
-    } finally {
-      setTagSaving(false)
-    }
-  }
-
-  // Xóa thẻ
-  async function onDeleteTag(t: TagDto) {
-    try {
-      await api(`/api/admin/tags/${t.id}`, { method: 'DELETE' })
-      message.success(`Đã xóa thẻ "${t.name}".`)
-      reloadTags()
-    } catch (err) {
-      message.error(tagErrorMessage(err))
-    }
-  }
-
-  // Chuyển đổi tab
-  function onTabChange(val: string) {
-    list.update({ tab: val === 'tags' ? 'tags' : null, search: null })
   }
 
   return (
-    <Card
-      title={
-        <Segmented
-          value={activeTab}
-          onChange={onTabChange}
-          options={[
-            { value: 'categories', label: 'Chuyên mục', icon: <FolderSimple size={16} /> },
-            { value: 'tags', label: 'Thẻ', icon: <TagIcon size={16} /> },
-          ]}
-        />
-      }
-      extra={
-        <Space wrap>
-          <Input.Search
-            key={searchKeyword}
-            allowClear
-            defaultValue={searchKeyword}
-            placeholder={activeTab === 'categories' ? 'Tìm theo tên chuyên mục' : 'Tìm thẻ'}
-            onSearch={(v) => list.update({ search: v.trim() || null })}
-            style={{ width: 260 }}
-          />
-          {activeTab === 'categories' ? (
-            <Button
-              type="primary"
-              icon={<Plus size={16} />}
-              onClick={() => {
-                catForm.resetFields()
-                catForm.setFieldsValue({ sortOrder: 0, isVisible: true, parentId: 'root' })
-                list.openCreate()
-              }}
-            >
-              Thêm chuyên mục
-            </Button>
-          ) : (
-            <Button type="primary" icon={<Plus size={16} />} onClick={openCreateTag}>
-              Thêm thẻ
-            </Button>
-          )}
-        </Space>
+    <Drawer
+      open={open}
+      title={editing ? `Sửa chuyên mục "${editing.name}"` : 'Thêm chuyên mục'}
+      size={480}
+      onClose={onClose}
+      footer={<Flex justify="flex-end" gap={8}><Button onClick={onClose}>Hủy</Button><Button type="primary" loading={busy} onClick={() => form.submit()}>Lưu</Button></Flex>}
+    >
+      {error && <Alert type="error" showIcon title="Chưa lưu được" description={error} style={{ marginBottom: 16 }} />}
+      <Form form={form} layout="vertical" onFinish={onFinish} disabled={busy} requiredMark>
+        <Form.Item name="name" label="Tên chuyên mục" rules={[{ required: true, whitespace: true, message: 'Nhập tên chuyên mục.' }, { max: 150, message: 'Tên tối đa 150 ký tự.' }]}>
+          <Input maxLength={150} placeholder="Ví dụ: Thông báo học vụ" />
+        </Form.Item>
+        <Form.Item
+          name="slug"
+          label="Đường dẫn (slug)"
+          rules={[slugRule(150)]}
+          extra={editing ? 'Bỏ trống để tự tạo từ tên. Đổi đường dẫn làm link cũ không còn dùng được.' : `Bỏ trống để tự tạo từ tên${name ? `: ${slugify(name)}` : ''}.`}
+        >
+          <Input maxLength={150} placeholder={name ? slugify(name) : 'thong-bao-hoc-vu'} />
+        </Form.Item>
+        <Form.Item name="description" label="Mô tả" rules={[{ max: 500, message: 'Mô tả tối đa 500 ký tự.' }]}>
+          <Input.TextArea rows={3} maxLength={500} showCount />
+        </Form.Item>
+        <Form.Item name="parentId" label="Chuyên mục cha" extra="Không chọn được chính chuyên mục này và các chuyên mục con của nó.">
+          <Select allowClear showSearch={{ optionFilterProp: 'label' }} placeholder="Không có (chuyên mục gốc)" options={options} />
+        </Form.Item>
+        <Form.Item name="sortOrder" label="Thứ tự hiển thị" extra="Số nhỏ hiện trước, trong cùng chuyên mục cha." rules={[{ required: true, message: 'Nhập thứ tự.' }, { type: 'number', min: 0, message: 'Thứ tự từ 0 trở lên.' }]}>
+          <InputNumber min={0} precision={0} style={{ width: 120 }} />
+        </Form.Item>
+        <Flex gap={12} align="start">
+          <Form.Item name="isVisible" valuePropName="checked" noStyle>
+            <Switch id="category-visible" />
+          </Form.Item>
+          <label htmlFor="category-visible">
+            Hiển thị trên website
+            <div className="muted" style={{ fontSize: 'var(--text-xs)' }}>Ẩn thì chuyên mục con cũng không hiện công khai.</div>
+          </label>
+        </Flex>
+      </Form>
+    </Drawer>
+  )
+}
+
+// Xóa an toàn (FR-CAT-04): chọn chuyên mục nhận bài và chuyên mục con, backend chuyển rồi xóa mềm trong một transaction.
+function DeleteCategoryModal({ tree, category, onClose, onDone }: { tree: Category[]; category: Category | null; onClose: () => void; onDone: () => void }) {
+  const { message } = App.useApp()
+  const [target, setTarget] = useState<string | undefined>()
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    setTarget(undefined)
+    setError('')
+  }, [category])
+
+  if (!category) return null
+  const blocked = subtreeIds(category)
+  const targetName = flatten(tree).find((f) => f.node.id === target)?.node.name
+  const kids = category.children.length
+
+  async function submit() {
+    if (!target) return setError('Chọn chuyên mục nhận bài viết và chuyên mục con.')
+    if (busy) return
+    setBusy(true)
+    setError('')
+    try {
+      await api(`/api/admin/categories/${category!.id}?targetCategoryId=${target}`, { method: 'DELETE' })
+      message.success(`Đã chuyển sang "${targetName}" và xóa "${category!.name}".`)
+      onDone()
+    } catch (err) {
+      // Không đóng hộp thoại, không đổi danh sách: người dùng chọn lại hoặc hủy.
+      setError(errorMessage(err))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <Modal
+      open
+      title={`Xóa chuyên mục "${category.name}"?`}
+      onCancel={onClose}
+      footer={
+        <Flex justify="flex-end" gap={8}>
+          <Button onClick={onClose} disabled={busy}>Hủy</Button>
+          <Button danger icon={<Trash size={14} />} loading={busy} onClick={submit}>Chuyển và xóa</Button>
+        </Flex>
       }
     >
-      {activeTab === 'categories' && (
-        <>
-          <Alert
-            type="info"
-            showIcon
-            style={{ marginBottom: 16 }}
-            message="Chuyên mục cha bị ẩn thì chuyên mục con cũng không hiện ở trang công khai. Xóa chuyên mục đang có bài hoặc có con phải chọn nơi nhận."
+      <Alert
+        type="warning"
+        showIcon
+        icon={<Warning size={16} />}
+        style={{ marginBottom: 16 }}
+        title={`Chuyên mục đang có ${category.postCount} bài viết${kids ? ` và ${kids} chuyên mục con` : ''}`}
+        description="Chọn chuyên mục nhận lại trước khi xóa. Bài viết và chuyên mục con được chuyển sang trong cùng một lần xử lý."
+      />
+      {error && <Alert type="error" showIcon title={error} style={{ marginBottom: 16 }} />}
+      <Form layout="vertical" disabled={busy}>
+        <Form.Item label="Chuyển bài viết và chuyên mục con sang" required extra={`Không chọn được "${category.name}" và các chuyên mục con của nó.`}>
+          <Select
+            showSearch={{ optionFilterProp: 'label' }}
+            placeholder="Chọn chuyên mục nhận"
+            value={target}
+            onChange={setTarget}
+            options={flatten(tree, (c) => c.name).filter((f) => !blocked.has(f.node.id)).map((f) => ({ value: f.node.id, label: f.path.join(' / ') }))}
           />
+        </Form.Item>
+      </Form>
+      <p className="muted" style={{ fontSize: 'var(--text-xs)', margin: 0 }}>
+        Bài có chuyên mục chính là "{category.name}" sẽ đổi chuyên mục chính sang "{targetName ?? '...'}". Đây là xóa mềm: dữ liệu còn trong cơ sở dữ liệu nhưng giao diện không có nút khôi phục.
+      </p>
+    </Modal>
+  )
+}
 
-          {categoriesError && (
-            <Alert
-              type="error"
-              showIcon
-              style={{ marginBottom: 16 }}
-              title="Không tải được danh sách chuyên mục"
-              description={categoriesError}
-              action={<Button size="small" onClick={reloadCategories}>Thử lại</Button>}
-            />
-          )}
+const TAG_FIELDS: Record<string, keyof TagValues> = { name: 'name', slug: 'slug' }
 
-          <Table<CategoryTreeDto>
-            rowKey="id"
-            loading={categoriesLoading}
-            dataSource={categoriesTree}
-            pagination={false}
-            scroll={{ x: 'max-content' }}
-            expandable={{
-              expandedRowKeys,
-              onExpandedRowsChange: (keys) => setExpandedRowKeys(keys as string[]),
-            }}
-            locale={{
-              emptyText: categoriesError ? ' ' : (
-                <Empty
-                  description={searchKeyword ? 'Không có chuyên mục khớp bộ lọc.' : 'Chưa có chuyên mục nào.'}
-                  image={Empty.PRESENTED_IMAGE_SIMPLE}
-                >
-                  {searchKeyword ? (
-                    <Button onClick={() => list.update({ search: null })}>Xóa tìm kiếm</Button>
-                  ) : (
-                    <Button
-                      type="primary"
-                      onClick={() => {
-                        catForm.resetFields()
-                        catForm.setFieldsValue({ sortOrder: 0, isVisible: true, parentId: 'root' })
-                        list.openCreate()
-                      }}
-                    >
-                      Thêm chuyên mục đầu tiên
-                    </Button>
-                  )}
-                </Empty>
-              ),
-            }}
-            columns={[
-              {
-                title: 'Tên chuyên mục',
-                key: 'name',
-                render: (_, r) => {
-                  const isParentHidden = Boolean(r.parentId && flatCategories.find((c) => c.id === r.parentId)?.isVisible === false)
-                  return (
-                    <div>
-                      <Space size={6}>
-                        <strong>{r.name}</strong>
-                        {!r.isVisible && <Tag>Đang ẩn</Tag>}
-                      </Space>
-                      {isParentHidden && (
-                        <div className="muted" style={{ fontSize: 'var(--text-xs)', color: 'var(--color-danger)' }}>
-                          Không hiện công khai vì chuyên mục cha đang ẩn
-                        </div>
-                      )}
-                    </div>
-                  )
-                },
-              },
-              {
-                title: 'Đường dẫn',
-                dataIndex: 'slug',
-                render: (slug: string) => <span className="muted">/categories/{slug}</span>,
-              },
-              {
-                title: 'Số bài',
-                dataIndex: 'postCount',
-                width: 90,
-                align: 'center',
-              },
-              {
-                title: 'Thứ tự',
-                dataIndex: 'sortOrder',
-                width: 80,
-                align: 'center',
-              },
-              {
-                title: 'Hiển thị',
-                dataIndex: 'isVisible',
-                width: 100,
-                align: 'center',
-                render: (checked: boolean, r) => (
-                  <input
-                    type="checkbox"
-                    role="switch"
-                    aria-label={`Hiển thị chuyên mục ${r.name}`}
-                    checked={checked}
-                    onChange={(e) => toggleCategoryVisibility(r, e.target.checked)}
-                    style={{ cursor: 'pointer', width: 36, height: 20 }}
-                  />
-                ),
-              },
-              {
-                title: '',
-                key: 'actions',
-                width: 120,
-                align: 'right',
-                render: (_, r) => {
-                  const hasChildren = r.children && r.children.length > 0
-                  const hasPosts = r.postCount > 0
-                  const needsSafeDelete = hasChildren || hasPosts
+function TagsTab({ keyword }: { keyword: string }) {
+  const { message } = App.useApp()
+  const list = useListParams(20)
+  const [tags, setTags] = useState<Tag[] | null>(null)
+  const [error, setError] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [reloadKey, setReloadKey] = useState(0)
+  const reload = () => setReloadKey((k) => k + 1)
 
-                  return (
-                    <Space size={4}>
-                      <Button
-                        type="text"
-                        icon={<Plus size={16} />}
-                        title="Thêm chuyên mục con"
-                        aria-label={`Thêm con cho ${r.name}`}
-                        onClick={() => {
-                          catForm.resetFields()
-                          catForm.setFieldsValue({ parentId: r.id, sortOrder: 0, isVisible: true })
-                          list.openCreate()
-                        }}
-                      />
-                      <Button
-                        type="text"
-                        icon={<PencilSimple size={16} />}
-                        title="Sửa"
-                        aria-label={`Sửa ${r.name}`}
-                        onClick={() => list.openEdit(r.id)}
-                      />
-                      {needsSafeDelete ? (
-                        <Button
-                          type="text"
-                          danger
-                          icon={<Trash size={16} />}
-                          title="Xóa chuyên mục (chuyển giao dữ liệu)"
-                          aria-label={`Xóa ${r.name}`}
-                          onClick={() => onRequestDeleteCategory(r)}
-                        />
-                      ) : (
-                        <Popconfirm
-                          title={`Xóa chuyên mục "${r.name}"?`}
-                          description="Chuyên mục chưa có bài viết hay chuyên mục con nào."
-                          okText="Xóa"
-                          cancelText="Hủy"
-                          okButtonProps={{ danger: true }}
-                          onConfirm={() => onDeleteEmptyCategory(r)}
-                        >
-                          <Button
-                            type="text"
-                            danger
-                            icon={<Trash size={16} />}
-                            aria-label={`Xóa ${r.name}`}
-                          />
-                        </Popconfirm>
-                      )}
-                    </Space>
-                  )
-                },
-              },
-            ]}
-          />
-        </>
-      )}
+  useEffect(() => {
+    const ctrl = new AbortController()
+    setError('')
+    api<Tag[]>('/api/admin/tags', { signal: ctrl.signal })
+      .then(setTags)
+      .catch((err) => !ctrl.signal.aborted && setError(errorMessage(err)))
+    return () => ctrl.abort()
+  }, [reloadKey])
 
-      {activeTab === 'tags' && (
-        <>
-          <div className="muted" style={{ marginBottom: 16 }}>
-            {tags.length} thẻ, sắp theo tên
-          </div>
+  // ponytail: API thẻ chưa phân trang, lọc và chia trang ở máy. Khi số thẻ lớn thì cần backend thêm page/pageSize (NFR-02).
+  const rows = useMemo(() => (tags ?? []).filter((t) => t.name.toLowerCase().includes(keyword.toLowerCase())), [tags, keyword])
+  const editing = list.action === 'edit' && list.id ? tags?.find((t) => t.id === list.id) ?? null : null
 
-          {tagsError && (
-            <Alert
-              type="error"
-              showIcon
-              style={{ marginBottom: 16 }}
-              title="Không tải được danh sách thẻ"
-              description={tagsError}
-              action={<Button size="small" onClick={reloadTags}>Thử lại</Button>}
-            />
-          )}
+  async function remove(t: Tag) {
+    if (busy) return
+    setBusy(true)
+    try {
+      await api(`/api/admin/tags/${t.id}`, { method: 'DELETE' })
+      message.success(`Đã xóa thẻ "${t.name}".`)
+    } catch (err) {
+      message.error(errorMessage(err))
+    } finally {
+      setBusy(false)
+      reload()
+    }
+  }
 
-          <Table<TagDto>
-            rowKey="id"
-            loading={tagsLoading}
-            dataSource={tags}
-            pagination={false}
-            scroll={{ x: 'max-content' }}
-            locale={{
-              emptyText: tagsError ? ' ' : (
-                <Empty
-                  description={searchKeyword ? 'Không tìm thấy thẻ.' : 'Chưa có thẻ nào.'}
-                  image={Empty.PRESENTED_IMAGE_SIMPLE}
-                >
-                  {!searchKeyword && (
-                    <Button type="primary" onClick={openCreateTag}>
-                      Thêm thẻ đầu tiên
-                    </Button>
-                  )}
-                </Empty>
-              ),
-            }}
-            columns={[
-              {
-                title: 'Tên thẻ',
-                key: 'name',
-                render: (_, r) => <Tag color="blue">{r.name}</Tag>,
-              },
-              {
-                title: 'Đường dẫn',
-                dataIndex: 'slug',
-                render: (slug: string) => <span className="muted">/tags/{slug}</span>,
-              },
-              {
-                title: 'Số bài',
-                dataIndex: 'postCount',
-                width: 100,
-                align: 'center',
-              },
-              {
-                title: '',
-                key: 'actions',
-                width: 90,
-                align: 'right',
-                render: (_, r) => (
-                  <Space size={4}>
-                    <Button
-                      type="text"
-                      icon={<PencilSimple size={16} />}
-                      title="Sửa thẻ"
-                      aria-label={`Sửa thẻ ${r.name}`}
-                      onClick={() => openEditTag(r)}
-                    />
-                    <Popconfirm
-                      title={`Xóa thẻ "${r.name}"?`}
-                      description={`Thẻ bị gỡ khỏi ${r.postCount} bài viết. Bài viết không bị xóa.`}
-                      okText="Xóa"
-                      cancelText="Hủy"
-                      okButtonProps={{ danger: true }}
-                      onConfirm={() => onDeleteTag(r)}
-                    >
-                      <Button
-                        type="text"
-                        danger
-                        icon={<Trash size={16} />}
-                        aria-label={`Xóa thẻ ${r.name}`}
-                      />
-                    </Popconfirm>
-                  </Space>
-                ),
-              },
-            ]}
-          />
-        </>
-      )}
-
-      {/* Drawer Tạo/Sửa chuyên mục */}
-      <Drawer
-        open={Boolean(list.action && activeTab === 'categories')}
-        title={list.action === 'edit' ? `Sửa chuyên mục "${editingCat?.name ?? ''}"` : 'Tạo chuyên mục'}
-        size={520}
-        onClose={() => {
-          list.closeDrawer()
-          catForm.resetFields()
+  return (
+    <>
+      {error && <Alert type="error" showIcon style={{ marginBottom: 16 }} title="Không tải được danh sách thẻ" description={error} action={<Button size="small" onClick={reload}>Thử lại</Button>} />}
+      <Table<Tag>
+        rowKey="id"
+        size="middle"
+        loading={!tags && !error}
+        dataSource={rows}
+        scroll={{ x: 'max-content' }}
+        pagination={{ current: list.page, pageSize: list.pageSize, showSizeChanger: true, pageSizeOptions: [10, 20, 50], showTotal: (t) => `Tổng ${t} thẻ`, onChange: (page, pageSize) => list.update(pageSize !== list.pageSize ? { pageSize, page: 1 } : { page }) }}
+        locale={{
+          emptyText: error ? ' ' : keyword ? (
+            <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="Không có thẻ khớp từ khóa."><Button onClick={() => list.update({ keyword: null })}>Xóa từ khóa</Button></Empty>
+          ) : (
+            <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="Chưa có thẻ nào."><Button type="primary" onClick={list.openCreate}>Thêm thẻ đầu tiên</Button></Empty>
+          ),
         }}
-        footer={
-          <Flex justify="flex-end" gap={8}>
-            <Button onClick={() => { list.closeDrawer(); catForm.resetFields() }}>Hủy</Button>
-            <Button
-              type="primary"
-              loading={catSaving}
-              disabled={catDetailLoading || (list.action === 'edit' && !editingCat)}
-              onClick={() => catForm.submit()}
-            >
-              Lưu
+        columns={[
+          { title: 'Tên thẻ', dataIndex: 'name', render: (n: string) => <Tag>{n}</Tag> },
+          { title: 'Đường dẫn', dataIndex: 'slug', render: (s: string) => <span className="muted">{s}</span> },
+          { title: 'Số bài', dataIndex: 'postCount', align: 'right', width: 90 },
+          {
+            title: '',
+            key: 'actions',
+            align: 'right',
+            width: 100,
+            render: (_, t) => (
+              <Space size={2}>
+                <Button type="text" size="small" icon={<PencilSimple size={16} />} title="Sửa" aria-label={`Sửa thẻ "${t.name}"`} onClick={() => list.openEdit(t.id)} />
+                <Popconfirm
+                  title={`Xóa thẻ "${t.name}"?`}
+                  description={t.postCount ? `Thẻ đang gắn với ${t.postCount} bài. Xóa thẻ sẽ gỡ thẻ khỏi các bài đó, bài viết không bị xóa.` : 'Thẻ chưa gắn với bài nào.'}
+                  okText="Xóa"
+                  cancelText="Hủy"
+                  okButtonProps={{ danger: true }}
+                  onConfirm={() => remove(t)}
+                >
+                  <Button type="text" size="small" danger icon={<Trash size={16} />} disabled={busy} aria-label={`Xóa thẻ "${t.name}"`} />
+                </Popconfirm>
+              </Space>
+            ),
+          },
+        ]}
+      />
+      <TagDrawer open={list.action === 'create' || !!editing} editing={editing} onClose={list.closeDrawer} onSaved={() => (list.closeDrawer(), reload())} />
+    </>
+  )
+}
+
+function TagDrawer({ open, editing, onClose, onSaved }: { open: boolean; editing: Tag | null; onClose: () => void; onSaved: () => void }) {
+  const { message } = App.useApp()
+  const [form] = Form.useForm<TagValues>()
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  const name = Form.useWatch('name', form)
+
+  useEffect(() => {
+    if (!open) return
+    setError('')
+    form.setFieldsValue({ name: editing?.name ?? '', slug: editing?.slug ?? '' })
+  }, [open, editing, form])
+
+  async function onFinish(v: TagValues) {
+    if (busy) return
+    setBusy(true)
+    setError('')
+    const body = { name: v.name.trim(), slug: v.slug?.trim() || null }
+    try {
+      if (editing) await api(`/api/admin/tags/${editing.id}`, { method: 'PUT', json: body })
+      else await api('/api/admin/tags', { method: 'POST', json: body })
+      message.success(editing ? 'Đã lưu thẻ.' : `Đã thêm thẻ "${body.name}".`)
+      onSaved()
+    } catch (err) {
+      // Trùng: backend báo trùng slug. Không nhập slug thì slug tạo từ tên, nên báo ở ô tên.
+      const dup = err instanceof ApiError && err.status === 400 && /tồn tại/i.test(err.message)
+      if (dup) form.setFields([{ name: body.slug ? 'slug' : 'name', errors: [`Đã có thẻ dùng đường dẫn "${body.slug ?? slugify(body.name)}". Dùng thẻ đó hoặc đổi tên khác.`] }])
+      else setError(applyError(form, err, TAG_FIELDS, () => undefined))
+      if (err instanceof ApiError && err.status === 404) onSaved()
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <Drawer
+      open={open}
+      title={editing ? `Sửa thẻ "${editing.name}"` : 'Thêm thẻ'}
+      size={420}
+      onClose={onClose}
+      footer={<Flex justify="flex-end" gap={8}><Button onClick={onClose}>Hủy</Button><Button type="primary" loading={busy} onClick={() => form.submit()}>Lưu</Button></Flex>}
+    >
+      {error && <Alert type="error" showIcon title="Chưa lưu được" description={error} style={{ marginBottom: 16 }} />}
+      <Form form={form} layout="vertical" onFinish={onFinish} disabled={busy} requiredMark>
+        <Form.Item name="name" label="Tên thẻ" rules={[{ required: true, whitespace: true, message: 'Nhập tên thẻ.' }, { max: 100, message: 'Tên tối đa 100 ký tự.' }]}>
+          <Input maxLength={100} placeholder="Ví dụ: Học bổng" />
+        </Form.Item>
+        <Form.Item name="slug" label="Đường dẫn (slug)" rules={[slugRule(100)]} extra={`Bỏ trống để tự tạo từ tên${name ? `: ${slugify(name)}` : ''}.`}>
+          <Input maxLength={100} placeholder={name ? slugify(name) : 'hoc-bong'} />
+        </Form.Item>
+      </Form>
+    </Drawer>
+  )
+}
+
+function CategoriesContent() {
+  const list = useListParams()
+  const tab = list.params.get('tab') === 'tags' ? 'tags' : 'categories'
+  const isTags = tab === 'tags'
+  return (
+    <>
+      <h1 className="admin-page-title">Chuyên mục và thẻ</h1>
+      <Card
+        title={
+          <Segmented
+            value={tab}
+            aria-label="Chọn danh sách"
+            options={[{ value: 'categories', label: 'Chuyên mục' }, { value: 'tags', label: 'Thẻ' }]}
+            onChange={(v) => list.update({ tab: v === 'tags' ? 'tags' : null, keyword: null, action: null, id: null, parent: null })}
+          />
+        }
+        extra={
+          <Space wrap>
+            <Input.Search
+              key={tab + list.keyword}
+              allowClear
+              defaultValue={list.keyword}
+              placeholder={isTags ? 'Tìm theo tên thẻ' : 'Tìm theo tên chuyên mục'}
+              aria-label={isTags ? 'Tìm thẻ' : 'Tìm chuyên mục'}
+              onSearch={(v) => list.update({ keyword: v.trim() })}
+              style={{ width: 220 }}
+            />
+            <Button type="primary" icon={<Plus size={16} />} onClick={() => list.update({ action: 'create', id: null, parent: null })}>
+              {isTags ? 'Thêm thẻ' : 'Thêm chuyên mục'}
             </Button>
-          </Flex>
+          </Space>
         }
       >
-        {catDrawerError && <Alert type="error" showIcon title={catDrawerError} style={{ marginBottom: 16 }} />}
-        {catDetailLoading && <Skeleton active />}
-        <Form
-          form={catForm}
-          layout="vertical"
-          onFinish={onSaveCategory}
-          requiredMark
-          disabled={catSaving}
-          hidden={catDetailLoading}
-          initialValues={{ sortOrder: 0, isVisible: true, parentId: 'root' }}
-        >
-          <Form.Item
-            name="name"
-            label="Tên chuyên mục"
-            rules={[
-              { required: true, whitespace: true, message: 'Nhập tên chuyên mục.' },
-              { max: 100, message: 'Tên chuyên mục không quá 100 ký tự.' },
-            ]}
-          >
-            <Input
-              maxLength={100}
-              placeholder="VD: Thông báo học vụ"
-              onChange={(e) => {
-                if (list.action === 'create' && !catForm.isFieldTouched('slug')) {
-                  catForm.setFieldValue('slug', generateSlug(e.target.value))
-                }
-              }}
-            />
-          </Form.Item>
-
-          <Form.Item
-            name="slug"
-            label="Đường dẫn (slug)"
-            extra="Đường dẫn chỉ gồm chữ thường không dấu, chữ số và dấu gạch ngang. Ví dụ: thong-bao-hoc-vu. Bỏ trống để tự tạo từ tên. Đổi đường dẫn làm link cũ không còn dùng được."
-            rules={[
-              {
-                validator: async (_, val) => {
-                  if (!val || !val.trim()) return
-                  if (!SLUG_PATTERN.test(val.trim())) {
-                    throw new Error('Đường dẫn chỉ gồm chữ thường không dấu, chữ số và dấu gạch ngang (VD: thong-bao-hoc-vu).')
-                  }
-                },
-              },
-            ]}
-          >
-            <Input placeholder="thong-bao-hoc-vu" autoCapitalize="none" spellCheck={false} />
-          </Form.Item>
-
-          <Form.Item name="description" label="Mô tả">
-            <Input.TextArea maxLength={500} rows={3} placeholder="Mô tả ngắn về chuyên mục" />
-          </Form.Item>
-
-          <Form.Item
-            name="parentId"
-            label="Chuyên mục cha"
-            extra="Không chọn được chính chuyên mục này và các chuyên mục con của nó."
-          >
-            <TreeSelect
-              treeData={parentTreeData}
-              placeholder="Chọn chuyên mục cha"
-              treeDefaultExpandAll
-              allowClear
-            />
-          </Form.Item>
-
-          <Form.Item name="sortOrder" label="Thứ tự hiển thị">
-            <InputNumber min={0} style={{ width: '100%' }} />
-          </Form.Item>
-
-          <Form.Item
-            name="isVisible"
-            label="Hiển thị trên website"
-            valuePropName="checked"
-            extra="Ẩn thì chuyên mục con cũng không hiện công khai."
-          >
-            <input type="checkbox" role="switch" style={{ cursor: 'pointer', width: 36, height: 20 }} />
-          </Form.Item>
-        </Form>
-      </Drawer>
-
-      {/* Modal Xóa an toàn chuyên mục (Chuyển bài viết & con) */}
-      <Modal
-        open={Boolean(deletingCat)}
-        title={`Xóa chuyên mục "${deletingCat?.name}"?`}
-        onCancel={() => {
-          setDeletingCat(null)
-          setTargetCatId(null)
-          setSafeDeleteError('')
-        }}
-        footer={[
-          <Button key="cancel" onClick={() => { setDeletingCat(null); setTargetCatId(null) }}>Hủy</Button>,
-          <Button key="delete" type="primary" danger disabled={!targetCatId} loading={safeDeleteLoading} onClick={onConfirmSafeDelete}>
-            Chuyển và xóa
-          </Button>,
-        ]}
-      >
-        <Space direction="vertical" size={16} style={{ width: '100%' }}>
-          <Alert
-            type="warning"
-            showIcon
-            message={`Chuyên mục đang có ${deletingCat?.postCount ?? 0} bài viết và ${deletingCat?.children?.length ?? 0} chuyên mục con. Chọn chuyên mục nhận lại trước khi xóa. Bài viết và chuyên mục con được chuyển sang trong cùng một lần xử lý.`}
-          />
-
-          {safeDeleteError && <Alert type="error" showIcon message={safeDeleteError} />}
-
-          <div>
-            <label htmlFor="target-category-select" style={{ display: 'block', fontWeight: 500, marginBottom: 8 }}>
-              * Chuyển bài viết và chuyên mục con sang:
-            </label>
-            <select
-              id="target-category-select"
-              aria-label="Chuyển bài viết và chuyên mục con sang"
-              style={{
-                width: '100%',
-                padding: '8px 12px',
-                borderRadius: 'var(--radius-control)',
-                borderColor: safeDeleteError ? 'var(--color-danger)' : 'var(--color-border)',
-              }}
-              value={targetCatId ?? ''}
-              onChange={(e) => {
-                setTargetCatId(e.target.value || null)
-                setSafeDeleteError('')
-              }}
-            >
-              <option value="">-- Chọn chuyên mục đích --</option>
-              {validTargetCategories.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
-            <div className="muted" style={{ fontSize: 'var(--text-xs)', marginTop: 8 }}>
-              Bài có chuyên mục chính là "{deletingCat?.name}" sẽ đổi chuyên mục chính sang mục được chọn. Đây là xóa mềm: dữ liệu còn trong cơ sở dữ liệu nhưng giao diện không có nút khôi phục.
-            </div>
-          </div>
-        </Space>
-      </Modal>
-
-      {/* Modal Tạo/Sửa thẻ */}
-      <Modal
-        open={tagModalOpen}
-        title={editingTag ? `Sửa thẻ "${editingTag.name}"` : 'Thêm thẻ'}
-        onCancel={() => {
-          setTagModalOpen(false)
-          tagForm.resetFields()
-        }}
-        onOk={() => tagForm.submit()}
-        confirmLoading={tagSaving}
-        okText="Lưu"
-        cancelText="Hủy"
-      >
-        {tagModalError && <Alert type="error" showIcon message={tagModalError} style={{ marginBottom: 16 }} />}
-        <Form
-          form={tagForm}
-          layout="vertical"
-          onFinish={onSaveTag}
-          requiredMark
-          disabled={tagSaving}
-        >
-          <Form.Item
-            name="name"
-            label="Tên thẻ"
-            rules={[
-              { required: true, whitespace: true, message: 'Nhập tên thẻ.' },
-              { max: 50, message: 'Tên thẻ không được quá 50 ký tự.' },
-            ]}
-          >
-            <Input
-              maxLength={50}
-              placeholder="VD: AI"
-              onChange={(e) => {
-                if (!editingTag && !tagForm.isFieldTouched('slug')) {
-                  tagForm.setFieldValue('slug', generateSlug(e.target.value))
-                }
-              }}
-            />
-          </Form.Item>
-
-          <Form.Item
-            name="slug"
-            label="Đường dẫn (slug)"
-            extra="Tự tạo từ tên"
-            rules={[
-              {
-                validator: async (_, val) => {
-                  if (!val || !val.trim()) return
-                  if (!SLUG_PATTERN.test(val.trim())) {
-                    throw new Error('Đường dẫn chỉ gồm chữ thường không dấu, chữ số và dấu gạch ngang.')
-                  }
-                },
-              },
-            ]}
-          >
-            <Input placeholder="ai" autoCapitalize="none" spellCheck={false} />
-          </Form.Item>
-        </Form>
-      </Modal>
-    </Card>
+        {isTags ? <TagsTab keyword={list.keyword} /> : <CategoriesTab keyword={list.keyword} />}
+      </Card>
+    </>
   )
 }
 
