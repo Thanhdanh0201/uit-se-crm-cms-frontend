@@ -93,25 +93,25 @@ function AdminDashboard() {
           <Row gutter={[16, 16]}>
             <Col xs={24} lg={12}>
               <StatCard title="Bài viết" link={{ to: '/admin/posts', label: 'Xem tất cả' }}>
-                {POST_ORDER.map((s) => <Statistic key={s} title={statusLabel(s)} value={n(data.posts[s])} />)}
+                {POST_ORDER.map((s) => <Statistic groupSeparator="." key={s} title={statusLabel(s)} value={n(data.posts[s])} />)}
               </StatCard>
             </Col>
             <Col xs={24} lg={12}>
               <StatCard title="Liên hệ" link={{ to: '/admin/contacts?status=new', label: 'Xử lý yêu cầu mới' }}>
-                {(['new', 'in_progress', 'resolved', 'closed'] as const).map((s) => <Statistic key={s} title={CONTACT_STATUS_LABEL[s]} value={n(data.contacts[s])} />)}
+                {(['new', 'in_progress', 'resolved', 'closed'] as const).map((s) => <Statistic groupSeparator="." key={s} title={CONTACT_STATUS_LABEL[s]} value={n(data.contacts[s])} />)}
               </StatCard>
             </Col>
             <Col xs={24} lg={12}>
               <StatCard title="Người dùng đang hoạt động" link={{ to: '/admin/users', label: 'Quản lý' }}>
-                {(['student', 'editor', 'admin'] as const).map((r) => <Statistic key={r} title={ROLE_LABEL[r]} value={n(data.users.activeByRole[r])} />)}
-                <Statistic title="Đã khóa" value={data.users.locked} />
+                {(['student', 'editor', 'admin'] as const).map((r) => <Statistic groupSeparator="." key={r} title={ROLE_LABEL[r]} value={n(data.users.activeByRole[r])} />)}
+                <Statistic groupSeparator="." title="Đã khóa" value={data.users.locked} />
               </StatCard>
             </Col>
             <Col xs={24} lg={12}>
               <StatCard title="Sự kiện" link={{ to: '/admin/events', label: 'Quản lý' }}>
-                <Statistic title="Sắp diễn ra" value={data.events.upcoming} />
-                <Statistic title="Đang mở đăng ký" value={data.events.openForRegistration} />
-                <Statistic title="Lượt đăng ký" value={data.events.activeRegistrations} />
+                <Statistic groupSeparator="." title="Sắp diễn ra" value={data.events.upcoming} />
+                <Statistic groupSeparator="." title="Đang mở đăng ký" value={data.events.openForRegistration} />
+                <Statistic groupSeparator="." title="Lượt đăng ký" value={data.events.activeRegistrations} />
               </StatCard>
             </Col>
           </Row>
