@@ -114,3 +114,36 @@ export async function upload<T>(path: string, form: FormData, onProgress?: (perc
   if (res.status < 200 || res.status >= 300) throw toApiError(res.status, res.body)
   return unwrap(res.body) as T
 }
+
+// Tải file từ API (CSV...): cùng luật cookie và refresh khi 401. Lỗi trả ApiError như api().
+// Tên file lấy từ Content-Disposition (ưu tiên filename* UTF-8), không có thì dùng fallback.
+export async function download(path: string, fallbackName: string): Promise<string> {
+  const send = () => fetch(BASE + path, { credentials: 'include' })
+  let res = await send()
+  if (res.status === 401 && typeof window !== 'undefined') {
+    if (await refreshSession()) res = await send()
+    if (res.status === 401) window.dispatchEvent(new Event(AUTH_EXPIRED_EVENT))
+  }
+  if (!res.ok) {
+    const body = res.headers.get('content-type')?.includes('json') ? await res.json() : undefined
+    throw toApiError(res.status, body)
+  }
+  const name = fileNameFrom(res.headers.get('content-disposition')) ?? fallbackName
+  const url = URL.createObjectURL(await res.blob())
+  const a = document.createElement('a')
+  a.href = url
+  a.download = name
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  setTimeout(() => URL.revokeObjectURL(url), 1000)
+  return name
+}
+
+export function fileNameFrom(disposition: string | null): string | null {
+  if (!disposition) return null
+  const star = disposition.match(/filename\*=UTF-8''([^;]+)/i)
+  if (star) return decodeURIComponent(star[1].trim())
+  const plain = disposition.match(/filename="?([^";]+)"?/i)
+  return plain ? plain[1].trim() : null
+}
