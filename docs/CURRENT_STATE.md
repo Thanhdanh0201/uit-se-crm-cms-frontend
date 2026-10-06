@@ -49,7 +49,17 @@
 - Helper cây dùng chung `src/admin/tree.ts` (duyệt, di chuyển, kéo thả, chặn cấp, thứ tự gửi server) có test `tree.test.ts`.
 - Test: `tree.test.ts`, `Menus.test.tsx`, `Categories.test.tsx`. Toàn bộ 107 test pass. Chưa chạy với backend thật (kiểm tra bằng API giả lập).
 
+## Đã hoàn thành (Sprint 5, phần quản trị), cập nhật 06/10/2026
+- Task SCRUM-47 [FE] Quản trị sự kiện (FR-EVT): `/admin/events` (branch `feat/admin-events`). Lọc trạng thái, tìm theo tên/địa điểm, phân trang trên URL, thanh số đăng ký/sức chứa. Drawer tạo/sửa nhập giờ Việt Nam, gửi UTC; kiểm tra kết thúc sau bắt đầu, hạn đăng ký không sau bắt đầu; sức chứa không nhỏ hơn số đã đăng ký (422 `capacity_below_registered` gắn vào ô). Xóa có xác nhận.
+- Task SCRUM-57 [FE] Danh sách đăng ký và xuất CSV: `/admin/events/:id` (branch `feat/event-registrations`, merge sau `feat/admin-events`). Lọc trạng thái, tìm kiếm, phân trang, nút Xuất CSV dùng `download()` mới trong `src/lib/api.ts`.
+- Task SCRUM-48 [FE] Phản hồi liên hệ, phần quản trị: `/admin/contacts` (branch `feat/admin-contacts`). Lọc trạng thái, phân loại, từ khóa; drawer chi tiết đổi trạng thái và phân loại. Form liên hệ công khai `/contact` chưa làm.
+- Task SCRUM-56 [FE] Người phụ trách và ghi chú nội bộ (branch `feat/contact-notes`, merge sau `feat/admin-contacts`): lọc và chọn người phụ trách, thêm/xem ghi chú nội bộ.
+- Task SCRUM-49 [FE] Dashboard và nhật ký (FR-REP, FR-LOG): `/admin` thống kê bài viết, liên hệ, người dùng, sự kiện, bài chờ duyệt, mỗi khối tải riêng; `/admin/activity-logs` lọc người thực hiện, hành động, đối tượng, khoảng ngày (branch `feat/dashboard-logs`).
+- Backend Sprint 5 (branch `feat/events`, `feat/registrations-csv`, `feat/contacts`, `feat/dashboard-logs`): SCRUM-21, 22, 23, 28.
+- Test: `Events.test.tsx`, `EventRegistrations.test.tsx`, `Contacts.test.tsx`, `DashboardLogs.test.tsx`. Còn nghiệm thu với backend thật.
+
 ## Kế tiếp
+- Sprint 5 còn lại: form liên hệ công khai `/contact` (SCRUM-48), phía sinh viên đăng ký sự kiện và yêu cầu đã gửi (SCRUM-46, 55).
 - Các trang được trang chủ liên kết tới nhưng chưa có (đang trả 404): `/categories/:slug` (chờ API bài theo chuyên mục), `/events`, `/events/:id`, `/contact`, `/search`.
 - FR-AUTH-05: màn hình đổi mật khẩu (`POST /api/auth/change-password`).
 - Trang tĩnh và cấu hình trang chủ (backend đã có ở `feat/pages-home`, chưa có task FE).

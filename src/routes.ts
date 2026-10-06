@@ -33,6 +33,7 @@ export default [
   route('admin', 'admin/AdminRoute.tsx', [
     index('pages/admin/Dashboard.tsx'),
     route('users', 'pages/admin/Users.tsx'),
+    route('activity-logs', 'pages/admin/ActivityLogs.tsx'),
     route('media', 'pages/admin/Media.tsx'),
     route('posts', 'pages/admin/Posts.tsx'),
     route('posts/new', 'pages/admin/PostEditor.tsx', { id: 'post-new' }),
