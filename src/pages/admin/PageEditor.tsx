@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useBlocker, useNavigate, useParams } from 'react-router'
-import { Alert, App, Button, Card, Col, Drawer, Flex, Form, Input, Row, Select, Skeleton, Tag } from 'antd'
+import { Alert, App, Button, Card, Col, DatePicker, Drawer, Flex, Form, Input, Row, Select, Skeleton, Tag } from 'antd'
+import type { Dayjs } from 'dayjs'
 import { ArrowLeft, Eye } from '@phosphor-icons/react'
 import { api, ApiError } from '../../lib/api'
 import { RequireRole } from '../../lib/auth'
@@ -9,6 +10,7 @@ import { RichText } from '../../components/PostArticle'
 import { RichTextEditor, withMediaUrls } from '../../admin/RichTextEditor'
 import type { MediaDto } from '../../admin/media'
 import { formatDateTime, type PostMedia, type RichNode } from '../../admin/posts'
+import { SCHEDULE_LABEL, scheduleState, utcToVnPicker, vnPickerToUtc } from '../../admin/vnTime'
 import { PAGE_STATUS, pageErrorMessage, type PageStatus } from './StaticPages'
 
 export const meta = () => noIndex('Soạn trang tĩnh')
@@ -28,7 +30,7 @@ export type PageDetail = {
   createdAt: string
   updatedAt: string
 }
-type Values = { title: string; slug?: string; status: PageStatus }
+type Values = { title: string; slug?: string; status: PageStatus; publishedAt?: Dayjs | null; expiresAt?: Dayjs | null }
 
 const EMPTY_DOC: RichNode = { type: 'doc', content: [{ type: 'paragraph' }] }
 
@@ -36,7 +38,7 @@ const EMPTY_DOC: RichNode = { type: 'doc', content: [{ type: 'paragraph' }] }
 function snap(v: Partial<Values>, doc: RichNode) {
   const c = [...(doc.content ?? [])]
   while (c.length && c[c.length - 1].type === 'paragraph' && !c[c.length - 1].content?.length) c.pop()
-  return JSON.stringify([v.title ?? '', v.slug ?? '', v.status ?? '', { ...doc, content: c }])
+  return JSON.stringify([v.title ?? '', v.slug ?? '', v.status ?? '', v.publishedAt?.valueOf() ?? null, v.expiresAt?.valueOf() ?? null, { ...doc, content: c }])
 }
 
 function PageEditorContent() {
@@ -66,7 +68,7 @@ function PageEditorContent() {
   }
 
   const apply = useCallback((p: PageDetail) => {
-    form.setFieldsValue({ title: p.title, slug: p.slug, status: p.status })
+    form.setFieldsValue({ title: p.title, slug: p.slug, status: p.status, publishedAt: p.publishedAt ? utcToVnPicker(p.publishedAt) : null, expiresAt: p.expiresAt ? utcToVnPicker(p.expiresAt) : null })
     const doc = withMediaUrls(p.content, p.media)
     setPage(p)
     setMedia(p.media)
@@ -79,7 +81,7 @@ function PageEditorContent() {
 
   const load = useCallback(async () => {
     if (!id) {
-      form.setFieldsValue({ title: '', slug: '', status: 'draft' })
+      form.setFieldsValue({ title: '', slug: '', status: 'draft', publishedAt: null, expiresAt: null })
       savedRef.current = snap(form.getFieldsValue(true), EMPTY_DOC)
       return
     }
@@ -132,7 +134,14 @@ function PageEditorContent() {
     setSaving(true)
     setSaveError('')
     setContentError('')
-    const body = { title: values.title.trim(), slug: values.slug?.trim() || null, status: values.status, content, publishedAt: page?.publishedAt ?? null, expiresAt: page?.expiresAt ?? null }
+    const body = {
+      title: values.title.trim(),
+      slug: values.slug?.trim() || null,
+      status: values.status,
+      content,
+      publishedAt: values.publishedAt ? vnPickerToUtc(values.publishedAt) : null,
+      expiresAt: values.expiresAt ? vnPickerToUtc(values.expiresAt) : null,
+    }
     try {
       const saved = page
         ? await api<PageDetail>(`/api/admin/pages/${page.id}`, { method: 'PUT', json: body })
@@ -148,6 +157,8 @@ function PageEditorContent() {
           const key = k.toLowerCase()
           if (key === 'content') setContentError(errors[0])
           else if (key === 'title' || key === 'slug' || key === 'status') fields.push({ name: key, errors })
+          else if (key === 'expiresat') fields.push({ name: 'expiresAt', errors })
+          else if (key === 'publishedat') fields.push({ name: 'publishedAt', errors })
         }
         form.setFields(fields)
         if (!fields.length && !err.errors.Content) setSaveError(pageErrorMessage(err))
@@ -214,6 +225,26 @@ function PageEditorContent() {
               <Form.Item name="status" label="Trạng thái" extra="Chỉ trang Đã xuất bản mới xem được công khai.">
                 <Select options={(Object.keys(PAGE_STATUS) as PageStatus[]).map((s) => ({ value: s, label: PAGE_STATUS[s].label }))} />
               </Form.Item>
+              <Form.Item name="publishedAt" label="Xuất bản lúc (giờ Việt Nam)" extra="Bỏ trống: xuất bản ngay khi lưu ở trạng thái Đã xuất bản.">
+                <DatePicker showTime format="DD/MM/YYYY HH:mm" style={{ width: '100%' }} placeholder="Ngay khi xuất bản" />
+              </Form.Item>
+              <Form.Item
+                name="expiresAt"
+                label="Hết hiển thị lúc (giờ Việt Nam)"
+                dependencies={['publishedAt']}
+                rules={[({ getFieldValue }) => ({
+                  validator: (_, v: Dayjs | null) => {
+                    const pub = getFieldValue('publishedAt') as Dayjs | null
+                    const from = pub ? vnPickerToUtc(pub) : new Date().toISOString()
+                    return !v || vnPickerToUtc(v) > from ? Promise.resolve() : Promise.reject(new Error('Thời điểm hết hạn phải sau thời điểm xuất bản.'))
+                  },
+                })]}
+              >
+                <DatePicker showTime format="DD/MM/YYYY HH:mm" style={{ width: '100%' }} placeholder="Không hết hạn" />
+              </Form.Item>
+              {page && scheduleState(page) && (
+                <div style={{ marginBottom: 12 }}><Tag color={SCHEDULE_LABEL[scheduleState(page)!].color}>{SCHEDULE_LABEL[scheduleState(page)!].label}</Tag></div>
+              )}
               {page && <div className="muted" style={{ fontSize: 'var(--text-sm)', marginBottom: 12 }}>Lưu lần cuối {formatDateTime(page.updatedAt)}</div>}
               <Flex wrap gap={8}>
                 <Button type="primary" loading={saving} onClick={save}>Lưu</Button>

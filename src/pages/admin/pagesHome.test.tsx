@@ -108,3 +108,27 @@ test('thêm khối: validate số bài 1-12 trước khi gửi', async () => {
   expect(await screen.findByText('Nhập tiêu đề khối.')).toBeTruthy()
   expect(api.fetchMock.mock.calls.filter(([, i]) => i?.method === 'POST')).toHaveLength(0)
 })
+
+test('tổng quan: admin thấy cảnh báo mục menu trỏ tới trang lỗi', async () => {
+  const { default: Dashboard } = await import('./Dashboard')
+  mockApi({
+    ...admin,
+    '/api/admin/menu-items/warnings': () => ok([{ itemId: 'mi1', menuId: 'mn1', menuName: 'Menu chính', label: 'Liên hệ', kind: 'page', isVisible: true, code: 'page_not_published', message: 'Trang "Liên hệ" chưa xuất bản.' }]),
+  })
+  open('/admin', [{ path: '/admin', element: <Dashboard /> }])
+  expect(await screen.findByText('1 mục menu đang dẫn tới trang lỗi hoặc bị ẩn')).toBeTruthy()
+  expect(screen.getByText('Menu chính: Liên hệ')).toBeTruthy()
+})
+
+test('sửa trang: giờ nhập là giờ Việt Nam, gửi lên UTC', async () => {
+  const api = mockApi({
+    ...admin,
+    '/api/admin/pages/g1': (_, init) => init?.method === 'PUT' ? ok({ ...PAGE, status: 'published', publishedAt: '2026-10-10T01:00:00.000Z' }) : ok({ ...PAGE, status: 'published', publishedAt: '2026-10-10T01:00:00.000Z' }),
+  })
+  open('/admin/pages/g1/edit', [{ path: '/admin/pages/:id/edit', element: <PageEditor /> }])
+  const pub = await screen.findByLabelText('Xuất bản lúc (giờ Việt Nam)')
+  await waitFor(() => expect((pub as HTMLInputElement).value).toBe('10/10/2026 08:00'))
+  await userEvent.click(screen.getByRole('button', { name: 'Lưu' }))
+  await waitFor(() => expect(api.calls('/api/admin/pages/g1').find(([, i]) => i?.method === 'PUT')).toBeTruthy())
+  expect(JSON.parse(String(api.calls('/api/admin/pages/g1').find(([, i]) => i?.method === 'PUT')![1]?.body)).publishedAt).toBe('2026-10-10T01:00:00.000Z')
+})
