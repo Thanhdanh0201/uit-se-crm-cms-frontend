@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router'
-import { Alert, App, Button, Card, Checkbox, Empty, Input, Popconfirm, Segmented, Select, Space, Table, Tag, Tooltip } from 'antd'
+import { Alert, App, Button, Card, Checkbox, Empty, Input, Popconfirm, Segmented, Select, Space, Table, Tag } from 'antd'
 import { CheckSquareOffset, Eye, PencilSimple, Plus, Star } from '@phosphor-icons/react'
 import { api, ApiError } from '../../lib/api'
 import { useAuth } from '../../lib/auth'
@@ -80,6 +80,7 @@ export default function Posts() {
   // Danh sách chuyên mục cho bộ lọc. Lỗi thì chỉ mất bộ lọc, danh sách bài vẫn dùng được.
   useEffect(() => {
     api<Ref[]>('/api/admin/categories')
+      .catch(() => api<Ref[]>('/api/public/categories'))
       .then((items) => setCategories(items.map((c) => ({ id: c.id, name: c.name }))))
       .catch(() => setCategories([]))
   }, [])
@@ -137,9 +138,7 @@ export default function Posts() {
             onSearch={(v) => list.update({ keyword: v.trim() })}
             style={{ width: 220 }}
           />
-          <Tooltip title="Viết bài mới">
-            <Button type="primary" icon={<Plus size={16} />} aria-label="Viết bài mới" onClick={() => navigate('/admin/posts/new')} />
-          </Tooltip>
+          <Button type="primary" icon={<Plus size={16} />} title="Viết bài mới" aria-label="Viết bài mới" onClick={() => navigate('/admin/posts/new')} />
         </Space>
       }
     >
@@ -151,7 +150,7 @@ export default function Posts() {
         rowKey="id"
         loading={loading}
         dataSource={data?.items ?? []}
-        scroll={{ x: 900 }}
+        scroll={{ x: 'max-content' }}
         locale={{
           emptyText: error ? ' ' : (
             <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={filtered ? 'Không có bài viết khớp bộ lọc.' : 'Chưa có bài viết nào.'}>
@@ -216,17 +215,11 @@ export default function Posts() {
             render: (_, p) => (
               <Space size={4} wrap>
                 {canEdit(p, me) && (
-                  <Tooltip title="Sửa">
-                    <Button type="text" icon={<PencilSimple size={16} />} aria-label={`Sửa ${p.title}`} onClick={() => navigate(`/admin/posts/${p.id}/edit`)} />
-                  </Tooltip>
+                  <Button type="text" icon={<PencilSimple size={16} />} title="Sửa" aria-label={`Sửa ${p.title}`} onClick={() => navigate(`/admin/posts/${p.id}/edit`)} />
                 )}
-                <Tooltip title="Xem trước">
-                  <Button type="text" icon={<Eye size={16} />} aria-label={`Xem trước ${p.title}`} onClick={() => navigate(`/admin/posts/${p.id}/preview`)} />
-                </Tooltip>
+                <Button type="text" icon={<Eye size={16} />} title="Xem trước" aria-label={`Xem trước ${p.title}`} onClick={() => navigate(`/admin/posts/${p.id}/preview`)} />
                 {isAdmin && (p.status === 'pending' || p.status === 'archived' || p.status === 'published') && (
-                  <Tooltip title="Duyệt, xuất bản">
-                    <Button type="text" icon={<CheckSquareOffset size={16} />} aria-label={`Duyệt ${p.title}`} onClick={() => navigate(`/admin/review/${p.id}`)} />
-                  </Tooltip>
+                  <Button type="text" icon={<CheckSquareOffset size={16} />} title="Duyệt, xuất bản" aria-label={`Duyệt ${p.title}`} onClick={() => navigate(`/admin/review/${p.id}`)} />
                 )}
                 {p.allowedStatuses.filter((s) => QUICK.includes(s)).map((s) => (
                   <Popconfirm

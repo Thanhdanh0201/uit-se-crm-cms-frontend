@@ -44,7 +44,7 @@
 
 .site-nav { display: none; align-items: center; gap: var(--space-1); margin-left: auto; }
 .site-nav a,
-.site-menu__panel > a {
+.site-menu__item a {
   padding: var(--space-2) var(--space-3);
   border-radius: var(--radius-control);
   color: var(--color-text-subtle);
@@ -53,9 +53,41 @@
   text-decoration: none;
 }
 .site-nav a:hover,
-.site-menu__panel > a:hover { color: var(--color-primary); background: var(--color-primary-soft); }
+.site-menu__item a:hover { color: var(--color-primary); background: var(--color-primary-soft); }
 .site-nav a.active,
-.site-menu__panel > a.active { color: var(--color-primary); font-weight: 600; }
+.site-menu__item a.active { color: var(--color-primary); font-weight: 600; }
+
+/* Mục có menu con: dropdown mở khi rê chuột hoặc khi Tab vào bất kỳ link nào trong nhóm */
+.site-nav__group { position: relative; display: flex; align-items: center; }
+.site-nav__group .site-nav__parent { padding-right: var(--space-5); }
+.site-nav__caret { position: absolute; right: var(--space-2); pointer-events: none; color: var(--color-text-muted); }
+.site-nav__dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 20;
+  min-width: 240px;
+  padding: var(--space-2);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-lg);
+  visibility: hidden;
+  opacity: 0;
+}
+.site-nav__group:hover .site-nav__dropdown,
+.site-nav__group:focus-within .site-nav__dropdown { visibility: visible; opacity: 1; }
+.site-nav__dropdown ul,
+.site-menu__item ul { list-style: none; margin: 0; padding: 0; }
+.site-nav__dropdown a,
+.site-menu__item ul a { display: block; }
+.site-nav__dropdown ul ul,
+.site-menu__item ul { padding-left: var(--space-3); }
+@media (prefers-reduced-motion: no-preference) {
+  .site-nav__dropdown { transition: opacity 0.15s, visibility 0.15s; }
+}
+.site-menu__item { display: flex; flex-direction: column; }
+.site-menu__item a { display: block; }
 
 .site-actions { display: flex; align-items: center; gap: var(--space-2); margin-left: auto; }
 .site-actions__account { display: none; gap: var(--space-2); }
@@ -71,6 +103,8 @@
   display: flex;
   flex-direction: column;
   min-width: 240px;
+  max-height: calc(100vh - 88px);
+  overflow-y: auto;
   padding: var(--space-2);
   background: var(--color-surface);
   border: 1px solid var(--color-border);

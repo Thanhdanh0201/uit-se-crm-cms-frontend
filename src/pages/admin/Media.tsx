@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Alert, App, Button, Card, Checkbox, Descriptions, Drawer, Empty, Flex, Form, Input, Modal, Pagination, Popconfirm, Segmented, Skeleton, Space, Table, Tooltip } from 'antd'
+import { Alert, App, Button, Card, Checkbox, Descriptions, Drawer, Empty, Flex, Form, Input, Modal, Pagination, Popconfirm, Segmented, Skeleton, Space, Table } from 'antd'
 import { ListBullets, Plus, SquaresFour, Trash, YoutubeLogo } from '@phosphor-icons/react'
 import { api, ApiError } from '../../lib/api'
 import { useAuth } from '../../lib/auth'
@@ -195,12 +195,8 @@ export default function Media() {
               { value: 'list', icon: <ListBullets size={16} aria-hidden />, title: 'Dạng danh sách' },
             ]}
           />
-          <Tooltip title="Thêm video YouTube">
-            <Button icon={<YoutubeLogo size={16} />} aria-label="Thêm video YouTube" onClick={() => list.update({ action: 'video', id: null })} />
-          </Tooltip>
-          <Tooltip title="Tải lên">
-            <Button type="primary" icon={<Plus size={16} />} aria-label="Tải lên" onClick={() => list.update({ action: 'create', id: null })} />
-          </Tooltip>
+          <Button icon={<YoutubeLogo size={16} />} title="Thêm video YouTube" aria-label="Thêm video YouTube" onClick={() => list.update({ action: 'video', id: null })} />
+          <Button type="primary" icon={<Plus size={16} />} title="Tải lên" aria-label="Tải lên" onClick={() => list.update({ action: 'create', id: null })} />
         </Space>
       }
     >
@@ -224,7 +220,7 @@ export default function Media() {
           loading={loading}
           dataSource={items}
           pagination={false}
-          scroll={{ x: 760 }}
+          scroll={{ x: 'max-content' }}
           onRow={(m) => ({ onClick: () => list.openEdit(m.id) })}
           columns={[
             {

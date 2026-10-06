@@ -30,11 +30,13 @@ export const adminTheme: ThemeConfig = {
     },
     Menu: {
       darkItemBg: NAV_BG,
-      darkSubMenuItemBg: '#092559',
+      darkSubMenuItemBg: NAV_BG, // mục con cùng nền sidebar, chỉ thụt lề
+      darkPopupBg: NAV_BG,
       darkItemColor: '#c7d4f0', // --color-nav-text
       darkItemHoverBg: 'rgba(255, 255, 255, 0.08)', // --color-nav-hover
-      darkItemSelectedBg: 'rgba(255, 255, 255, 0.16)', // --color-nav-active
-      darkItemSelectedColor: '#ffffff',
+      // Mục đang chọn: nền trắng chữ xanh, nổi rõ trên sidebar xanh đậm.
+      darkItemSelectedBg: '#ffffff',
+      darkItemSelectedColor: '#0041d9', // --color-primary
       darkGroupTitleColor: 'rgba(199, 212, 240, 0.6)',
       itemBorderRadius: 8,
     },
