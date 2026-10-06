@@ -40,13 +40,19 @@
 - Task SCRUM-39 [FE] Danh sách bài viết (FR-POST-03..05): `/admin/posts`, lọc trạng thái, chuyên mục, từ khóa, "Của tôi" (admin), phân trang server, bộ lọc trên URL. Nút sửa theo quyền, nút chuyển trạng thái theo `allowedStatuses` của server (gửi duyệt, về nháp, lưu trữ có xác nhận). 409 báo bài đã đổi và tải lại; 403 và lỗi nghiệp vụ hiện rõ.
 - Task SCRUM-40 [FE] Trình soạn thảo (FR-POST-01..04, 08; AT-02): `/admin/posts/new`, `/admin/posts/:id/edit` dùng Tiptap. Chèn ảnh/video từ thư viện media, ảnh đại diện qua `MediaPicker`, chuyên mục, thẻ, tóm tắt, đường dẫn. Lưu nháp kèm version, 409 hỏi tải lại; lỗi API giữ nội dung và sao lưu vào máy (khôi phục khi mở lại); cảnh báo rời trang chưa lưu; gửi duyệt từ trình soạn thảo. Xem trước dùng chung `PostArticle` với trang công khai (`/posts/:slug` nay gọi API thật). Trang `/admin/posts/:id/preview`.
 - Task SCRUM-41 [FE] Duyệt bài: `/admin/review` (chờ duyệt, đã xuất bản, lưu trữ) và `/admin/review/:id` (chỉ admin). Xuất bản qua hộp thoại xác nhận, hẹn giờ và hết hạn tùy chọn; yêu cầu chỉnh sửa bắt buộc lý do; lưu trữ, về nháp có xác nhận; đặt bài nổi bật; lịch sử trạng thái tải lại sau mỗi thao tác thành công.
-- Backend Sprint 3 (các branch `feat/posts-draft`, `feat/posts-review`, `feat/pages-home`): SCRUM-15, 16, 17. Xem `.kiro/steering/api-contract.md`.
-- Test: `Posts.test.tsx`, `PostEditor.test.tsx`, `ReviewDetail.test.tsx`, `PostArticle.test.tsx`. Còn nghiệm thu với backend thật.
+- Task SCRUM-35 [FE] Quản lý menu (FR-MENU-01..05, AT-01), làm lại theo Figma ngày 06/10/2026: `/admin/menus`, chỉ admin. Cột trái danh sách menu (thêm, sửa tên/mã, xóa có xác nhận), mobile đổi thành ô chọn. Cây mục 3 cấp bằng antd `Tree`: kéo thả hoặc nút Di chuyển (lên, xuống, vào trong, ra ngoài một cấp, dùng được bằng bàn phím), chặn vượt 3 cấp và thả vào cây con ngay ở client. Thứ tự sửa trên máy, thanh "Đã đổi thứ tự N mục, chưa lưu" với Hủy thay đổi / Lưu thứ tự (`PUT /api/admin/menus/{id}/tree`), lỗi thì giữ nguyên thứ tự đang sửa; khi đang có thứ tự chưa lưu thì khóa sửa/xóa/bật tắt và hỏi trước khi rời trang hoặc đổi menu. Drawer thêm/sửa mục: loại Trang / Chuyên mục / Liên kết ngoài, mục cha không có chính nó và cây con, báo vượt 3 cấp trước khi gửi và hiện lý do khi server từ chối. Mục trỏ đích đã xóa tô đỏ, mục ẩn và mục con của mục ẩn ghi rõ.
+- Header public lấy menu mã `main` qua loader của `PublicLayout` (SSR, không tải lại mỗi lần chuyển trang). Mục có con mở dropdown khi rê chuột hoặc Tab vào; mobile hiện cấp con thụt lề. Lỗi API hoặc chưa có menu thì dùng menu dự phòng.
+- Task SCRUM-36 [FE] Chuyên mục và thẻ (FR-CAT-01..04), làm lại theo Figma ngày 06/10/2026: `/admin/categories`, chỉ admin, tab Chuyên mục / Thẻ trên URL. Bảng cây chuyên mục (số bài, thứ tự, bật/tắt hiển thị), chuyên mục con của chuyên mục ẩn ghi "Không hiện công khai". Drawer thêm/sửa: kiểm tra đường dẫn cùng quy tắc backend kèm gợi ý bỏ dấu, chuyên mục cha không có chính nó và con cháu, lỗi trùng đường dẫn từ server gắn vào ô. Xóa an toàn: chuyên mục còn bài hoặc con phải chọn nơi nhận (bỏ chính nó và con cháu), lỗi thì giữ hộp thoại và danh sách, thành công mới tải lại. Thẻ: thêm/sửa/xóa, báo trùng dưới ô tên.
+- Đã bỏ trang `/categories/:slug` của bản trước: dữ liệu bài lấy tạm từ `/api/public/home`, không đúng. Chờ backend có API công khai lấy bài theo chuyên mục (FR-PUB, Sprint 4).
+- Giữ commit sửa giật thanh cuộn khi rê chuột (thay antd `Tooltip` bằng thuộc tính `title`, `scrollbar-gutter: stable`); trang menu và chuyên mục mới cũng dùng `title`, không dùng `Tooltip`.
+- `Posts.tsx` và `PostEditor.tsx` (bản trước) gọi `/api/public/categories`, `/api/public/tags` khi API admin lỗi, để bộ lọc và trình soạn thảo vẫn có danh sách.
+- Helper cây dùng chung `src/admin/tree.ts` (duyệt, di chuyển, kéo thả, chặn cấp, thứ tự gửi server) có test `tree.test.ts`.
+- Test: `tree.test.ts`, `Menus.test.tsx`, `Categories.test.tsx`. Toàn bộ 107 test pass. Chưa chạy với backend thật (kiểm tra bằng API giả lập).
 
 ## Kế tiếp
-- Các trang được trang chủ liên kết tới nhưng chưa có (đang trả 404): `/categories/:slug`, `/events`, `/events/:id`, `/pages/:slug`, `/contact`, `/search`.
+- Các trang được trang chủ liên kết tới nhưng chưa có (đang trả 404): `/categories/:slug` (chờ API bài theo chuyên mục), `/events`, `/events/:id`, `/contact`, `/search`.
 - FR-AUTH-05: màn hình đổi mật khẩu (`POST /api/auth/change-password`).
-- Chờ nối frontend: menu, chuyên mục, thẻ (backend đã có); trang tĩnh và cấu hình trang chủ (backend đã có ở `feat/pages-home`, chưa có task FE).
+- Trang tĩnh và cấu hình trang chủ (backend đã có ở `feat/pages-home`, chưa có task FE).
 
 ## Ghi chú
 - Refresh token và logout thu hồi session đã làm ở cả backend (chưa commit trong repo backend) và frontend (`api.ts` tự refresh khi 401).
@@ -57,4 +63,5 @@
 - `GET /api/auth/me` chỉ trả `userId`, `role`, `email`; sau khi F5 chưa có `fullName`. Cần backend bổ sung nếu UI hiển thị tên.
 
 ## Cập nhật lần cuối
-2026-09-27
+06/10/2026
+

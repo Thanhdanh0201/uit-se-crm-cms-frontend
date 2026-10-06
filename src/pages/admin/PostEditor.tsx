@@ -140,8 +140,15 @@ export default function PostEditor() {
   }, [load])
 
   useEffect(() => {
-    api<Ref[]>('/api/admin/categories').then((c) => setCategories(c.map((x) => ({ id: x.id, name: x.name })))).catch(() => setCategories([]))
-    api<Ref[]>('/api/admin/tags').then((t) => setTags(t.map((x) => ({ id: x.id, name: x.name })))).catch(() => setTags([]))
+    api<Ref[]>('/api/admin/categories')
+      .catch(() => api<Ref[]>('/api/public/categories'))
+      .then((c) => setCategories(c.map((x) => ({ id: x.id, name: x.name }))))
+      .catch(() => setCategories([]))
+
+    api<Ref[]>('/api/admin/tags')
+      .catch(() => api<Ref[]>('/api/public/tags'))
+      .then((t) => setTags(t.map((x) => ({ id: x.id, name: x.name }))))
+      .catch(() => setTags([]))
   }, [])
 
   // Có thay đổi: đánh dấu chưa lưu và sao lưu vào máy (trễ 800 ms để không ghi liên tục khi gõ).

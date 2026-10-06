@@ -6,17 +6,25 @@
 
 html {
   -webkit-text-size-adjust: 100%;
+  overflow-x: hidden;
+  scrollbar-gutter: stable;
 }
 
 body {
   margin: 0;
   min-width: 360px;
+  overflow-x: hidden;
   font-family: var(--font-sans);
   font-size: var(--text-base);
   line-height: var(--leading-normal);
   color: var(--color-text);
   background: var(--color-bg);
   -webkit-font-smoothing: antialiased;
+}
+
+#root {
+  min-height: 100vh;
+  overflow-x: hidden;
 }
 
 h1,

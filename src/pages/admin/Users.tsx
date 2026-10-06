@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Alert, App, Button, Card, Drawer, Empty, Flex, Form, Input, Popconfirm, Segmented, Select, Skeleton, Space, Table, Tag, Tooltip } from 'antd'
+import { Alert, App, Button, Card, Drawer, Empty, Flex, Form, Input, Popconfirm, Segmented, Select, Skeleton, Space, Table, Tag } from 'antd'
 import { LockSimple, LockSimpleOpen, PencilSimple, Plus } from '@phosphor-icons/react'
 import { api, ApiError } from '../../lib/api'
 import { RequireRole, useAuth, type Role } from '../../lib/auth'
@@ -208,9 +208,7 @@ function UsersPageContent() {
             onSearch={(v) => list.update({ keyword: v.trim() })}
             style={{ width: 260 }}
           />
-          <Tooltip title="Thêm người dùng">
-            <Button type="primary" icon={<Plus size={16} />} aria-label="Thêm người dùng" onClick={() => { form.resetFields(); list.openCreate() }} />
-          </Tooltip>
+          <Button type="primary" icon={<Plus size={16} />} title="Thêm người dùng" aria-label="Thêm người dùng" onClick={() => { form.resetFields(); list.openCreate() }} />
         </Space>
       }
     >
@@ -229,7 +227,7 @@ function UsersPageContent() {
         rowKey="id"
         loading={loading}
         dataSource={data?.items ?? []}
-        scroll={{ x: 860 }}
+        scroll={{ x: 'max-content' }}
         locale={{
           emptyText: error ? ' ' : (
             <Empty
@@ -276,14 +274,10 @@ function UsersPageContent() {
               const self = r.id === me?.id
               return (
                 <Space size={4}>
-                  <Tooltip title="Sửa">
-                    <Button type="text" icon={<PencilSimple size={16} />} aria-label={`Sửa ${r.fullName}`} onClick={() => list.openEdit(r.id)} />
-                  </Tooltip>
+                  <Button type="text" icon={<PencilSimple size={16} />} title="Sửa" aria-label={`Sửa ${r.fullName}`} onClick={() => list.openEdit(r.id)} />
                   {self ? (
                     // Tự khóa mình sẽ mất quyền truy cập ngay. Backend chưa chặn, nên UI chặn.
-                    <Tooltip title="Không thể tự khóa tài khoản của chính mình">
-                      <Button type="text" icon={<LockSimple size={16} />} aria-label="Không thể tự khóa tài khoản của chính mình" disabled />
-                    </Tooltip>
+                    <Button type="text" icon={<LockSimple size={16} />} title="Không thể tự khóa tài khoản của chính mình" aria-label="Không thể tự khóa tài khoản của chính mình" disabled />
                   ) : (
                     <Popconfirm
                       title={r.isActive ? `Khóa tài khoản ${r.fullName}?` : `Mở khóa tài khoản ${r.fullName}?`}

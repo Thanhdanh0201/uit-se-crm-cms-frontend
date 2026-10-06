@@ -50,7 +50,8 @@ function openApp(path: string) {
 
 const me = (role: Role) => ok({ id: `${role}-1`, username: role, fullName: `Tài khoản ${role}`, role, email: `${role}@uit.edu.vn` })
 const users = () => ok({ items: [], totalItems: 0, page: 1, pageSize: 10, totalPages: 0 })
-const menuItems = () => [...document.querySelectorAll('.admin-sider .ant-menu-item')].map((e) => e.textContent)
+// Mục cấp đầu, tiêu đề nhóm và mục con của nhóm đang mở, theo thứ tự hiển thị.
+const menuItems = () => [...document.querySelectorAll('.admin-sider .ant-menu-item, .admin-sider .ant-menu-submenu-title')].map((e) => e.textContent)
 
 test('khách mở thẳng URL admin: về đăng nhập, giữ đường quay lại', async () => {
   mockApi({ '/api/auth/me': () => reply(401), '/api/auth/refresh': () => reply(401) })
@@ -71,7 +72,9 @@ test('Editor: menu chỉ có mục của biên tập viên; mở trang chỉ adm
   mockApi({ '/api/auth/me': () => me('editor') })
   const { unmount } = openApp('/admin')
   expect(await screen.findByText('Trang tổng quan')).toBeTruthy()
-  expect(menuItems()).toEqual(['Tổng quan', 'Bài viết', 'Thư viện media'])
+  expect(menuItems()).toEqual(['Tổng quan', 'Nội dung'])
+  await userEvent.click(screen.getByText('Nội dung'))
+  await waitFor(() => expect(menuItems()).toEqual(['Tổng quan', 'Nội dung', 'Bài viết', 'Thư viện media']))
   unmount()
 
   openApp('/admin/users')
@@ -83,7 +86,8 @@ test('Admin: menu đủ mục và mở được quản lý người dùng', asyn
   mockApi({ '/api/auth/me': () => me('admin'), '/api/admin/users': users })
   openApp('/admin/users')
   expect(await screen.findByText('Chưa có người dùng nào.')).toBeTruthy()
-  expect(menuItems()).toEqual(expect.arrayContaining(['Tổng quan', 'Bài viết', 'Duyệt bài', 'Người dùng', 'Nhật ký']))
+  // Nhóm chứa trang hiện tại mở sẵn, các nhóm khác đóng.
+  await waitFor(() => expect(menuItems()).toEqual(['Tổng quan', 'Nội dung', 'Cấu trúc website', 'Tương tác', 'Hệ thống', 'Người dùng', 'Nhật ký']))
 })
 
 test('Refresh trang khi access token đã hết hạn: tự refresh, vẫn ở đúng URL', async () => {

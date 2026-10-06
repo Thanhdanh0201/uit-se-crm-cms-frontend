@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import { activePath, menuFor } from './menu'
+import { activeGroup, activePath, menuFor } from './menu'
 
 test('editor chỉ thấy mục được phép', () => {
   const paths = menuFor('editor').flatMap((g) => g.items.map((m) => m.path))
@@ -15,4 +15,10 @@ test('trang con vẫn sáng mục cha', () => {
   expect(activePath('/admin/posts/abc/edit')).toBe('/admin/posts')
   expect(activePath('/admin')).toBe('/admin')
   expect(activePath('/admin/postsx')).toBe('/admin')
+})
+
+test('mở sẵn nhóm chứa trang hiện tại', () => {
+  expect(activeGroup('/admin/posts/abc/edit')).toBe('Nội dung')
+  expect(activeGroup('/admin/users')).toBe('Hệ thống')
+  expect(activeGroup('/admin')).toBeUndefined()
 })
