@@ -27,7 +27,7 @@ const categories = { '/api/admin/categories': () => ok([{ id: 'c1', name: 'Thôn
 const NHAP: PostListItem = {
   id: 'p1', title: 'Thông báo học bổng học kỳ 1', slug: 'thong-bao-hoc-bong', status: 'draft', author: { id: 'me', name: 'Lê Thu Hà' },
   primaryCategory: { id: 'c1', name: 'Thông báo' }, isFeatured: false, priority: 0, reviewReason: null, version: 3,
-  publishedAt: null, updatedAt: '2026-10-05T02:00:00Z', allowedStatuses: ['pending'],
+  publishedAt: null, expiresAt: null, updatedAt: '2026-10-05T02:00:00Z', allowedStatuses: ['pending'],
 }
 const CHO: PostListItem = { ...NHAP, id: 'p2', title: 'Lịch thi cuối kỳ', status: 'pending', allowedStatuses: [] }
 const page = (items: PostListItem[]) => ok({ items, totalItems: items.length, page: 1, pageSize: 20, totalPages: 1 })
