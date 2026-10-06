@@ -33,6 +33,7 @@ export default [
   route('admin', 'admin/AdminRoute.tsx', [
     index('pages/admin/Dashboard.tsx'),
     route('users', 'pages/admin/Users.tsx'),
+    route('activity-logs', 'pages/admin/ActivityLogs.tsx'),
     route('media', 'pages/admin/Media.tsx'),
     route('posts', 'pages/admin/Posts.tsx'),
     route('posts/new', 'pages/admin/PostEditor.tsx', { id: 'post-new' }),
@@ -48,7 +49,6 @@ export default [
     route('home-sections', 'pages/admin/HomeSections.tsx'),
     route('events', 'pages/admin/Events.tsx'),
     route('events/:id', 'pages/admin/EventRegistrations.tsx'),
-    route('activity-logs', 'pages/admin/ActivityLogs.tsx'),
     route('*', 'pages/admin/ComingSoon.tsx'),
   ]),
   ...devRoutes,
