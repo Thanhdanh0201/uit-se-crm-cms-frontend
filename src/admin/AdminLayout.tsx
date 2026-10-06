@@ -1,10 +1,10 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, Outlet, useLocation, useNavigate } from 'react-router'
 import { App, Avatar, Button, ConfigProvider, Dropdown, Grid, Layout, Menu } from 'antd'
 import viVN from 'antd/locale/vi_VN'
 import { Key, SidebarSimple, SignOut, UserCircle } from '@phosphor-icons/react'
 import { useAuth, type Role } from '../lib/auth'
-import { activePath, menuFor } from './menu'
+import { activeGroup, activePath, menuFor } from './menu'
 import { adminTheme } from './theme'
 import { ROLE_LABEL } from './roles'
 import './admin.css'
@@ -49,14 +49,21 @@ export default function AdminLayout({ previewRole }: { previewRole?: Role }) {
     navigate('/login', { replace: true })
   }
 
-  const items = menuFor(role).map((g, gi) => {
+  const items = menuFor(role).map((g) => {
     // prefetch="intent": rê chuột hoặc focus vào mục menu là tải trước JS của trang (antd Table/Form khá nặng),
     // nên khi bấm thì trang hiện ngay thay vì chờ tải chunk.
     const children = g.items.map((m) => ({ key: m.path, icon: m.icon, label: <Link to={prefix + m.path} prefetch="intent">{m.label}</Link> }))
-    return g.label ? { type: 'group' as const, key: `g${gi}`, label: g.label, children } : children
+    return g.label ? { key: g.label, icon: g.icon, label: g.label, children } : children
   }).flat()
 
   const siderHidden = isMobile && !mobileOpen
+  const siderCollapsed = isMobile ? !mobileOpen : collapsed
+  // Nhóm đang mở. Luôn mở nhóm chứa trang hiện tại (vào thẳng URL, F5, bấm link ngoài menu).
+  const group = activeGroup(pathname.replace(/^\/dev/, ''))
+  const [openKeys, setOpenKeys] = useState<string[]>(group ? [group] : [])
+  useEffect(() => {
+    if (group) setOpenKeys((keys) => (keys.includes(group) ? keys : [...keys, group]))
+  }, [group])
 
   return (
     <ConfigProvider theme={adminTheme} locale={viVN}>
@@ -99,7 +106,7 @@ export default function AdminLayout({ previewRole }: { previewRole?: Role }) {
               className="admin-sider"
               width={240}
               collapsedWidth={isMobile ? 0 : 68}
-              collapsed={isMobile ? !mobileOpen : collapsed}
+              collapsed={siderCollapsed}
               trigger={null}
             >
               <Menu
@@ -107,6 +114,8 @@ export default function AdminLayout({ previewRole }: { previewRole?: Role }) {
                 mode="inline"
                 selectedKeys={[activePath(pathname.replace(/^\/dev/, ''))]}
                 items={items}
+                // Thu gọn còn icon thì nhóm mở dạng popup khi rê chuột, để antd tự quản lý.
+                {...(siderCollapsed ? {} : { openKeys, onOpenChange: setOpenKeys })}
                 onClick={() => isMobile && setMobileOpen(false)}
               />
             </Layout.Sider>

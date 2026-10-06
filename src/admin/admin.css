@@ -51,6 +51,8 @@
 }
 .admin-sider .ant-menu { padding: var(--space-2); border-inline-end: 0 !important; }
 .admin-sider .ant-menu a { color: inherit; text-decoration: none; }
+/* Nhóm chứa trang đang mở: antd tô chữ tiêu đề nhóm bằng màu mục chọn (xanh), trên nền xanh đậm sẽ chìm. */
+.admin-sider .ant-menu-dark .ant-menu-submenu-selected > .ant-menu-submenu-title { color: var(--color-nav-text-active); }
 
 .admin-content {
   min-width: 0;
