@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router'
 import { Alert, App, Button, Card, DatePicker, Drawer, Empty, Flex, Form, Input, InputNumber, Popconfirm, Progress, Segmented, Select, Skeleton, Space, Table, Tag, Tooltip } from 'antd'
-import { PencilSimple, Plus, Trash } from '@phosphor-icons/react'
+import { PencilSimple, Plus, Trash, UsersThree } from '@phosphor-icons/react'
 import type { Dayjs } from 'dayjs'
 import { api, ApiError } from '../../lib/api'
 import { RequireRole } from '../../lib/auth'
@@ -57,6 +58,7 @@ const PICKER = { showTime: { format: 'HH:mm' }, format: 'DD/MM/YYYY HH:mm', styl
 
 function EventsContent() {
   const { message } = App.useApp()
+  const navigate = useNavigate()
   const list = useListParams(20)
   const status = list.params.get('status') ?? 'all'
   const [form] = Form.useForm<Values>()
@@ -233,6 +235,9 @@ function EventsContent() {
             width: 132,
             render: (_, e) => (
               <Space size={4}>
+                <Tooltip title="Danh sách đăng ký">
+                  <Button type="text" icon={<UsersThree size={16} />} aria-label={`Danh sách đăng ký ${e.title}`} onClick={() => navigate(`/admin/events/${e.id}`)} />
+                </Tooltip>
                 <Tooltip title="Sửa">
                   <Button type="text" icon={<PencilSimple size={16} />} aria-label={`Sửa ${e.title}`} onClick={() => list.openEdit(e.id)} />
                 </Tooltip>

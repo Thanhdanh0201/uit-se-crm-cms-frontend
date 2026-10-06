@@ -43,6 +43,7 @@ export default [
     route('pages/:id/edit', 'pages/admin/PageEditor.tsx'),
     route('home-sections', 'pages/admin/HomeSections.tsx'),
     route('events', 'pages/admin/Events.tsx'),
+    route('events/:id', 'pages/admin/EventRegistrations.tsx'),
     route('*', 'pages/admin/ComingSoon.tsx'),
   ]),
   ...devRoutes,
