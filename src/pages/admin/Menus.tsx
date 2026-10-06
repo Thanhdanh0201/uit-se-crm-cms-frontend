@@ -605,7 +605,7 @@ function ItemDrawer({ menuId, tree, action, editing, parentId, onClose, onSaved 
             options={flat.filter((f) => !blocked.has(f.node.id)).map((f) => ({ value: f.node.id, label: f.path.join(' / ') }))}
           />
         </Form.Item>
-        <Flex gap={12} align="start">
+        <Flex gap={12} align="start" style={{ marginTop: 8 }}>
           <Form.Item name="isVisible" valuePropName="checked" noStyle>
             <Switch id="menu-item-visible" />
           </Form.Item>

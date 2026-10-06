@@ -130,7 +130,7 @@ function CategoriesTab({ keyword }: { keyword: string }) {
   return (
     <>
       <Flex gap={8} align="center" className="muted" style={{ fontSize: 'var(--text-xs)', marginBottom: 12 }}>
-        <Info size={14} aria-hidden />
+        <Info size={14} aria-hidden style={{ flex: 'none' }} />
         Chuyên mục cha bị ẩn thì chuyên mục con cũng không hiện ở trang công khai. Xóa chuyên mục đang có bài hoặc có con phải chọn nơi nhận.
       </Flex>
       {error && <Alert type="error" showIcon style={{ marginBottom: 16 }} title="Không tải được danh sách chuyên mục" description={error} action={<Button size="small" onClick={reload}>Thử lại</Button>} />}
@@ -165,7 +165,7 @@ function CategoriesTab({ keyword }: { keyword: string }) {
             title: 'Tên chuyên mục',
             key: 'name',
             render: (_, c) => (
-              <div className={!c.isVisible || c.hiddenByParent ? 'muted' : undefined}>
+              <div className={!c.isVisible || c.hiddenByParent ? 'muted' : undefined} style={{ display: 'inline-block', verticalAlign: 'middle' }}>
                 <Space size={6} wrap>
                   <span style={{ fontWeight: c.parentId ? 400 : 600 }}>{c.name}</span>
                   {!c.isVisible && <Tag>Đang ẩn</Tag>}
@@ -281,7 +281,7 @@ function CategoryDrawer({ tree, open, editing, parentId, onClose, onSaved }: { t
         <Form.Item name="sortOrder" label="Thứ tự hiển thị" extra="Số nhỏ hiện trước, trong cùng chuyên mục cha." rules={[{ required: true, message: 'Nhập thứ tự.' }, { type: 'number', min: 0, message: 'Thứ tự từ 0 trở lên.' }]}>
           <InputNumber min={0} precision={0} style={{ width: 120 }} />
         </Form.Item>
-        <Flex gap={12} align="start">
+        <Flex gap={12} align="start" style={{ marginTop: 8 }}>
           <Form.Item name="isVisible" valuePropName="checked" noStyle>
             <Switch id="category-visible" />
           </Form.Item>
