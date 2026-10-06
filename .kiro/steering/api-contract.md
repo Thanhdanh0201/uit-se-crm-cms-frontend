@@ -113,47 +113,47 @@ Type ở `src/admin/posts.ts`. Cần biết khi dùng:
 
 Xóa trang đang có trong menu: 409 `page_in_menu` kèm `menuItems`. Frontend chưa có màn hình trang tĩnh và cấu hình trang chủ (chưa có task FE trong Sprint 3).
 
-## Menu — ĐÃ CÓ (SCRUM-35: FR-MENU-01..05, AT-01) (`admin`)
+## Menu — ĐÃ CÓ (backend main, PR #1) — trang `/admin/menus` (SCRUM-35)
 
 | Method | Path | Body / Query | Ghi chú |
 |---|---|---|---|
-| GET | `/api/admin/menus` | – | Danh sách Menu `MenuDto[]` hoặc `{ items: MenuDto[] }` |
-| POST | `/api/admin/menus` | `{ code, name }` | Tạo menu |
-| PUT | `/api/admin/menus/{id}` | `{ name }` | Đổi tên menu |
-| DELETE | `/api/admin/menus/{id}` | – | Xóa menu |
-| GET | `/api/admin/menus/{id}/tree` | – | Cây menu đầy đủ (bao gồm cả mục ẩn để Admin chỉnh sửa) |
-| POST | `/api/admin/menus/{id}/items` | `{ label, kind, pageId?, categoryId?, externalUrl?, parentId?, sortOrder?, isVisible? }` | Thêm mục menu (tối đa 3 cấp, vượt cấp trả 400) |
-| PUT | `/api/admin/menu-items/{id}` | `{ label, kind, pageId?, categoryId?, externalUrl?, parentId?, sortOrder?, isVisible? }` | Sửa mục menu |
-| PATCH | `/api/admin/menu-items/{id}/visibility` | `{ isVisible }` | Bật/tắt hiển thị nhanh |
-| DELETE | `/api/admin/menu-items/{id}` | – | Xóa mục menu |
-| PUT | `/api/admin/menus/{id}/tree` | `[{ id, parentId, sortOrder }]` | Lưu lại toàn bộ cấu trúc/thứ tự cây menu |
-| GET | `/api/public/menus/{code}` | – | Cây menu public (chỉ mục isVisible = true, tự cascade ẩn con) |
+| GET | `/api/admin/menus` | – | `MenuResponseDto[]`: `{ id, code, name, itemCount }` |
+| POST | `/api/admin/menus` | `{ code, name }` | `code` chỉ `a-z0-9-`, trùng mã: 400 |
+| PUT | `/api/admin/menus/{id}` | `{ code, name }` | Bắt buộc gửi cả `code` |
+| DELETE | `/api/admin/menus/{id}` | – | Xóa mềm menu và các mục |
+| GET | `/api/admin/menus/{id}/items` | – | Cây `MenuItemTreeDto[]` gồm cả mục ẩn: `{ id, parentId, label, kind, pageId, pageTitle, categoryId, categoryName, externalUrl, resolvedUrl, targetWarning, targetWarningMessage, sortOrder, isVisible, depth, children }` |
+| POST | `/api/admin/menus/{id}/items` | `{ label, kind, parentId?, pageId?, categoryId?, externalUrl?, sortOrder?, isVisible }` | `kind`: `page` / `category` / `external`; chỉ gửi đích đúng loại, còn lại `null` |
+| PUT | `/api/admin/menus/{id}/tree` | `{ items: [{ id, parentId, sortOrder }] }` | Lưu thứ tự và cấp cả cây trong một transaction, trả cây mới |
+| GET | `/api/admin/menu-items/{id}` | – | |
+| PUT | `/api/admin/menu-items/{id}` | như POST, `sortOrder` bắt buộc | |
+| PATCH | `/api/admin/menu-items/{id}/visibility` | `{ isVisible }` | |
+| DELETE | `/api/admin/menu-items/{id}` | – | Xóa mềm cả cây con |
+| GET | `/api/admin/menu-items/warnings` | – | Mục trỏ đích không xem được công khai (Dashboard) |
+| GET | `/api/public/menus/{code}` | – | Khách. Đã bỏ mục ẩn và nhánh con của mục ẩn, đã sắp xếp. Header public dùng mã `main` (loader SSR ở `PublicLayout`, lỗi thì dùng menu dự phòng) |
 
 Cần biết khi dùng:
-- Giới hạn tối đa 3 cấp cây (Root -> Cấp 2 -> Cấp 3). Tạo cấp 4 máy chủ trả 400.
-- Không cho phép chọn chính mình hoặc con cháu làm mục cha.
-- Sắp xếp cây được thực hiện cục bộ và bấm "Lưu thứ tự" để gửi `PUT /tree`.
+- Tối đa 3 cấp. Lỗi nghiệp vụ (vượt cấp, vòng lặp, đích bị xóa/ẩn, trùng mã) là **400 chỉ có `detail`**, không có `code`: `ArgumentException` / `InvalidOperationException` của backend. Frontend chặn trước ở client và vẫn hiện `detail` của server.
+- Chuyên mục đang ẩn không chọn làm đích được (400).
 
-## Chuyên mục & Thẻ — ĐÃ CÓ (SCRUM-36: FR-CAT-01..04) (`admin`)
+## Chuyên mục và thẻ — ĐÃ CÓ (backend main, PR #2) — trang `/admin/categories` (SCRUM-36)
 
 | Method | Path | Body / Query | Ghi chú |
 |---|---|---|---|
-| GET | `/api/admin/categories/tree` | – | Cây chuyên mục đầy đủ |
-| GET | `/api/admin/categories` | `?search=` | Danh sách phẳng tìm kiếm |
-| POST | `/api/admin/categories` | `{ name, slug?, description?, parentId?, isVisible?, sortOrder? }` | Tạo chuyên mục mới |
-| PUT | `/api/admin/categories/{id}` | `{ name, slug, description?, parentId?, isVisible?, sortOrder? }` | Cập nhật chuyên mục |
-| DELETE | `/api/admin/categories/{id}` | `?targetCategoryId={targetId}` | Safe delete: bắt buộc truyền `targetCategoryId` khi có bài hoặc chuyên mục con |
-| GET | `/api/admin/tags` | `?search=` | Danh sách thẻ |
-| POST | `/api/admin/tags` | `{ name }` | Tạo thẻ mới |
-| PUT | `/api/admin/tags/{id}` | `{ name }` | Sửa tên thẻ |
-| DELETE | `/api/admin/tags/{id}` | – | Xóa thẻ |
-| GET | `/api/public/categories/tree` | – | Cây chuyên mục public |
-| GET | `/api/public/categories/{slug}` | – | Chi tiết chuyên mục |
-| GET | `/api/public/tags` | – | Danh sách thẻ kèm số bài viết |
+| GET | `/api/admin/categories/tree` | – | `CategoryTreeDto[]`: `{ id, parentId, name, slug, description, sortOrder, isVisible, postCount, children }` |
+| GET | `/api/admin/categories` | `?search&parentId` | Danh sách phẳng, có `parentName` (bộ chọn chuyên mục ở trang khác) |
+| POST | `/api/admin/categories` | `{ name, slug?, description?, parentId?, sortOrder, isVisible }` | `slug` trống thì tự tạo từ tên |
+| PUT | `/api/admin/categories/{id}` | như POST | Không có API bật/tắt riêng: gửi lại đủ trường |
+| DELETE | `/api/admin/categories/{id}` | `?targetCategoryId=` | Còn bài hoặc con thì bắt buộc `targetCategoryId` (không phải chính nó/con cháu); chuyển rồi xóa mềm trong một transaction |
+| GET | `/api/admin/tags` | `?search` | `TagDto[]`: `{ id, name, slug, postCount }`. Chưa phân trang |
+| POST / PUT | `/api/admin/tags[/{id}]` | `{ name, slug? }` | |
+| DELETE | `/api/admin/tags/{id}` | – | Xóa hẳn, gỡ khỏi các bài |
+| GET | `/api/public/categories/tree`, `/api/public/categories/{slug}`, `/api/public/tags` | – | Khách |
 
 Cần biết khi dùng:
-- Xóa an toàn chuyên mục: Nếu chuyên mục có `postCount > 0` hoặc có chuyên mục con, người dùng phải chọn một chuyên mục khác (không phải chính nó và không phải con cháu) để nhận bài viết trước khi xóa.
-- Không xóa lạc quan trên UI khi API xóa thất bại.
+- `slug` chỉ `a-z0-9-` (tối đa 150 với chuyên mục, 100 với thẻ). Trùng slug: 400 `detail` "Slug '...' đã tồn tại".
+- Chọn chính nó hoặc con cháu làm cha: 400 `detail`.
+- Chưa có API công khai lấy bài theo chuyên mục (trang `/categories/:slug` chờ API).
+- **Quyền cần backend sửa:** các controller menu, chuyên mục, thẻ đang `[Authorize(Roles = "admin,editor")]` cho cả thao tác ghi. SRS 3.2: quản lý menu và chuyên mục chỉ Admin. Frontend đã chỉ cho admin vào hai trang này.
 
 ## Đề xuất — CHƯA CÓ (theo tài liệu hướng dẫn dev)
 
