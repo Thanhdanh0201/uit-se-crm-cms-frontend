@@ -1,28 +1,56 @@
-import { useEffect, useRef, useState } from 'react'
-import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router'
+import { useEffect, useRef } from 'react'
+import { Link, NavLink, Outlet, useLoaderData, useLocation, useNavigate } from 'react-router'
 import { CaretDown, EnvelopeSimple, List, MagnifyingGlass, MapPin, Phone } from '@phosphor-icons/react'
-import { useAuth } from '../lib/auth'
 import { api } from '../lib/api'
-import type { PublicMenuDto, PublicMenuItemDto } from '../admin/menus'
+import { useAuth } from '../lib/auth'
 import { buttonClass } from '../components/ui/Button'
 import './layout.css'
 
-// Fallback menu cố định theo cấu trúc chuyên mục hiện tại của Khoa khi chưa có API hoặc đang tải.
-const FALLBACK_NAV = [
-  { to: '/pages/gioi-thieu', label: 'Giới thiệu' },
-  { to: '/categories/tin-tuc', label: 'Tin tức' },
-  { to: '/events', label: 'Sự kiện' },
-  { to: '/pages/bieu-mau', label: 'Biểu mẫu' },
-  { to: '/pages/tuyen-sinh', label: 'Tuyển sinh' },
-  { to: '/contact', label: 'Liên hệ' },
-]
+// GET /api/public/menus/{code} (PublicMenuItemDto): backend đã bỏ mục ẩn và cả nhánh con của mục ẩn, đã sắp xếp.
+export type NavItem = { id: string; label: string; kind: string; url: string | null; children: NavItem[] }
 
-type NavItem = {
-  key: string
-  to: string
-  label: string
-  isExternal?: boolean
-  children?: NavItem[]
+// Menu dự phòng khi chưa tạo menu "main" trong trang quản trị hoặc không gọi được API.
+const FALLBACK: NavItem[] = [
+  ['Giới thiệu', '/pages/gioi-thieu'],
+  ['Tin tức', '/categories/tin-tuc'],
+  ['Sự kiện', '/events'],
+  ['Biểu mẫu', '/pages/bieu-mau'],
+  ['Tuyển sinh', '/pages/tuyen-sinh'],
+  ['Liên hệ', '/contact'],
+].map(([label, url]) => ({ id: url, label, kind: 'page', url, children: [] }))
+
+// Menu chính do Admin cấu hình (FR-MENU), mã "main". Lấy trên server để HTML trả về đã có menu.
+export async function loader() {
+  try {
+    const menu = await api<{ items: NavItem[] }>('/api/public/menus/main')
+    return { nav: menu.items.length ? menu.items : FALLBACK }
+  } catch {
+    return { nav: FALLBACK }
+  }
+}
+
+// Menu không đổi theo trang: chỉ tải khi mở site (F5), không tải lại mỗi lần chuyển trang.
+export const shouldRevalidate = () => false
+
+function NavTo({ item, className }: { item: NavItem; className?: string }) {
+  if (!item.url) return <span className={className}>{item.label}</span>
+  if (/^https?:\/\//i.test(item.url))
+    return <a href={item.url} className={className} target="_blank" rel="noopener noreferrer">{item.label}</a>
+  return <NavLink to={item.url} className={className}>{item.label}</NavLink>
+}
+
+// Cấp 2 và cấp 3 (cấp 3 thụt vào trong cùng danh sách).
+function SubItems({ items }: { items: NavItem[] }) {
+  return (
+    <ul>
+      {items.map((c) => (
+        <li key={c.id}>
+          <NavTo item={c} />
+          {c.children.length > 0 && <SubItems items={c.children} />}
+        </li>
+      ))}
+    </ul>
+  )
 }
 
 export default function PublicLayout() {
@@ -30,38 +58,7 @@ export default function PublicLayout() {
   const navigate = useNavigate()
   const menuRef = useRef<HTMLDetailsElement>(null)
   const { pathname } = useLocation()
-  const [navItems, setNavItems] = useState<NavItem[]>(() =>
-    FALLBACK_NAV.map((n) => ({ key: n.to, to: n.to, label: n.label }))
-  )
-
-  useEffect(() => {
-    let active = true
-    api<PublicMenuDto>('/api/public/menus/main')
-      .then((res) => {
-        if (!active) return
-        if (res?.items?.length) {
-          function mapItem(item: PublicMenuItemDto): NavItem {
-            const label = item.label || item.title || 'Mục'
-            const to = item.url || '/'
-            const isExternal = item.kind === 'external' || /^https?:\/\//.test(to)
-            return {
-              key: item.id,
-              to,
-              label,
-              isExternal,
-              children: item.children?.length ? item.children.map(mapItem) : undefined,
-            }
-          }
-          setNavItems(res.items.map(mapItem))
-        }
-      })
-      .catch(() => {
-        // Giữ fallback NAV
-      })
-    return () => {
-      active = false
-    }
-  }, [])
+  const nav = useLoaderData<typeof loader>()?.nav ?? FALLBACK
 
   // Đóng menu mobile sau khi chuyển trang.
   useEffect(() => {
@@ -96,41 +93,17 @@ export default function PublicLayout() {
           </Link>
 
           <nav className="site-nav" aria-label="Điều hướng chính">
-            {navItems.map((n) =>
-              n.children?.length ? (
-                <div key={n.key} className="site-nav__item-group">
-                  {n.isExternal ? (
-                    <a href={n.to} target="_blank" rel="noopener noreferrer">
-                      {n.label} <CaretDown size={12} aria-hidden />
-                    </a>
-                  ) : (
-                    <NavLink to={n.to}>
-                      {n.label} <CaretDown size={12} aria-hidden />
-                    </NavLink>
-                  )}
-                  <div className="site-nav__dropdown" role="menu">
-                    {n.children.map((sub) =>
-                      sub.isExternal ? (
-                        <a key={sub.key} href={sub.to} target="_blank" rel="noopener noreferrer" role="menuitem">
-                          {sub.label}
-                        </a>
-                      ) : (
-                        <NavLink key={sub.key} to={sub.to} role="menuitem">
-                          {sub.label}
-                        </NavLink>
-                      )
-                    )}
-                  </div>
+            {nav.map((n) =>
+              n.children.length ? (
+                // Mở bằng rê chuột hoặc Tab vào (focus-within), không cần JS.
+                <div key={n.id} className="site-nav__group">
+                  <NavTo item={n} className="site-nav__parent" />
+                  <CaretDown size={12} aria-hidden className="site-nav__caret" />
+                  <div className="site-nav__dropdown"><SubItems items={n.children} /></div>
                 </div>
-              ) : n.isExternal ? (
-                <a key={n.key} href={n.to} target="_blank" rel="noopener noreferrer">
-                  {n.label}
-                </a>
               ) : (
-                <NavLink key={n.key} to={n.to}>
-                  {n.label}
-                </NavLink>
-              )
+                <NavTo key={n.id} item={n} />
+              ),
             )}
           </nav>
 
@@ -144,35 +117,12 @@ export default function PublicLayout() {
                 <List size={20} aria-hidden />
               </summary>
               <nav className="site-menu__panel" aria-label="Điều hướng chính trên di động">
-                {navItems.map((n) =>
-                  n.children?.length ? (
-                    <details key={n.key} className="site-menu__sub">
-                      <summary>{n.label}</summary>
-                      <div className="site-menu__sub-items">
-                        <NavLink to={n.to}>{n.label} (Tất cả)</NavLink>
-                        {n.children.map((sub) =>
-                          sub.isExternal ? (
-                            <a key={sub.key} href={sub.to} target="_blank" rel="noopener noreferrer">
-                              {sub.label}
-                            </a>
-                          ) : (
-                            <NavLink key={sub.key} to={sub.to}>
-                              {sub.label}
-                            </NavLink>
-                          )
-                        )}
-                      </div>
-                    </details>
-                  ) : n.isExternal ? (
-                    <a key={n.key} href={n.to} target="_blank" rel="noopener noreferrer">
-                      {n.label}
-                    </a>
-                  ) : (
-                    <NavLink key={n.key} to={n.to}>
-                      {n.label}
-                    </NavLink>
-                  )
-                )}
+                {nav.map((n) => (
+                  <div key={n.id} className="site-menu__item">
+                    <NavTo item={n} />
+                    {n.children.length > 0 && <SubItems items={n.children} />}
+                  </div>
+                ))}
                 <div className="site-menu__account">{account}</div>
               </nav>
             </details>
