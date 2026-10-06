@@ -64,3 +64,34 @@ test('đổi trạng thái lỗi 403: báo lỗi, giữ trạng thái cũ', asyn
   expect(await screen.findByText('Bạn không có quyền thực hiện thao tác này.')).toBeTruthy()
   await waitFor(() => expect(within(screen.getByRole('dialog')).getAllByText('Mới').length).toBeGreaterThan(0))
 })
+
+test('giao người phụ trách và thêm ghi chú: chỉ hiện ghi chú sau khi API lưu; lỗi thì giữ nội dung', async () => {
+  let fail = true
+  const api = mockApi({
+    ...admin,
+    '/api/admin/contact-requests': () => page([C]),
+    '/api/admin/contact-requests/assignees': () => ok([{ id: 'ad', fullName: 'Quản trị Khoa' }]),
+    '/api/admin/contact-requests/c1': (_, init) => init?.method === 'PATCH' ? ok({ ...C, assignee: { id: 'ad', fullName: 'Quản trị Khoa' } }) : ok(C),
+    '/api/admin/contact-requests/c1/notes': () => {
+      if (fail) { fail = false; return reply(500, { title: 'Lỗi' }) }
+      return ok({ ...C, notes: [{ id: 'n1', note: 'Đã gọi điện hướng dẫn.', author: { id: 'ad', fullName: 'Quản trị Khoa' }, createdAt: '2026-10-06T03:00:00Z' }] })
+    },
+  })
+  open('/admin/contacts?action=edit&id=c1')
+  fireEvent.mouseDown(await screen.findByLabelText('Người phụ trách'))
+  await userEvent.click(await option('Quản trị Khoa'))
+  expect(await screen.findByText('Đã giao cho Quản trị Khoa.')).toBeTruthy()
+  expect(JSON.parse(String(api.calls('/api/admin/contact-requests/c1').find(([, i]) => i?.method === 'PATCH')![1]?.body))).toEqual({ assigneeId: 'ad' })
+
+  const box = screen.getByLabelText('Nội dung ghi chú')
+  await userEvent.type(box, 'Đã gọi điện hướng dẫn.')
+  await userEvent.click(screen.getByRole('button', { name: 'Thêm ghi chú' }))
+  expect(await screen.findByText('Không thực hiện được lúc này. Vui lòng thử lại sau.')).toBeTruthy()
+  expect((box as HTMLTextAreaElement).value).toBe('Đã gọi điện hướng dẫn.')
+  expect(screen.getByText('Chưa có ghi chú.')).toBeTruthy()
+
+  await userEvent.click(screen.getByText('Thêm ghi chú').closest('button')!)
+  const notes = await screen.findByRole('list', { name: 'Danh sách ghi chú' })
+  expect(within(notes).getByText('Đã gọi điện hướng dẫn.')).toBeTruthy()
+  expect((box as HTMLTextAreaElement).value).toBe('')
+})
