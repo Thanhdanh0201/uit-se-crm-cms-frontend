@@ -42,6 +42,7 @@ export default [
     route('pages/new', 'pages/admin/PageEditor.tsx', { id: 'page-new' }),
     route('pages/:id/edit', 'pages/admin/PageEditor.tsx'),
     route('home-sections', 'pages/admin/HomeSections.tsx'),
+    route('activity-logs', 'pages/admin/ActivityLogs.tsx'),
     route('*', 'pages/admin/ComingSoon.tsx'),
   ]),
   ...devRoutes,
