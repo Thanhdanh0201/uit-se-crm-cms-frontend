@@ -1,4 +1,4 @@
-import { data, Link, useLocation, useNavigate } from 'react-router'
+import { data, Link, useLocation, useNavigate, useSearchParams } from 'react-router'
 import { ShieldWarning } from '@phosphor-icons/react'
 import { safeNext, useAuth } from '../../lib/auth'
 import { noIndex } from '../../lib/seo'
@@ -14,11 +14,15 @@ export const meta = () => noIndex('Không có quyền truy cập')
 export default function Forbidden() {
   const { user, logout, loggingOut } = useAuth()
   const navigate = useNavigate()
-  const from = safeNext((useLocation().state as { from?: string } | null)?.from ?? null)
+  const location = useLocation()
+  const [params] = useSearchParams()
+  const from = safeNext((location.state as { from?: string } | null)?.from ?? params.get('from') ?? params.get('next') ?? null)
 
   async function switchAccount() {
     await logout()
-    navigate(from ? `/login?next=${encodeURIComponent(from)}` : '/login', { replace: true })
+    // Không dùng { replace: true } để khi bấm nút Back trên trình duyệt,
+    // người dùng quay lại được trang 403 ở trạng thái khách mà không bị văng sang trang trước đó.
+    navigate(from ? `/login?next=${encodeURIComponent(from)}` : '/login')
   }
 
   return (

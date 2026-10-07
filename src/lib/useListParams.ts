@@ -26,6 +26,8 @@ export function useListParams(defaultPageSize = 10) {
     action: params.get('action') as 'create' | 'edit' | null,
     id: params.get('id'),
     update,
+    // Thay thế toàn bộ params (không push history). Dùng để chuẩn hóa URL bẩn.
+    replace: (next: URLSearchParams) => setParams(next, { replace: true }),
     openCreate: () => update({ action: 'create', id: null }),
     openEdit: (id: string) => update({ action: 'edit', id }),
     closeDrawer: () => update({ action: null, id: null }),

@@ -59,6 +59,33 @@ function UsersPageContent() {
   const { message, modal } = App.useApp()
   const { user: me } = useAuth()
   const list = useListParams()
+
+  // Chuẩn hóa URL params: page=-5, pageSize=99999, role=hacker... → giá trị hợp lệ.
+  // Chạy một lần khi mount hoặc khi params thay đổi, thay thế URL bẩn bằng URL sạch.
+  useEffect(() => {
+    const p = list.params
+    const clean = new URLSearchParams()
+    const page = Math.max(1, Math.floor(Number(p.get('page')) || 1))
+    if (page > 1) clean.set('page', String(page))
+    const size = Number(p.get('pageSize'))
+    if (PAGE_SIZES.includes(size) && size !== 10) clean.set('pageSize', String(size))
+    const keyword = p.get('keyword')?.trim()
+    if (keyword) clean.set('keyword', keyword)
+    const role = p.get('role')
+    if (role && (ROLES as string[]).includes(role)) clean.set('role', role)
+    const status = p.get('status')
+    if (status === 'active' || status === 'locked') clean.set('status', status)
+    // Giữ action/id cho drawer
+    const action = p.get('action')
+    if (action === 'create' || action === 'edit') clean.set('action', action)
+    const id = p.get('id')
+    if (action === 'edit' && id) clean.set('id', id)
+
+    if (clean.toString() !== p.toString()) {
+      list.replace(clean)
+    }
+  }, [list.params]) // eslint-disable-line react-hooks/exhaustive-deps
+
   const status = list.params.get('status') ?? 'all'
   const roleFilter = list.params.get('role')
   const query = usersQuery(list.params)

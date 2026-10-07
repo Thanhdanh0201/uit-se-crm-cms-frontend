@@ -58,6 +58,15 @@
 - Backend Sprint 5 (branch `feat/events`, `feat/registrations-csv`, `feat/contacts`, `feat/dashboard-logs`): SCRUM-21, 22, 23, 28.
 - Test: `Events.test.tsx`, `EventRegistrations.test.tsx`, `Contacts.test.tsx`, `DashboardLogs.test.tsx`. Còn nghiệm thu với backend thật.
 
+## Sửa lỗi nghiệm thu SCRUM-32/33/34, cập nhật 07/10/2026
+- **Bug 1 (Delay trắng màn hình ~28s khi truy cập /admin trái phép)**: Thêm server `loader` và `clientLoader` trong `src/admin/AdminRoute.tsx` kiểm tra session và quyền ngay tại tầng routing của React Router. Khách bị 302 về `/login?next=...`, tài khoản sinh viên bị 302 về `/403` ngay lập tức (~10ms) mà không tải bất kỳ script/chunk nào của `AdminLayout`, `Users`, `Dashboard` hay thư viện `antd`.
+- **Bug 2 (Multi-tab leo quyền & trắng màn hình /admin)**:
+  - Bỏ `window.location.reload()` gây loop và trắng màn hình; `BroadcastChannel` đồng bộ trực tiếp qua `loadMe()` và `cachedUser`.
+  - Trong `src/pages/public/Login.tsx`, bổ sung hàm `targetFor()`: nếu `user.role === 'student'` mà tham số `next` trỏ vào `/admin/*` thì tự động chuyển hướng an toàn về `/403` kèm state thay vì đưa người dùng vào trang quản trị rồi sập giao diện.
+  - Trong `src/pages/public/Forbidden.tsx`, bỏ `{ replace: true }` tại `switchAccount()` để nút Back trên trình duyệt quay lại được `/403` ở trạng thái khách, không bị văng về trang trước đó.
+- **Bug 3 (Chuẩn hóa URL parameters bẩn)**: Trang `/admin/users` tự động chuẩn hóa query params khi mount bằng `useEffect`: ép `page` âm về 1, `pageSize` lạ về 10, loại bỏ role/status không hợp lệ, trim keyword. Thêm method `replace()` trong `src/lib/useListParams.ts`.
+- Toàn bộ 128/128 test pass trên 28 file test.
+
 ## Kế tiếp
 - Sprint 5 còn lại: form liên hệ công khai `/contact` (SCRUM-48), phía sinh viên đăng ký sự kiện và yêu cầu đã gửi (SCRUM-46, 55).
 - Các trang được trang chủ liên kết tới nhưng chưa có (đang trả 404): `/categories/:slug` (chờ API bài theo chuyên mục), `/events`, `/events/:id`, `/contact`, `/search`.
@@ -73,5 +82,5 @@
 - `GET /api/auth/me` chỉ trả `userId`, `role`, `email`; sau khi F5 chưa có `fullName`. Cần backend bổ sung nếu UI hiển thị tên.
 
 ## Cập nhật lần cuối
-06/10/2026
+07/10/2026
 

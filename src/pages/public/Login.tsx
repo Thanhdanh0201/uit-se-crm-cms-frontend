@@ -27,6 +27,17 @@ export function loginErrors(err: unknown): Errors {
   return { form: 'Không đăng nhập được lúc này. Vui lòng thử lại sau.' }
 }
 
+function targetFor(user: { role: Role }, next: string | null): { to: string; state?: unknown } {
+  if (next) {
+    // Sinh viên không có quyền mở /admin: chuyển thẳng về /403 thay vì điều hướng vào admin gây lỗi.
+    if ((next.startsWith('/admin') || next.startsWith('/dev/admin')) && user.role === 'student') {
+      return { to: '/403', state: { from: next } }
+    }
+    return { to: next }
+  }
+  return { to: HOME[user.role] }
+}
+
 export default function Login() {
   const { user, login, sessionExpired } = useAuth()
   const navigate = useNavigate()
@@ -35,7 +46,8 @@ export default function Login() {
   const [pending, setPending] = useState(false)
   const next = safeNext(params.get('next'))
 
-  if (user && !pending) return <Navigate to={next ?? HOME[user.role]} replace />
+  const target = user ? targetFor(user, next) : null
+  if (target && !pending) return <Navigate to={target.to} state={target.state} replace />
 
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -51,7 +63,8 @@ export default function Login() {
     setPending(true)
     try {
       const u = await login(input.usernameOrEmail, input.password)
-      navigate(next ?? HOME[u.role], { replace: true })
+      const t = targetFor(u, next)
+      navigate(t.to, { replace: true, state: t.state })
     } catch (err) {
       const apiErrors = loginErrors(err)
       // flushSync: fieldset phải hết disabled trong DOM thì mới focus được.
