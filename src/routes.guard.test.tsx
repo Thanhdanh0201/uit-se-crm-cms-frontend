@@ -5,9 +5,9 @@ import { afterEach, beforeAll, expect, test, vi } from 'vitest'
 import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router'
-import { AuthProvider, type Role } from './lib/auth'
+import { AuthProvider, setCachedUser, type Role } from './lib/auth'
 import { mockApi, ok, reply } from './lib/test-utils'
-import AdminRoute from './admin/AdminRoute'
+import AdminRoute, { clientLoader } from './admin/AdminRoute'
 import Users from './pages/admin/Users'
 import Forbidden from './pages/public/Forbidden'
 import Account from './pages/me/Account'
@@ -22,6 +22,7 @@ beforeAll(() => {
 
 afterEach(() => {
   cleanup()
+  setCachedUser(null)
   vi.unstubAllGlobals()
 })
 
@@ -119,3 +120,35 @@ test('Khu tài khoản: mục chưa có API không phải link, admin có lối 
   expect(screen.queryByRole('link', { name: /Bài đã lưu/ })).toBeNull()
   expect(screen.getAllByText('Sắp có')).toHaveLength(3)
 })
+
+test('AdminRoute clientLoader: khách bị redirect về /login?next=, không tải chunk admin', async () => {
+  mockApi({ '/api/auth/me': () => reply(401) })
+  const req = new Request('http://localhost/admin/users')
+  try {
+    await clientLoader({ request: req, params: {} } as any)
+    expect.fail('clientLoader phải redirect')
+  } catch (err: any) {
+    expect(err.status).toBe(302)
+    expect(err.headers.get('Location')).toBe('/login?next=%2Fadmin%2Fusers')
+  }
+})
+
+test('AdminRoute clientLoader: Student bị redirect về /403, không tải chunk admin', async () => {
+  mockApi({ '/api/auth/me': () => me('student') })
+  const req = new Request('http://localhost/admin/users')
+  try {
+    await clientLoader({ request: req, params: {} } as any)
+    expect.fail('clientLoader phải redirect')
+  } catch (err: any) {
+    expect(err.status).toBe(302)
+    expect(err.headers.get('Location')).toBe('/403')
+  }
+})
+
+test('AdminRoute clientLoader: Admin được phép truy cập (trả về null)', async () => {
+  mockApi({ '/api/auth/me': () => me('admin') })
+  const req = new Request('http://localhost/admin/users')
+  const res = await clientLoader({ request: req, params: {} } as any)
+  expect(res).toBeNull()
+})
+

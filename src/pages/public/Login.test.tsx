@@ -67,3 +67,15 @@ test('lỗi validation từ API: gắn vào field và focus field đó', async (
   expect(await screen.findByText('Mật khẩu không được để trống.')).toBeTruthy()
   expect(document.activeElement).toBe(screen.getByLabelText(/^Mật khẩu/))
 })
+
+test('sinh viên đăng nhập khi next là trang admin: chuyển về /403 thay vì văng vào admin', async () => {
+  mockApi({ ...guest, '/api/auth/login': () => ok({ accessToken: 'x', expiresIn: 3600, user }, 'Đăng nhập thành công.') })
+  renderPage('/login?next=/admin/users', '/login', <Login />)
+
+  await userEvent.type(screen.getByLabelText(/Tên đăng nhập hoặc email/), 'sv24520264')
+  await userEvent.type(screen.getByLabelText(/^Mật khẩu/), 'mat-khau-dung')
+  await userEvent.click(screen.getByRole('button', { name: 'Đăng nhập' }))
+
+  await waitFor(() => expect(screen.getByTestId('path').textContent).toBe('/403'))
+})
+

@@ -16,11 +16,17 @@ type Auth = {
 }
 
 // Chuẩn hóa role chữ thường một chỗ, cho cả /me và /login.
-const toRole = (role: string) => role.toLowerCase() as Role
+export const toRole = (role: string) => role.toLowerCase() as Role
 
 // UserProfileDto của backend, dùng chung cho /api/auth/me và user trong response đăng nhập.
-type Me = { id: string; username: string; fullName: string; role: string; email: string | null }
-const fromMe = (me: Me): User => ({ id: me.id, username: me.username, fullName: me.fullName, role: toRole(me.role), email: me.email })
+export type Me = { id: string; username: string; fullName: string; role: string; email: string | null }
+export const fromMe = (me: Me): User => ({ id: me.id, username: me.username, fullName: me.fullName, role: toRole(me.role), email: me.email })
+
+// Cache người dùng cấp module để clientLoader (React Router) kiểm tra quyền tức thời (0ms),
+// chặn không cho tải chunk của admin khi người dùng là sinh viên hoặc khách.
+let cachedUser: User | null = null
+export const getCachedUser = () => cachedUser
+export const setCachedUser = (u: User | null) => { cachedUser = u }
 
 // Đồng bộ giữa các tab: đăng xuất ở tab này thì tab khác về trạng thái khách ngay, không đợi lần gọi API sau.
 const CHANNEL = 'auth'
@@ -47,21 +53,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const loadMe = () =>
       api<Me>('/api/auth/me')
-        .then((me) => setUser(fromMe(me)))
-        .catch(() => setUser(null))
+        .then((me) => {
+          const u = fromMe(me)
+          setCachedUser(u)
+          setUser(u)
+          return u
+        })
+        .catch(() => {
+          setCachedUser(null)
+          setUser(null)
+          return null
+        })
     loadMe().finally(() => setLoading(false))
 
     const channel = typeof BroadcastChannel === 'undefined' ? null : new BroadcastChannel(CHANNEL)
     channelRef.current = channel
     if (channel) {
       channel.onmessage = (e: MessageEvent<AuthMessage>) => {
-        if (e.data === 'logout') setUser(null)
+        if (e.data === 'logout') {
+          setCachedUser(null)
+          setUser(null)
+        }
+        // Tab khác đăng nhập lại: đồng bộ thông tin user mới qua loadMe().
+        // React Router và RequireRole sẽ tự động chuyển hướng an toàn (không reload làm trắng màn).
         if (e.data === 'login') void loadMe()
       }
     }
 
     // Refresh cũng thất bại (api.ts phát event): về trạng thái khách, RequireRole tự chuyển sang /login.
     const onExpired = () => {
+      setCachedUser(null)
       setUser((u) => {
         if (u) setSessionExpired(true)
         return null
@@ -69,6 +90,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     window.addEventListener(AUTH_EXPIRED_EVENT, onExpired)
     return () => {
+      setCachedUser(null)
       window.removeEventListener(AUTH_EXPIRED_EVENT, onExpired)
       channel?.close()
     }
@@ -77,6 +99,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   async function login(usernameOrEmail: string, password: string) {
     const res = await api<{ user: Me }>('/api/auth/login', { method: 'POST', json: { usernameOrEmail, password } })
     const u = fromMe(res.user)
+    setCachedUser(u)
     setUser(u)
     setSessionExpired(false)
     channelRef.current?.postMessage('login' satisfies AuthMessage)
@@ -93,6 +116,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch {
       // Cookie hết hạn hoặc mạng lỗi: vẫn đưa giao diện về trạng thái khách.
     } finally {
+      setCachedUser(null)
       setUser(null)
       setSessionExpired(false)
       channelRef.current?.postMessage('logout' satisfies AuthMessage)
