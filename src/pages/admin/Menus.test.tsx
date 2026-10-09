@@ -130,7 +130,7 @@ test('sửa mục: danh sách mục cha không có chính nó và cây con', asy
   const drawer = await screen.findByRole('dialog')
   await userEvent.click(within(drawer).getByLabelText('Mục cha'))
   const options = [...document.querySelectorAll('.ant-select-item-option')].map((o) => o.getAttribute('title'))
-  expect(options).toEqual(['Biểu mẫu'])
+  expect(options).toEqual(['Không có (cấp 1 / mục gốc)', 'Biểu mẫu'])
 })
 
 test('tắt hiển thị: gọi PATCH rồi tải lại cây từ server', async () => {
@@ -146,3 +146,23 @@ test('tắt hiển thị: gọi PATCH rồi tải lại cây từ server', async
   expect(body(api.calls('/api/admin/menu-items/hoc-bong/visibility')[0])).toEqual({ isVisible: false })
   await waitFor(() => expect(loads).toBe(2))
 })
+
+test('xóa menu: mở hộp thoại xác nhận, gọi DELETE, tải lại danh sách menu', async () => {
+  let deleted = 0
+  mockApi({
+    ...base(),
+    '/api/admin/menus/m1': (_u, init) => {
+      if (init?.method === 'DELETE') {
+        deleted++
+        return ok({})
+      }
+      return ok({})
+    },
+  })
+  open()
+  await userEvent.click(await screen.findByLabelText('Xóa menu "Menu chính"'))
+  expect((await screen.findAllByText('Xóa menu "Menu chính"?')).length).toBeGreaterThan(0)
+  await userEvent.click(screen.getByRole('button', { name: 'Xóa' }))
+  await waitFor(() => expect(deleted).toBe(1))
+})
+

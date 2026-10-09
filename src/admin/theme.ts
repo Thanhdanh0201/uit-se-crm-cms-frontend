@@ -19,8 +19,12 @@ export const adminTheme: ThemeConfig = {
     borderRadius: 8, // --radius-control
     borderRadiusLG: 12, // --radius-card
     controlHeight: 36,
+    zIndexPopupBase: 2500,
   },
   components: {
+    Select: {
+      zIndexPopup: 3000,
+    },
     Layout: {
       headerBg: NAV_BG,
       headerHeight: 56, // --admin-header-h

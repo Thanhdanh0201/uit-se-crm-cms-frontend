@@ -126,3 +126,18 @@ export function changedCount(before: TreeNode[], after: TreeNode[]): number {
   const old = new Map(toOrder(before).map((o) => [o.id, key(o)]))
   return toOrder(after).filter((o) => old.get(o.id) !== key(o)).length
 }
+
+// Tìm kiếm tiếng Việt không phân biệt dấu và hoa thường cho ô Select.
+export function viSearchMatch(input: string, label: string): boolean {
+  if (!input) return true
+  const norm = (s: string) =>
+    s
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/đ/g, 'd')
+      .replace(/Đ/g, 'd')
+      .trim()
+  return norm(label).includes(norm(input))
+}
+

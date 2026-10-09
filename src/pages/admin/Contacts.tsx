@@ -212,11 +212,27 @@ function ContactsContent() {
             <Flex gap={12} wrap>
               <div style={{ flex: '1 1 200px' }}>
                 <label htmlFor="contact-status">Trạng thái xử lý</label>
-                <Select id="contact-status" style={{ width: '100%' }} value={detail.status} disabled={saving} onChange={(v: ContactStatus) => update({ status: v }, `Đã chuyển sang ${CONTACT_STATUS[v].label}.`)} options={(Object.keys(CONTACT_STATUS) as ContactStatus[]).map((s) => ({ value: s, label: CONTACT_STATUS[s].label }))} />
+                <Select
+                  id="contact-status"
+                  style={{ width: '100%' }}
+                  value={detail.status}
+                  disabled={saving}
+                  onChange={(v: ContactStatus) => update({ status: v }, `Đã chuyển sang ${CONTACT_STATUS[v].label}.`)}
+                  options={(Object.keys(CONTACT_STATUS) as ContactStatus[]).map((s) => ({ value: s, label: CONTACT_STATUS[s].label }))}
+                />
               </div>
               <div style={{ flex: '1 1 200px' }}>
                 <label htmlFor="contact-class">Phân loại</label>
-                <Select id="contact-class" style={{ width: '100%' }} allowClear placeholder="Chưa phân loại" value={detail.classification ?? undefined} disabled={saving} onChange={(v?: string) => update({ classification: v ?? '' }, 'Đã cập nhật phân loại.')} options={Object.entries(CLASSIFICATION).map(([value, label]) => ({ value, label }))} />
+                <Select
+                  id="contact-class"
+                  style={{ width: '100%' }}
+                  allowClear
+                  placeholder="Chưa phân loại"
+                  value={detail.classification ?? undefined}
+                  disabled={saving}
+                  onChange={(v?: string) => update({ classification: v ?? '' }, 'Đã cập nhật phân loại.')}
+                  options={Object.entries(CLASSIFICATION).map(([value, label]) => ({ value, label }))}
+                />
               </div>
             </Flex>
             <div>

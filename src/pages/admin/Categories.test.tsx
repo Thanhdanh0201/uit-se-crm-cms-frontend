@@ -123,3 +123,24 @@ test('thêm thẻ trùng: báo dưới ô tên, gửi slug null khi bỏ trống
   expect(await within(drawer).findByText('Đã có thẻ dùng đường dẫn "hoc-bong". Dùng thẻ đó hoặc đổi tên khác.')).toBeTruthy()
   expect(body(api.calls('/api/admin/tags').find(([, i]) => i?.method === 'POST')!)).toEqual({ name: 'Học Bổng', slug: null })
 })
+
+test('xóa thẻ: mở hộp thoại xác nhận, gọi DELETE, tải lại danh sách thẻ', async () => {
+  let deleted = 0
+  mockApi({
+    ...admin,
+    '/api/admin/tags': () => ok([{ id: 't1', name: 'Học bổng', slug: 'hoc-bong', postCount: 0 }]),
+    '/api/admin/tags/t1': (_u, init) => {
+      if (init?.method === 'DELETE') {
+        deleted++
+        return ok({})
+      }
+      return ok({})
+    },
+  })
+  open('/admin/categories?tab=tags')
+  await userEvent.click(await screen.findByLabelText('Xóa thẻ "Học bổng"'))
+  expect((await screen.findAllByText('Xóa thẻ "Học bổng"?')).length).toBeGreaterThan(0)
+  await userEvent.click(screen.getByRole('button', { name: 'Xóa' }))
+  await waitFor(() => expect(deleted).toBe(1))
+})
+

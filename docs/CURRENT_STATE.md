@@ -65,7 +65,20 @@
   - Trong `src/pages/public/Login.tsx`, bổ sung hàm `targetFor()`: nếu `user.role === 'student'` mà tham số `next` trỏ vào `/admin/*` thì tự động chuyển hướng an toàn về `/403` kèm state thay vì đưa người dùng vào trang quản trị rồi sập giao diện.
   - Trong `src/pages/public/Forbidden.tsx`, bỏ `{ replace: true }` tại `switchAccount()` để nút Back trên trình duyệt quay lại được `/403` ở trạng thái khách, không bị văng về trang trước đó.
 - **Bug 3 (Chuẩn hóa URL parameters bẩn)**: Trang `/admin/users` tự động chuẩn hóa query params khi mount bằng `useEffect`: ép `page` âm về 1, `pageSize` lạ về 10, loại bỏ role/status không hợp lệ, trim keyword. Thêm method `replace()` trong `src/lib/useListParams.ts`.
-- Toàn bộ 128/128 test pass trên 28 file test.
+## Sửa lỗi và cải tiến nghiệm thu Sprint 2 (SCRUM-35, 36, 37), cập nhật 09/10/2026
+- **SCRUM-35 Quản lý menu**:
+  - **Nút xóa menu hoạt động tin cậy**: Chuyển từ Popconfirm sang `modal.confirm` với `e.stopPropagation()`. Hộp thoại xác nhận rõ ràng, gọi DELETE API và tải lại danh sách menu sau khi xóa.
+  - **Chọn mục cha trong Drawer**: Mặc định là cấp 1 / mục gốc (`undefined`), thêm tùy chọn hiển thị rõ ràng "Không có (cấp 1 / mục gốc)". Tích hợp tìm kiếm tiếng Việt không dấu (`viSearchMatch`) khi tìm kiếm trang đích, chuyên mục và mục cha.
+- **SCRUM-36 Chuyên mục và thẻ**:
+  - **Nút xóa thẻ hoạt động tin cậy**: Chuyển sang `modal.confirm` với `e.stopPropagation()`, đồng bộ trải nghiệm người dùng với menu.
+  - **Chọn chuyên mục cha**: Mặc định là chuyên mục gốc, thêm tùy chọn "Không có (chuyên mục gốc)". Tích hợp `viSearchMatch` cho ô chọn chuyên mục cha và ô chọn chuyên mục đích khi chuyển bài viết để xóa chuyên mục.
+- **SCRUM-37 Thư viện media**:
+  - **Nút xóa media hoạt động tin cậy**: Dùng `modal.confirm` chuẩn thay cho Popconfirm trong drawer footer.
+  - **Tìm kiếm tiếng Việt không phân biệt dấu**: Bổ sung hàm `viSearchMatch(input, label)` trong `src/admin/tree.ts` (có unit test đầy đủ) và áp dụng cho các bộ chọn chuyên mục, thẻ trong bài viết (`Posts.tsx`, `PostEditor.tsx`) và trang chủ (`HomeSections.tsx`).
+- **Khắc phục lỗi dropdown của Select component không hiển thị danh sách trong Drawer/Modal và trang quản trị**:
+  - Cấu hình `zIndexPopup: 3000` và `zIndexPopupBase: 2500` trong `adminTheme` (`src/admin/theme.ts`) để popup của Select luôn nổi lên trên Drawer và Modal.
+  - Bổ sung `virtual={false}` và `getPopupContainer={(trigger) => trigger.parentElement}` cho các Select trong `Menus.tsx`, `Categories.tsx`, `Posts.tsx`, `PostEditor.tsx`, `HomeSections.tsx`, `Users.tsx`, `Events.tsx`, `Contacts.tsx` để render trực tiếp danh sách đầy đủ bên trong container của Form.Item, không bị phụ thuộc tính toán chiều cao virtual list và không bị ẩn sau Drawer.
+- Toàn bộ 131/131 tests pass trên 28 file test.
 
 ## Kế tiếp
 - Sprint 5 còn lại: form liên hệ công khai `/contact` (SCRUM-48), phía sinh viên đăng ký sự kiện và yêu cầu đã gửi (SCRUM-46, 55).
@@ -82,5 +95,5 @@
 - `GET /api/auth/me` chỉ trả `userId`, `role`, `email`; sau khi F5 chưa có `fullName`. Cần backend bổ sung nếu UI hiển thị tên.
 
 ## Cập nhật lần cuối
-07/10/2026
+09/10/2026
 

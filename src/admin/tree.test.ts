@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import { changedCount, dropNode, flatten, moveNode, step, subtreeIds, toOrder, type TreeNode } from './tree'
+import { changedCount, dropNode, flatten, moveNode, step, subtreeIds, toOrder, viSearchMatch, type TreeNode } from './tree'
 
 const n = (id: string, children: TreeNode[] = []): TreeNode => ({ id, children })
 // a
@@ -65,4 +65,12 @@ test('kéo thả: trước, sau, vào trong; chặn thả vào cây con và vư�
   expect(dropNode(tree(), 'a', 'a1', 'inside', 3)).toBeNull()
   expect(dropNode(tree(), 'c', 'a1x', 'inside', 3)).toBeNull()
   expect(ids(dropNode(tree(), 'c', 'a1x', 'after', 3))).toEqual(['a', '.a1', '..a1x', '..c', 'b'])
+})
+
+test('viSearchMatch: tìm kiếm tiếng Việt không dấu, có dấu và không phân biệt hoa thường', () => {
+  expect(viSearchMatch('tin tuc', 'Tin tức')).toBe(true)
+  expect(viSearchMatch('TIN TUC', 'Tin tức')).toBe(true)
+  expect(viSearchMatch('thong bao', 'Tin tức / Thông báo học vụ')).toBe(true)
+  expect(viSearchMatch('hoc vu', 'Tin tức / Thông báo học vụ')).toBe(true)
+  expect(viSearchMatch('dao tao', 'Đào tạo')).toBe(true)
 })
