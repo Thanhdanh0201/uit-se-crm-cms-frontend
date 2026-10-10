@@ -20,6 +20,7 @@ export const adminTheme: ThemeConfig = {
     borderRadiusLG: 12, // --radius-card
     controlHeight: 36,
     zIndexPopupBase: 2500,
+    motion: false,
   },
   components: {
     Select: {

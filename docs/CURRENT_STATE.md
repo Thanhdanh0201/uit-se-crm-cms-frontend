@@ -80,6 +80,12 @@
   - Bổ sung `virtual={false}` và `getPopupContainer={(trigger) => trigger.parentElement}` cho các Select trong `Menus.tsx`, `Categories.tsx`, `Posts.tsx`, `PostEditor.tsx`, `HomeSections.tsx`, `Users.tsx`, `Events.tsx`, `Contacts.tsx` để render trực tiếp danh sách đầy đủ bên trong container của Form.Item, không bị phụ thuộc tính toán chiều cao virtual list và không bị ẩn sau Drawer.
 - Toàn bộ 131/131 tests pass trên 28 file test.
 
+## Sửa lỗi popup Select trong trang quản trị, cập nhật 10/10/2026
+- FR-MENU-01..05, FR-CAT-01..04: Đã xác định nguyên nhân popup Select không hiện khi bật `prefers-reduced-motion: reduce`. Luật CSS giảm chuyển động toàn cục ép transition của popup Ant Design xuống `0.01ms`, khiến `rc-trigger` giữ popup ở tọa độ ẩn `-1000vw/-1000vh`.
+- Giới hạn luật giảm chuyển động vào `#root`, không áp dụng lên popup Ant Design được portal trực tiếp vào `body`. Tắt motion Ant Design trong theme quản trị để giữ giao diện ít chuyển động.
+- Đã kiểm tra bằng `npm run dev` với backend thật và chế độ giảm chuyển động: Select trong Drawer mở bằng chuột, chọn được mục và mở lại bình thường.
+- Test liên quan: 22/22 pass. `npm run typecheck` còn lỗi có sẵn: `src/pages/admin/Media.tsx` import `Popconfirm` nhưng không sử dụng.
+
 ## Kế tiếp
 - Sprint 5 còn lại: form liên hệ công khai `/contact` (SCRUM-48), phía sinh viên đăng ký sự kiện và yêu cầu đã gửi (SCRUM-46, 55).
 - Các trang được trang chủ liên kết tới nhưng chưa có (đang trả 404): `/categories/:slug` (chờ API bài theo chuyên mục), `/events`, `/events/:id`, `/contact`, `/search`.
@@ -95,5 +101,4 @@
 - `GET /api/auth/me` chỉ trả `userId`, `role`, `email`; sau khi F5 chưa có `fullName`. Cần backend bổ sung nếu UI hiển thị tên.
 
 ## Cập nhật lần cuối
-09/10/2026
-
+10/10/2026
