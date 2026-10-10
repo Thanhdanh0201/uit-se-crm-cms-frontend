@@ -10,6 +10,7 @@ import { MediaPicker } from '../../admin/MediaPicker'
 import { RichTextEditor, withMediaUrls } from '../../admin/RichTextEditor'
 import type { MediaDto } from '../../admin/media'
 import { canEdit, formatDateTime, postErrorMessage, STATUS_COLOR, statusLabel, type PostDetail, type PostMedia, type Ref, type RichNode } from '../../admin/posts'
+import { viSearchMatch } from '../../admin/tree'
 
 export const meta = () => noIndex('Soạn bài viết')
 
@@ -407,13 +408,30 @@ export default function PostEditor() {
 
             <Card title="Chuyên mục và thẻ" size="small">
               <Form.Item name="primaryCategoryId" label="Chuyên mục chính" rules={[{ required: true, message: 'Chọn chuyên mục chính.' }]}>
-                <Select showSearch={{ optionFilterProp: 'label' }} placeholder="Chọn chuyên mục" options={categories.map((c) => ({ value: c.id, label: c.name }))} />
+                <Select
+                  showSearch
+                  filterOption={(input, option) => viSearchMatch(input, String(option?.label ?? ''))}
+                  placeholder="Chọn chuyên mục"
+                  options={categories.map((c) => ({ value: c.id, label: c.name }))}
+                />
               </Form.Item>
               <Form.Item name="categoryIds" label="Chuyên mục khác" rules={[{ type: 'array', max: 4, message: 'Chọn tối đa 4 chuyên mục khác.' }]}>
-                <Select mode="multiple" showSearch={{ optionFilterProp: 'label' }} placeholder="Không bắt buộc" options={categories.map((c) => ({ value: c.id, label: c.name }))} />
+                <Select
+                  mode="multiple"
+                  showSearch
+                  filterOption={(input, option) => viSearchMatch(input, String(option?.label ?? ''))}
+                  placeholder="Không bắt buộc"
+                  options={categories.map((c) => ({ value: c.id, label: c.name }))}
+                />
               </Form.Item>
               <Form.Item name="tagIds" label="Thẻ" rules={[{ type: 'array', max: 10, message: 'Chọn tối đa 10 thẻ.' }]} style={{ marginBottom: 0 }}>
-                <Select mode="multiple" showSearch={{ optionFilterProp: 'label' }} placeholder="Không bắt buộc" options={tags.map((t) => ({ value: t.id, label: t.name }))} />
+                <Select
+                  mode="multiple"
+                  showSearch
+                  filterOption={(input, option) => viSearchMatch(input, String(option?.label ?? ''))}
+                  placeholder="Không bắt buộc"
+                  options={tags.map((t) => ({ value: t.id, label: t.name }))}
+                />
               </Form.Item>
             </Card>
 

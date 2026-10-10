@@ -30,7 +30,7 @@ type MetaValues = { name: string; altText?: string; description?: string }
 type VideoValues = { url: string; name: string; description?: string }
 
 export default function Media() {
-  const { message } = App.useApp()
+  const { message, modal } = App.useApp()
   const { user: me } = useAuth()
   const list = useListParams(MEDIA_PAGE_SIZE)
   const kind = list.params.get('kind') ?? 'all'
@@ -142,6 +142,19 @@ export default function Media() {
       setSaving(false)
     }
   }
+
+  function confirmDeleteMedia() {
+    if (!detail) return
+    modal.confirm({
+      title: `Xóa "${detail.name}"?`,
+      content: 'Tài nguyên bị gỡ khỏi thư viện và không khôi phục được file.',
+      okText: 'Xóa',
+      cancelText: 'Hủy',
+      okButtonProps: { danger: true },
+      onOk: onDelete,
+    })
+  }
+
 
   async function onAddVideo(values: VideoValues) {
     if (saving) return
@@ -264,17 +277,14 @@ export default function Media() {
         footer={
           canEdit && (
             <Flex justify="space-between" gap={8}>
-              <Popconfirm
-                title={`Xóa "${detail?.name}"?`}
-                description="Tài nguyên bị gỡ khỏi thư viện và không khôi phục được file."
-                okText="Xóa"
-                cancelText="Hủy"
-                okButtonProps={{ danger: true }}
-                disabled={usageList.length > 0}
-                onConfirm={onDelete}
+              <Button
+                danger
+                icon={<Trash size={16} />}
+                disabled={saving || usageList.length > 0}
+                onClick={confirmDeleteMedia}
               >
-                <Button danger icon={<Trash size={16} />} disabled={saving || usageList.length > 0}>Xóa</Button>
-              </Popconfirm>
+                Xóa
+              </Button>
               <Space>
                 <Button onClick={closeDrawer}>Đóng</Button>
                 <Button type="primary" loading={saving} onClick={() => form.submit()}>Lưu</Button>

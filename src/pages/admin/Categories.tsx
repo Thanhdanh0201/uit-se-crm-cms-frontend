@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Alert, App, Button, Card, Drawer, Empty, Flex, Form, Input, InputNumber, Modal, Popconfirm, Segmented, Select, Space, Switch, Table, Tag } from 'antd'
+import { Alert, App, Button, Card, Drawer, Empty, Flex, Form, Input, InputNumber, Modal, Segmented, Select, Space, Switch, Table, Tag } from 'antd'
 import { CaretDown, CaretRight, EyeSlash, Info, PencilSimple, Plus, Trash, Warning } from '@phosphor-icons/react'
 import { api, ApiError } from '../../lib/api'
 import { RequireRole } from '../../lib/auth'
 import { noIndex } from '../../lib/seo'
 import { useListParams } from '../../lib/useListParams'
-import { findNode, flatten, subtreeIds } from '../../admin/tree'
+import { findNode, flatten, subtreeIds, viSearchMatch } from '../../admin/tree'
 
 export const meta = () => noIndex('Chuyên mục và thẻ')
 
@@ -221,23 +221,28 @@ function CategoryDrawer({ tree, open, editing, parentId, onClose, onSaved }: { t
   const [form] = Form.useForm<CategoryValues>()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const [parentOpen, setParentOpen] = useState(false)
   const name = Form.useWatch('name', form)
 
   useEffect(() => {
     if (!open) return
     setError('')
+    setParentOpen(false)
     if (editing) form.setFieldsValue({ name: editing.name, slug: editing.slug, description: editing.description ?? '', parentId: editing.parentId, sortOrder: editing.sortOrder, isVisible: editing.isVisible })
-    else form.setFieldsValue({ name: '', slug: '', description: '', parentId, sortOrder: (parentId ? findNode(tree, parentId)?.children.length ?? 0 : tree.length) + 1, isVisible: true })
+    else form.setFieldsValue({ name: '', slug: '', description: '', parentId: parentId ?? undefined, sortOrder: (parentId ? findNode(tree, parentId)?.children.length ?? 0 : tree.length) + 1, isVisible: true })
   }, [open, editing, parentId, tree, form])
 
   const blocked = editing ? subtreeIds(editing) : new Set<string>()
-  const options = flatten(tree, (c) => c.name).filter((f) => !blocked.has(f.node.id)).map((f) => ({ value: f.node.id, label: f.path.join(' / ') }))
+  const options = [
+    { value: '', label: 'Không có (chuyên mục gốc)' },
+    ...flatten(tree, (c) => c.name).filter((f) => !blocked.has(f.node.id)).map((f) => ({ value: f.node.id, label: f.path.join(' / ') })),
+  ]
 
   async function onFinish(v: CategoryValues) {
     if (busy) return
     setBusy(true)
     setError('')
-    const body = { name: v.name.trim(), slug: v.slug?.trim() || null, description: v.description?.trim() || null, parentId: v.parentId ?? null, sortOrder: v.sortOrder, isVisible: v.isVisible }
+    const body = { name: v.name.trim(), slug: v.slug?.trim() || null, description: v.description?.trim() || null, parentId: v.parentId?.trim() || null, sortOrder: v.sortOrder, isVisible: v.isVisible }
     try {
       if (editing) await api(`/api/admin/categories/${editing.id}`, { method: 'PUT', json: body })
       else await api('/api/admin/categories', { method: 'POST', json: body })
@@ -275,8 +280,21 @@ function CategoryDrawer({ tree, open, editing, parentId, onClose, onSaved }: { t
         <Form.Item name="description" label="Mô tả" rules={[{ max: 500, message: 'Mô tả tối đa 500 ký tự.' }]}>
           <Input.TextArea rows={3} maxLength={500} showCount />
         </Form.Item>
-        <Form.Item name="parentId" label="Chuyên mục cha" extra="Không chọn được chính chuyên mục này và các chuyên mục con của nó.">
-          <Select allowClear showSearch={{ optionFilterProp: 'label' }} placeholder="Không có (chuyên mục gốc)" options={options} />
+        <Form.Item name="parentId" label="Chuyên mục cha" extra="Mặc định là chuyên mục gốc. Không chọn được chính chuyên mục này và các chuyên mục con của nó.">
+          <Select
+            allowClear
+            showSearch
+            open={parentOpen}
+            onOpenChange={setParentOpen}
+            onClick={() => setParentOpen(true)}
+            filterOption={(input, option) => viSearchMatch(input, String(option?.label ?? ''))}
+            placeholder="Không có (chuyên mục gốc)"
+            options={options}
+            onChange={(val) => {
+              form.setFieldValue('parentId', val)
+              setParentOpen(false)
+            }}
+          />
         </Form.Item>
         <Form.Item name="sortOrder" label="Thứ tự hiển thị" extra="Số nhỏ hiện trước, trong cùng chuyên mục cha." rules={[{ required: true, message: 'Nhập thứ tự.' }, { type: 'number', min: 0, message: 'Thứ tự từ 0 trở lên.' }]}>
           <InputNumber min={0} precision={0} style={{ width: 120 }} />
@@ -299,11 +317,13 @@ function CategoryDrawer({ tree, open, editing, parentId, onClose, onSaved }: { t
 function DeleteCategoryModal({ tree, category, onClose, onDone }: { tree: Category[]; category: Category | null; onClose: () => void; onDone: () => void }) {
   const { message } = App.useApp()
   const [target, setTarget] = useState<string | undefined>()
+  const [targetOpen, setTargetOpen] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
 
   useEffect(() => {
     setTarget(undefined)
+    setTargetOpen(false)
     setError('')
   }, [category])
 
@@ -353,10 +373,17 @@ function DeleteCategoryModal({ tree, category, onClose, onDone }: { tree: Catego
       <Form layout="vertical" disabled={busy}>
         <Form.Item label="Chuyển bài viết và chuyên mục con sang" required extra={`Không chọn được "${category.name}" và các chuyên mục con của nó.`}>
           <Select
-            showSearch={{ optionFilterProp: 'label' }}
+            showSearch
+            open={targetOpen}
+            onOpenChange={setTargetOpen}
+            onClick={() => setTargetOpen(true)}
+            filterOption={(input, option) => viSearchMatch(input, String(option?.label ?? ''))}
             placeholder="Chọn chuyên mục nhận"
             value={target}
-            onChange={setTarget}
+            onChange={(val) => {
+              setTarget(val)
+              setTargetOpen(false)
+            }}
             options={flatten(tree, (c) => c.name).filter((f) => !blocked.has(f.node.id)).map((f) => ({ value: f.node.id, label: f.path.join(' / ') }))}
           />
         </Form.Item>
@@ -371,7 +398,7 @@ function DeleteCategoryModal({ tree, category, onClose, onDone }: { tree: Catego
 const TAG_FIELDS: Record<string, keyof TagValues> = { name: 'name', slug: 'slug' }
 
 function TagsTab({ keyword }: { keyword: string }) {
-  const { message } = App.useApp()
+  const { message, modal } = App.useApp()
   const list = useListParams(20)
   const [tags, setTags] = useState<Tag[] | null>(null)
   const [error, setError] = useState('')
@@ -406,6 +433,17 @@ function TagsTab({ keyword }: { keyword: string }) {
     }
   }
 
+  function confirmDeleteTag(t: Tag) {
+    modal.confirm({
+      title: `Xóa thẻ "${t.name}"?`,
+      content: t.postCount ? `Thẻ đang gắn với ${t.postCount} bài. Xóa thẻ sẽ gỡ thẻ khỏi các bài đó, bài viết không bị xóa.` : 'Thẻ chưa gắn với bài nào.',
+      okText: 'Xóa',
+      cancelText: 'Hủy',
+      okButtonProps: { danger: true },
+      onOk: () => remove(t),
+    })
+  }
+
   return (
     <>
       {error && <Alert type="error" showIcon style={{ marginBottom: 16 }} title="Không tải được danh sách thẻ" description={error} action={<Button size="small" onClick={reload}>Thử lại</Button>} />}
@@ -435,16 +473,19 @@ function TagsTab({ keyword }: { keyword: string }) {
             render: (_, t) => (
               <Space size={2}>
                 <Button type="text" size="small" icon={<PencilSimple size={16} />} title="Sửa" aria-label={`Sửa thẻ "${t.name}"`} onClick={() => list.openEdit(t.id)} />
-                <Popconfirm
-                  title={`Xóa thẻ "${t.name}"?`}
-                  description={t.postCount ? `Thẻ đang gắn với ${t.postCount} bài. Xóa thẻ sẽ gỡ thẻ khỏi các bài đó, bài viết không bị xóa.` : 'Thẻ chưa gắn với bài nào.'}
-                  okText="Xóa"
-                  cancelText="Hủy"
-                  okButtonProps={{ danger: true }}
-                  onConfirm={() => remove(t)}
-                >
-                  <Button type="text" size="small" danger icon={<Trash size={16} />} disabled={busy} aria-label={`Xóa thẻ "${t.name}"`} />
-                </Popconfirm>
+                <Button
+                  type="text"
+                  size="small"
+                  danger
+                  icon={<Trash size={16} />}
+                  disabled={busy}
+                  title="Xóa thẻ"
+                  aria-label={`Xóa thẻ "${t.name}"`}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    confirmDeleteTag(t)
+                  }}
+                />
               </Space>
             ),
           },

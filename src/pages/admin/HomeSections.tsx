@@ -5,6 +5,7 @@ import { api, ApiError } from '../../lib/api'
 import { RequireRole } from '../../lib/auth'
 import { noIndex } from '../../lib/seo'
 import { useListParams } from '../../lib/useListParams'
+import { viSearchMatch } from '../../admin/tree'
 import type { Ref } from '../../admin/posts'
 
 export const meta = () => noIndex('Cấu hình trang chủ')
@@ -171,7 +172,13 @@ function HomeSectionsContent() {
             <Input maxLength={100} placeholder="Ví dụ: Thông báo học vụ" />
           </Form.Item>
           <Form.Item name="categoryId" label="Chuyên mục" extra="Bỏ trống để hiện bài mới nhất của mọi chuyên mục. Chuyên mục bị ẩn hoặc xóa thì khối tự ẩn.">
-            <Select allowClear showSearch={{ optionFilterProp: 'label' }} placeholder="Bài mới nhất mọi chuyên mục" options={categories.map((c) => ({ value: c.id, label: c.name }))} />
+            <Select
+              allowClear
+              showSearch
+              filterOption={(input, option) => viSearchMatch(input, String(option?.label ?? ''))}
+              placeholder="Bài mới nhất mọi chuyên mục"
+              options={categories.map((c) => ({ value: c.id, label: c.name }))}
+            />
           </Form.Item>
           <Form.Item name="itemLimit" label="Số bài hiển thị" rules={[{ required: true, message: 'Nhập số bài.' }, { type: 'number', min: 1, max: 12, message: 'Từ 1 đến 12 bài.' }]}>
             <InputNumber min={1} max={12} style={{ width: 120 }} />

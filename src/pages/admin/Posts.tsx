@@ -6,6 +6,7 @@ import { api, ApiError } from '../../lib/api'
 import { useAuth } from '../../lib/auth'
 import { noIndex } from '../../lib/seo'
 import { useListParams } from '../../lib/useListParams'
+import { viSearchMatch } from '../../admin/tree'
 import { SCHEDULE_LABEL, scheduleState } from '../../admin/vnTime'
 import {
   ACTION_LABEL,
@@ -121,7 +122,8 @@ export default function Posts() {
           )}
           <Select
             allowClear
-            showSearch={{ optionFilterProp: 'label' }}
+            showSearch
+            filterOption={(input, option) => viSearchMatch(input, String(option?.label ?? ''))}
             placeholder="Mọi chuyên mục"
             aria-label="Lọc theo chuyên mục"
             value={category ?? undefined}

@@ -64,8 +64,8 @@ test('xóa nhưng server báo 409 media_in_use: không xóa trên UI, hiện dan
   })
   open('/admin/media?action=edit&id=m1')
   await userEvent.click(await screen.findByRole('button', { name: /Xóa/ }))
-  await screen.findByText('Xóa "Lễ trao học bổng 2026"?')
-  await userEvent.click(screen.getAllByRole('button', { name: 'Xóa' }).at(-1)!) // nút trong Popconfirm
+  expect((await screen.findAllByText('Xóa "Lễ trao học bổng 2026"?')).length).toBeGreaterThan(0)
+  await userEvent.click(screen.getAllByRole('button', { name: 'Xóa' }).at(-1)!) // nút trong modal.confirm
 
   expect(await screen.findByText(/đang được dùng ở 1 bài viết hoặc trang/)).toBeTruthy()
   expect(screen.getByText('Ảnh đại diện bài: Thông báo học bổng (Đã xuất bản)')).toBeTruthy()

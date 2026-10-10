@@ -1,13 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useBlocker } from 'react-router'
-import { Alert, App, Button, Card, Drawer, Dropdown, Empty, Flex, Form, Input, Modal, Popconfirm, Segmented, Select, Skeleton, Switch, Tag, Tree } from 'antd'
+import { Alert, App, Button, Card, Drawer, Dropdown, Empty, Flex, Form, Input, Modal, Segmented, Select, Skeleton, Switch, Tag, Tree } from 'antd'
 import type { MenuProps } from 'antd'
 import { ArrowsDownUp, ArrowSquareOut, CaretDown, DotsSixVertical, DotsThreeVertical, FloppyDisk, Info, PencilSimple, Plus, Trash, Warning } from '@phosphor-icons/react'
 import { api, ApiError } from '../../lib/api'
 import { RequireRole } from '../../lib/auth'
 import { noIndex } from '../../lib/seo'
 import { useListParams } from '../../lib/useListParams'
-import { changedCount, dropNode, findNode, flatten, height, step, subtreeIds, toOrder, type Move } from '../../admin/tree'
+import { changedCount, dropNode, findNode, flatten, height, step, subtreeIds, toOrder, viSearchMatch, type Move } from '../../admin/tree'
 
 export const meta = () => noIndex('Menu website')
 
@@ -177,6 +177,21 @@ function MenusContent() {
     })
   }
 
+  function confirmDeleteMenu(m: Menu) {
+    modal.confirm({
+      title: `Xóa menu "${m.name}"?`,
+      content: `Menu và ${m.itemCount} mục bên trong bị xóa. Nơi trên website đang dùng mã "${m.code}" sẽ không còn menu này.`,
+      okText: 'Xóa',
+      cancelText: 'Hủy',
+      okButtonProps: { danger: true },
+      onOk: () =>
+        run(() => api(`/api/admin/menus/${m.id}`, { method: 'DELETE' }), `Đã xóa menu "${m.name}".`).then(
+          (ok) => ok && (list.update({ menu: null }), setMenuReload((k) => k + 1)),
+        ),
+    })
+  }
+
+
   const toggle = (item: MenuItem) =>
     run(() => api(`/api/admin/menu-items/${item.id}/visibility`, { method: 'PATCH', json: { isVisible: !item.isVisible } }), item.isVisible ? `Đã ẩn "${item.label}" khỏi website.` : `Đã hiện "${item.label}" trên website.`).then(
       (ok) => ok && setItemsReload((k) => k + 1),
@@ -261,16 +276,19 @@ function MenusContent() {
             {m.id === menuId && (
               <span className="menus-page__menu-actions">
                 <Button type="text" size="small" icon={<PencilSimple size={14} />} title="Sửa menu" aria-label={`Sửa menu "${m.name}"`} onClick={() => setMenuForm(m)} />
-                <Popconfirm
-                  title={`Xóa menu "${m.name}"?`}
-                  description={`Menu và ${m.itemCount} mục bên trong bị xóa. Nơi trên website đang dùng mã "${m.code}" sẽ không còn menu này.`}
-                  okText="Xóa"
-                  cancelText="Hủy"
-                  okButtonProps={{ danger: true }}
-                  onConfirm={() => run(() => api(`/api/admin/menus/${m.id}`, { method: 'DELETE' }), `Đã xóa menu "${m.name}".`).then((ok) => ok && (list.update({ menu: null }), setMenuReload((k) => k + 1)))}
-                >
-                  <Button type="text" size="small" danger icon={<Trash size={14} />} disabled={busy} aria-label={`Xóa menu "${m.name}"`} />
-                </Popconfirm>
+                <Button
+                  type="text"
+                  size="small"
+                  danger
+                  icon={<Trash size={14} />}
+                  disabled={busy}
+                  title="Xóa menu"
+                  aria-label={`Xóa menu "${m.name}"`}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    confirmDeleteMenu(m)
+                  }}
+                />
               </span>
             )}
           </li>
@@ -453,11 +471,17 @@ function ItemDrawer({ menuId, tree, action, editing, parentId, onClose, onSaved 
   const [categories, setCategories] = useState<CategoryRef[] | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const [parentOpen, setParentOpen] = useState(false)
+  const [pageOpen, setPageOpen] = useState(false)
+  const [categoryOpen, setCategoryOpen] = useState(false)
   const open = action === 'create' || !!editing
 
   useEffect(() => {
     if (!open) return
     setError('')
+    setParentOpen(false)
+    setPageOpen(false)
+    setCategoryOpen(false)
     if (editing) {
       form.setFieldsValue({
         label: editing.label,
@@ -468,7 +492,7 @@ function ItemDrawer({ menuId, tree, action, editing, parentId, onClose, onSaved 
         parentId: editing.parentId,
         isVisible: editing.isVisible,
       })
-    } else form.setFieldsValue({ label: '', kind: 'page', pageId: undefined, categoryId: undefined, externalUrl: undefined, parentId: parentId, isVisible: true })
+    } else form.setFieldsValue({ label: '', kind: 'page', pageId: undefined, categoryId: undefined, externalUrl: undefined, parentId: parentId ?? undefined, isVisible: true })
   }, [open, editing, parentId, form])
 
   // Nguồn chọn đích: tải khi mở drawer. Lỗi thì chỉ mất danh sách chọn, vẫn hiện thông báo.
@@ -482,12 +506,16 @@ function ItemDrawer({ menuId, tree, action, editing, parentId, onClose, onSaved 
   const flat = useMemo(() => flatten(tree, (n) => n.label), [tree])
   const blocked = editing ? subtreeIds(editing) : new Set<string>()
   const ownHeight = editing ? height(editing) : 1
+  const parentOptions = [
+    { value: '', label: 'Không có (cấp 1 / mục gốc)' },
+    ...flat.filter((f) => !blocked.has(f.node.id)).map((f) => ({ value: f.node.id, label: f.path.join(' / ') })),
+  ]
 
   async function onFinish(v: ItemValues) {
     if (busy) return
     setBusy(true)
     setError('')
-    const newParent = v.parentId ?? null
+    const newParent = v.parentId?.trim() || null
     const body = {
       label: v.label.trim(),
       kind: v.kind,
@@ -551,21 +579,37 @@ function ItemDrawer({ menuId, tree, action, editing, parentId, onClose, onSaved 
         {kind === 'page' && (
           <Form.Item name="pageId" label="Trang đích" rules={[{ required: true, message: 'Chọn trang đích.' }]} extra={page ? `Link tự sinh: /pages/${page.slug}` : 'Trang chưa xuất bản thì mục không hiện trên website.'}>
             <Select
-              showSearch={{ optionFilterProp: 'label' }}
+              showSearch
+              open={pageOpen}
+              onOpenChange={setPageOpen}
+              onClick={() => setPageOpen(true)}
+              filterOption={(input, option) => viSearchMatch(input, String(option?.label ?? ''))}
               loading={!pages}
               placeholder="Chọn trang"
               notFoundContent={pages?.length === 0 ? 'Chưa có trang nào hoặc không tải được.' : undefined}
               options={pages?.map((p) => ({ value: p.id, label: p.status === 'published' ? p.title : `${p.title} (chưa xuất bản)` }))}
+              onChange={(val) => {
+                form.setFieldValue('pageId', val)
+                setPageOpen(false)
+              }}
             />
           </Form.Item>
         )}
         {kind === 'category' && (
           <Form.Item name="categoryId" label="Chuyên mục đích" rules={[{ required: true, message: 'Chọn chuyên mục đích.' }]} extra={category ? `Chỉ hiện chuyên mục chưa bị xóa. Link tự sinh: /categories/${category.slug}` : 'Chỉ hiện chuyên mục chưa bị xóa. Chuyên mục đang ẩn không chọn được.'}>
             <Select
-              showSearch={{ optionFilterProp: 'label' }}
+              showSearch
+              open={categoryOpen}
+              onOpenChange={setCategoryOpen}
+              onClick={() => setCategoryOpen(true)}
+              filterOption={(input, option) => viSearchMatch(input, String(option?.label ?? ''))}
               loading={!categories}
               placeholder="Chọn chuyên mục"
               options={categories?.map((c) => ({ value: c.id, label: c.isVisible ? c.name : `${c.name} (đang ẩn)`, disabled: !c.isVisible && c.id !== editing?.categoryId }))}
+              onChange={(val) => {
+                form.setFieldValue('categoryId', val)
+                setCategoryOpen(false)
+              }}
             />
           </Form.Item>
         )}
@@ -585,11 +629,12 @@ function ItemDrawer({ menuId, tree, action, editing, parentId, onClose, onSaved 
         <Form.Item
           name="parentId"
           label="Mục cha"
-          extra="Bỏ trống để đặt ở cấp 1. Danh sách không có chính mục này và các mục con của nó."
+          extra="Mặc định là mục cấp 1 (mục gốc). Danh sách không có chính mục này và các mục con của nó."
           rules={[
             {
               validator: (_, value: string | null | undefined) => {
-                const p = value ? flat.find((f) => f.node.id === value) : undefined
+                if (!value) return Promise.resolve()
+                const p = flat.find((f) => f.node.id === value)
                 if (!p || p.depth + ownHeight <= MAX_DEPTH) return Promise.resolve()
                 return Promise.reject(
                   new Error(ownHeight === 1 ? `Không thể tạo mục con vì "${p.node.label}" đã ở cấp ${p.depth}. Menu chỉ cho phép tối đa 3 cấp.` : `Không chuyển được: mục này có mục con, đặt dưới "${p.node.label}" sẽ vượt quá 3 cấp.`),
@@ -600,9 +645,17 @@ function ItemDrawer({ menuId, tree, action, editing, parentId, onClose, onSaved 
         >
           <Select
             allowClear
-            showSearch={{ optionFilterProp: 'label' }}
-            placeholder="Không có (cấp 1)"
-            options={flat.filter((f) => !blocked.has(f.node.id)).map((f) => ({ value: f.node.id, label: f.path.join(' / ') }))}
+            showSearch
+            open={parentOpen}
+            onOpenChange={setParentOpen}
+            onClick={() => setParentOpen(true)}
+            filterOption={(input, option) => viSearchMatch(input, String(option?.label ?? ''))}
+            placeholder="Không có (cấp 1 / mục gốc)"
+            options={parentOptions}
+            onChange={(val) => {
+              form.setFieldValue('parentId', val)
+              setParentOpen(false)
+            }}
           />
         </Form.Item>
         <Flex gap={12} align="start" style={{ marginTop: 8 }}>
