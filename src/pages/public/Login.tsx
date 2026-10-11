@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { flushSync } from 'react-dom'
 import { Navigate, useNavigate, useSearchParams } from 'react-router'
-import { safeNext, useAuth, type Role } from '../../lib/auth'
+import { CHANGE_PASSWORD_PATH, safeNext, useAuth, type Role } from '../../lib/auth'
 import { ApiError } from '../../lib/api'
 import { noIndex } from '../../lib/seo'
 import { focusFirstError, validateLogin, type FieldErrors, type LoginInput } from '../../lib/validate'
@@ -27,7 +27,12 @@ export function loginErrors(err: unknown): Errors {
   return { form: 'Không đăng nhập được lúc này. Vui lòng thử lại sau.' }
 }
 
-function targetFor(user: { role: Role }, next: string | null): { to: string; state?: unknown } {
+function targetFor(user: { role: Role; mustChangePassword?: boolean }, next: string | null): { to: string; state?: unknown } {
+  // Đăng nhập bằng mật khẩu admin cấp: đổi mật khẩu trước, xong quay lại trang định vào.
+  if (user.mustChangePassword) {
+    const after = targetFor({ role: user.role }, next)
+    return after.to === '/403' ? after : { to: `${CHANGE_PASSWORD_PATH}?next=${encodeURIComponent(after.to)}` }
+  }
   if (next) {
     // Sinh viên không có quyền mở /admin: chuyển thẳng về /403 thay vì điều hướng vào admin gây lỗi.
     if ((next.startsWith('/admin') || next.startsWith('/dev/admin')) && user.role === 'student') {

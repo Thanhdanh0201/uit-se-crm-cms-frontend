@@ -31,12 +31,18 @@ function LoginPage() {
   return <output data-testid="login">{pathname + search}</output>
 }
 
+function PasswordPage() {
+  const { pathname, search } = useLocation()
+  return <output data-testid="password">{pathname + search}</output>
+}
+
 function openApp(path: string) {
   return render(
     <MemoryRouter initialEntries={[path]}>
       <AuthProvider>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/me/password" element={<PasswordPage />} />
           <Route path="/403" element={<Forbidden />} />
           <Route path="/me" element={<Account />} />
           <Route path="/admin" element={<AdminRoute />}>
@@ -152,3 +158,28 @@ test('AdminRoute clientLoader: Admin được phép truy cập (trả về null)
   expect(res).toBeNull()
 })
 
+test('Mật khẩu admin cấp: vào trang quản trị bị chuyển tới đổi mật khẩu, giữ trang định vào', async () => {
+  const api = mockApi({ '/api/auth/me': () => ok({ id: 'admin-1', username: 'admin', fullName: 'Quản trị', role: 'admin', email: 'admin@uit.edu.vn', mustChangePassword: true }), '/api/admin/users': users })
+  openApp('/admin/users?page=2')
+  expect((await screen.findByTestId('password')).textContent).toBe('/me/password?next=%2Fadmin%2Fusers%3Fpage%3D2')
+  expect(api.calls('/api/admin/users')).toHaveLength(0)
+})
+
+test('Server trả 403 password_change_required (đặt lại mật khẩu khi đang đăng nhập): chuyển tới đổi mật khẩu', async () => {
+  mockApi({
+    '/api/auth/me': () => me('admin'),
+    '/api/admin/users': () => reply(403, { title: 'Cần đổi mật khẩu', status: 403, code: 'password_change_required' }),
+  })
+  openApp('/admin/users')
+  expect((await screen.findByTestId('password')).textContent).toBe('/me/password?next=%2Fadmin%2Fusers')
+})
+
+test('AdminRoute clientLoader: chưa đổi mật khẩu admin cấp thì redirect tới trang đổi mật khẩu', async () => {
+  mockApi({ '/api/auth/me': () => ok({ id: 'a', username: 'a', fullName: 'A', role: 'admin', email: null, mustChangePassword: true }) })
+  try {
+    await clientLoader({ request: new Request('http://localhost/admin/users'), params: {} } as any)
+    expect.fail('clientLoader phải redirect')
+  } catch (err: any) {
+    expect(err.headers.get('Location')).toBe('/me/password?next=%2Fadmin%2Fusers')
+  }
+})

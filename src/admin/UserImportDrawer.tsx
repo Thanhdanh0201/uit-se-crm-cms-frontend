@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Alert, App, Button, Drawer, Flex, Segmented, Space, Table, Tag, Upload } from 'antd'
+import { Alert, App, Button, Drawer, Flex, Segmented, Table, Tag, Upload } from 'antd'
 import { DownloadSimple, FileXls, Info } from '@phosphor-icons/react'
 import { download, upload, ApiError } from '../lib/api'
 import { ROLE_LABEL } from './roles'
@@ -7,7 +7,7 @@ import type { Role } from '../lib/auth'
 
 // DTO theo backend ImportUsersResultDto (POST /api/admin/users/import).
 type RowStatus = 'valid' | 'invalid' | 'created' | 'failed'
-export type ImportRow = { row: number; fullName: string; email: string; username: string; role: Role; status: RowStatus; errors: string[]; temporaryPassword: string | null }
+export type ImportRow = { row: number; fullName: string; email: string; username: string; role: Role; status: RowStatus; errors: string[] }
 type ImportResult = { dryRun: boolean; totalRows: number; validRows: number; createdRows: number; failedRows: number; rows: ImportRow[] }
 
 const MAX_BYTES = 2 * 1024 * 1024 // cùng giới hạn backend UserImport.MaxFileBytes
@@ -16,17 +16,6 @@ const STATUS: Record<RowStatus, { label: string; color: string }> = {
   invalid: { label: 'Lỗi', color: 'red' },
   created: { label: 'Đã tạo', color: 'green' },
   failed: { label: 'Không tạo được', color: 'red' },
-}
-
-// File danh sách mật khẩu tạm: UTF-8 BOM để Excel đọc đúng tiếng Việt; ô bắt đầu bằng = + - @ thêm ' chống chèn công thức.
-export function passwordsCsv(rows: ImportRow[]): string {
-  const cell = (v: string) => {
-    const safe = /^[=+\-@]/.test(v) ? `'${v}` : v
-    return /[",\r\n]/.test(safe) ? `"${safe.replace(/"/g, '""')}"` : safe
-  }
-  const lines = [['Họ và tên', 'Email', 'Tên đăng nhập', 'Mật khẩu tạm']]
-  for (const r of rows) if (r.temporaryPassword) lines.push([r.fullName, r.email, r.username, r.temporaryPassword])
-  return '﻿' + lines.map((l) => l.map(cell).join(',')).join('\r\n') + '\r\n'
 }
 
 const errorText = (err: unknown) =>
@@ -42,7 +31,6 @@ export default function UserImportDrawer({ open, onClose, onImported }: { open: 
   const [busy, setBusy] = useState<'check' | 'import' | 'template' | null>(null)
   const [error, setError] = useState('')
   const [onlyErrors, setOnlyErrors] = useState(false)
-  const [savedPasswords, setSavedPasswords] = useState(false)
 
   useEffect(() => {
     if (open) return
@@ -50,8 +38,16 @@ export default function UserImportDrawer({ open, onClose, onImported }: { open: 
     setResult(null)
     setError('')
     setOnlyErrors(false)
-    setSavedPasswords(false)
   }, [open])
+
+  // Đang tạo tài khoản mà tải lại trang hoặc đóng tab: trình duyệt hỏi lại. Server vẫn chạy tiếp nên người dùng
+  // sẽ không thấy dòng nào tạo được, dòng nào lỗi.
+  useEffect(() => {
+    if (busy !== 'import') return
+    const onBeforeUnload = (e: BeforeUnloadEvent) => e.preventDefault()
+    window.addEventListener('beforeunload', onBeforeUnload)
+    return () => window.removeEventListener('beforeunload', onBeforeUnload)
+  }, [busy])
 
   const send = (f: File, dryRun: boolean) => {
     const form = new FormData()
@@ -100,28 +96,9 @@ export default function UserImportDrawer({ open, onClose, onImported }: { open: 
   }
 
   const imported = result && !result.dryRun
-  const passwords = imported ? result.rows.filter((r) => r.temporaryPassword).length : 0
-
-  function savePasswords() {
-    const url = URL.createObjectURL(new Blob([passwordsCsv(result!.rows)], { type: 'text/csv;charset=utf-8' }))
-    const a = Object.assign(document.createElement('a'), { href: url, download: 'mat-khau-tam.csv' })
-    a.click()
-    URL.revokeObjectURL(url)
-    setSavedPasswords(true)
-  }
 
   function close() {
-    if (busy) return
-    if (passwords > 0 && !savedPasswords) {
-      modal.confirm({
-        title: 'Chưa tải danh sách mật khẩu tạm',
-        content: 'Đóng lại thì không xem lại được mật khẩu tạm. Khi cần, đặt lại mật khẩu từng người trong danh sách.',
-        okText: 'Vẫn đóng',
-        cancelText: 'Ở lại',
-        okButtonProps: { danger: true },
-        onOk: onClose,
-      })
-    } else onClose()
+    if (!busy) onClose()
   }
 
   const rows = result ? (onlyErrors ? result.rows.filter((r) => r.errors.length > 0) : result.rows) : []
@@ -153,7 +130,7 @@ export default function UserImportDrawer({ open, onClose, onImported }: { open: 
           <Flex gap={8} align="start" className="muted" style={{ fontSize: 'var(--text-sm)', marginBottom: 12 }}>
             <Info size={16} aria-hidden style={{ flex: 'none', marginTop: 2 }} />
             <span>
-              Mỗi dòng là một tài khoản: Họ và tên, Email, Tên đăng nhập (ví dụ mã số sinh viên), Vai trò (Sinh viên hoặc Biên tập viên, bỏ trống là Sinh viên), Mật khẩu (bỏ trống để hệ thống tạo mật khẩu tạm). Tối đa 300 dòng, 2 MB.
+              Mỗi dòng là một tài khoản, điền đủ 5 cột: Họ và tên, Email, Tên đăng nhập (ví dụ mã số sinh viên), Vai trò (Sinh viên hoặc Biên tập viên), Mật khẩu (tối thiểu 6 ký tự). Dòng thiếu thông tin bị bỏ qua. Người dùng phải đổi mật khẩu ở lần đăng nhập đầu. Tối đa 300 dòng, 2 MB.
             </span>
           </Flex>
           <Button
@@ -189,7 +166,7 @@ export default function UserImportDrawer({ open, onClose, onImported }: { open: 
       )}
 
       {busy === 'check' && <Alert type="info" showIcon style={{ marginTop: 16 }} title="Đang kiểm tra file..." />}
-      {busy === 'import' && <Alert type="info" showIcon style={{ marginTop: 16 }} title={`Đang tạo ${result?.validRows} tài khoản, có thể mất khoảng một phút. Đừng đóng trang.`} />}
+      {busy === 'import' && <Alert type="warning" showIcon style={{ marginTop: 16 }} title={`Đang tạo ${result?.validRows} tài khoản, có thể mất khoảng một phút. Đừng tải lại hoặc đóng trang.`} />}
       {error && <Alert type="error" showIcon style={{ marginTop: 16 }} title="Không nhập được file" description={error} />}
 
       {result && (
@@ -203,14 +180,7 @@ export default function UserImportDrawer({ open, onClose, onImported }: { open: 
               description={
                 <>
                   {result.totalRows > result.createdRows && <div>{result.totalRows - result.createdRows} dòng không tạo được, xem lý do ở bảng dưới.</div>}
-                  {passwords > 0 && (
-                    <Space direction="vertical" size={4} style={{ marginTop: 4 }}>
-                      <div>{passwords} tài khoản dùng mật khẩu tạm. Mật khẩu tạm chỉ tải được ngay lúc này; gửi riêng cho từng người.</div>
-                      <Button type="primary" icon={<DownloadSimple size={16} />} onClick={savePasswords}>
-                        {savedPasswords ? 'Tải lại danh sách mật khẩu tạm' : 'Tải danh sách mật khẩu tạm (.csv)'}
-                      </Button>
-                    </Space>
-                  )}
+                  <div>Gửi tên đăng nhập và mật khẩu trong file cho từng người qua kênh riêng. Lần đăng nhập đầu, hệ thống bắt đổi mật khẩu.</div>
                 </>
               }
             />

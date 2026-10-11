@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { flushSync } from 'react-dom'
-import { Link } from 'react-router'
-import { RequireRole } from '../../lib/auth'
+import { Link, useNavigate, useSearchParams } from 'react-router'
+import { RequireRole, safeNext, useAuth } from '../../lib/auth'
 import { api, ApiError } from '../../lib/api'
 import { noIndex } from '../../lib/seo'
 import { focusFirstError, PASSWORD_MIN_LENGTH, validateChangePassword, type ChangePasswordInput, type FieldErrors } from '../../lib/validate'
@@ -31,6 +31,11 @@ export function changePasswordErrors(err: unknown): Errors {
 }
 
 function ChangePasswordForm() {
+  const { user, passwordChanged } = useAuth()
+  const navigate = useNavigate()
+  const [params] = useSearchParams()
+  // Đang dùng mật khẩu admin cấp: đổi xong mới vào được các trang khác.
+  const required = user?.mustChangePassword === true
   const [errors, setErrors] = useState<Errors>({})
   const [pending, setPending] = useState(false)
   const [done, setDone] = useState(false)
@@ -56,6 +61,12 @@ function ChangePasswordForm() {
       // Backend xác thực lại bằng currentPassword trước khi đổi (FR-AUTH-05).
       await api('/api/auth/change-password', { method: 'POST', json: input })
       form.reset()
+      if (required) {
+        passwordChanged()
+        // Đổi lần đầu xong: vào trang định vào lúc đăng nhập.
+        navigate(safeNext(params.get('next')) ?? (user?.role === 'student' ? '/me' : '/admin'), { replace: true, state: { passwordChanged: true } })
+        return
+      }
       setDone(true)
       setPending(false)
     } catch (err) {
@@ -71,6 +82,11 @@ function ChangePasswordForm() {
 
   return (
     <form className="auth__card stack" onSubmit={onSubmit} noValidate aria-busy={pending || undefined}>
+      {required && (
+        <Alert tone="warning" title="Bạn cần đổi mật khẩu trước khi tiếp tục.">
+          Mật khẩu hiện tại do quản trị viên cấp. Đặt mật khẩu mới chỉ mình bạn biết.
+        </Alert>
+      )}
       {done && <Alert tone="success" title="Đổi mật khẩu thành công.">Lần đăng nhập sau, dùng mật khẩu mới.</Alert>}
       {errors.form && <Alert tone="danger">{errors.form}</Alert>}
 
@@ -89,7 +105,7 @@ function ChangePasswordForm() {
       </fieldset>
 
       <Button type="submit" size="lg" block loading={pending}>{pending ? 'Đang đổi mật khẩu' : 'Đổi mật khẩu'}</Button>
-      <p className="auth__help"><Link to="/me">Về tài khoản của tôi</Link></p>
+      {!required && <p className="auth__help"><Link to="/me">Về tài khoản của tôi</Link></p>}
     </form>
   )
 }
