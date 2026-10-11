@@ -51,6 +51,7 @@ Endpoint chưa có trong backend → **không bịa DTO**. Hỏi nhóm backend h
 | PUT | `/api/admin/users/{id}` | `{ username, fullName, role, isActive }` |
 | PATCH | `/api/admin/users/{id}/status` | `{ isActive }` — khóa/mở khóa |
 | POST | `/api/admin/users/{id}/reset-password` | `{ newPassword? }` → `{ temporaryPassword }` (chỉ có khi bỏ trống mật khẩu; trả một lần). Thu hồi mọi phiên của người dùng. Tự đặt lại cho chính mình: 422 `reset_own_password` |
+| DELETE | `/api/admin/users/{id}` | Xóa hẳn tài khoản chưa có dữ liệu (bookmark xóa theo). Có dữ liệu: 409 `user_has_data` kèm `usage` (nên khóa); tự xóa 422 `delete_self`; quản trị viên cuối 422 `last_admin` |
 | GET | `/api/admin/users/import-template` | File Excel mẫu (`mau-nhap-tai-khoan.xlsx`) |
 | POST | `/api/admin/users/import?dryRun=true\|false` | multipart `file` (.xlsx, tối đa 2 MB, 300 dòng) → `{ dryRun, totalRows, validRows, createdRows, failedRows, rows: [{ row, fullName, email, username, role, status, errors }] }`. Bắt buộc đủ 5 cột ở mọi dòng (Họ và tên, Email, Tên đăng nhập, Vai trò, Mật khẩu), ô trống là dòng lỗi; server không tự sinh mật khẩu. `status`: `valid`/`invalid` khi xem trước, `created`/`failed`/`invalid` khi nhập. Chỉ nhận vai trò sinh viên, biên tập viên. Lỗi file: 400 `invalid_file`/`invalid_template`/`empty_file`/`too_many_rows`, 413, 415 |
 
