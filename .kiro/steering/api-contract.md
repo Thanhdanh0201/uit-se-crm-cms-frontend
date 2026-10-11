@@ -50,8 +50,11 @@ Endpoint chưa có trong backend → **không bịa DTO**. Hỏi nhóm backend h
 | POST | `/api/admin/users` | `{ email, password, username, fullName, role }` |
 | PUT | `/api/admin/users/{id}` | `{ username, fullName, role, isActive }` |
 | PATCH | `/api/admin/users/{id}/status` | `{ isActive }` — khóa/mở khóa |
+| POST | `/api/admin/users/{id}/reset-password` | `{ newPassword? }` → `{ temporaryPassword }` (chỉ có khi bỏ trống mật khẩu; trả một lần). Thu hồi mọi phiên của người dùng. Tự đặt lại cho chính mình: 422 `reset_own_password` |
+| GET | `/api/admin/users/import-template` | File Excel mẫu (`mau-nhap-tai-khoan.xlsx`) |
+| POST | `/api/admin/users/import?dryRun=true\|false` | multipart `file` (.xlsx, tối đa 2 MB, 300 dòng) → `{ dryRun, totalRows, validRows, createdRows, failedRows, rows: [{ row, fullName, email, username, role, status, errors, temporaryPassword }] }`. `status`: `valid`/`invalid` khi xem trước, `created`/`failed`/`invalid` khi nhập. Chỉ nhận vai trò sinh viên, biên tập viên. Lỗi file: 400 `invalid_file`/`invalid_template`/`empty_file`/`too_many_rows`, 413, 415 |
 
-User item: `{ id, email, username, fullName, role, isActive, createdAt }`. Tạo (201), sửa, khóa đều trả user trong `data`. Trùng username/email trả 400. Trang: `/admin/users` (`src/pages/admin/Users.tsx`).
+User item: `{ id, email, username, fullName, role, isActive, createdAt }`. Tạo (201), sửa, khóa đều trả user trong `data`. Trùng username/email trả 400. Trang: `/admin/users` (`src/pages/admin/Users.tsx`); đặt lại mật khẩu `src/admin/ResetPasswordModal.tsx`, nhập Excel `src/admin/UserImportDrawer.tsx` (`?action=import`). Backend: branch `feat/user-import-reset-password`.
 
 Cần biết khi dùng:
 - `PUT` bắt buộc có `isActive` và ghi đè luôn trạng thái khóa. Frontend lấy `GET /{id}` mới nhất khi mở form sửa rồi gửi lại đúng `isActive` đó; khóa/mở chỉ qua `PATCH /status`.
