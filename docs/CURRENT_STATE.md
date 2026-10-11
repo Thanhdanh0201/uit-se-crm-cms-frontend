@@ -87,6 +87,7 @@
 - Test liên quan: 22/22 pass. `npm run typecheck` còn lỗi có sẵn: `src/pages/admin/Media.tsx` import `Popconfirm` nhưng không sử dụng.
 
 ## Bổ sung nghiệm thu Sprint 1 (11/10/2026)
+- Admin xóa tài khoản (SCRUM-34, FR-AUTH-04): nút thùng rác ở mỗi dòng `/admin/users` (Popconfirm) và chọn nhiều dòng rồi "Xóa N tài khoản". Server chỉ xóa tài khoản chưa có dữ liệu; tài khoản bị từ chối liệt kê kèm lý do (gợi ý khóa). Không xóa/chọn được chính mình. Test `UsersDelete.test.tsx`. Backend branch `feat/admin-delete-user`.
 - SCRUM-61 (sửa sau khi test): nhập Excel bắt buộc đủ 5 cột kể cả Mật khẩu, bỏ mật khẩu tự sinh và file mật khẩu tạm (tải lại trang lúc đang nhập từng làm mất hết mật khẩu); cảnh báo khi tải lại/đóng tab lúc đang tạo. Bắt đổi mật khẩu lần đầu: `mustChangePassword` từ backend, đăng nhập xong hoặc gặp 403 `password_change_required` thì chuyển tới `/me/password?next=`, đổi xong quay lại trang định vào. Test: `routes.guard.test.tsx`, `ChangePassword.test.tsx`, `Login.test.tsx`, `UsersImportReset.test.tsx`.
 - SCRUM-34 (FR-AUTH-03, 04): nút Đặt lại mật khẩu ở mỗi dòng `/admin/users` (tạo mật khẩu tạm hiện một lần kèm nút sao chép, hoặc admin tự đặt; người dùng bị đăng xuất khỏi mọi thiết bị; không áp dụng cho chính mình). Nút Nhập từ Excel (`?action=import`): tải file mẫu, chọn .xlsx, xem trước lỗi từng dòng, xác nhận rồi tạo các dòng hợp lệ, tải danh sách mật khẩu tạm (.csv, UTF-8 BOM, chống chèn công thức); đóng khi chưa tải thì hỏi lại. Test `UsersImportReset.test.tsx`.
 - Sửa lỗi typecheck trên main: import thừa `Popconfirm` trong `Media.tsx`.

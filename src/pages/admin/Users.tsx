@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Alert, App, Button, Card, Drawer, Empty, Flex, Form, Input, Popconfirm, Segmented, Select, Skeleton, Space, Table, Tag } from 'antd'
-import { FileXls, Key, LockSimple, LockSimpleOpen, PencilSimple, Plus } from '@phosphor-icons/react'
+import { FileXls, Key, LockSimple, LockSimpleOpen, PencilSimple, Plus, Trash } from '@phosphor-icons/react'
 import { api, ApiError } from '../../lib/api'
 import { RequireRole, useAuth, type Role } from '../../lib/auth'
 import { noIndex } from '../../lib/seo'
@@ -47,7 +47,8 @@ export function userErrorMessage(err: unknown): string {
   if (!(err instanceof ApiError)) return 'Không kết nối được máy chủ. Kiểm tra mạng rồi thử lại.'
   if (err.status === 403) return 'Bạn không có quyền thực hiện thao tác này. Quyền của bạn có thể vừa thay đổi, hãy đăng nhập lại.'
   if (err.status === 404) return 'Người dùng không còn tồn tại. Danh sách đã được tải lại.'
-  if (err.status === 400) return err.message
+  // 409 user_has_data (đã có dữ liệu, nên khóa), 422 delete_self / last_admin: detail tiếng Việt từ server.
+  if (err.status === 400 || err.status === 409 || err.status === 422) return err.message
   return 'Không thực hiện được lúc này. Vui lòng thử lại sau.'
 }
 
@@ -105,6 +106,9 @@ function UsersPageContent() {
   const [saving, setSaving] = useState(false)
   const [busyId, setBusyId] = useState<string | null>(null)
   const [resetting, setResetting] = useState<UserRow | null>(null)
+  // Tài khoản được chọn để xóa nhiều cùng lúc (trang hiện tại). Đổi bộ lọc/trang thì bỏ chọn.
+  const [selected, setSelected] = useState<UserRow[]>([])
+  const [deleting, setDeleting] = useState<{ done: number; total: number } | null>(null)
 
   // Tải danh sách. Hủy request cũ khi đổi bộ lọc nhanh để kết quả cũ không đè kết quả mới.
   useEffect(() => {
@@ -191,6 +195,53 @@ function UsersPageContent() {
     }
   }
 
+  useEffect(() => setSelected([]), [query])
+
+  // Xóa lần lượt từng tài khoản. Server chỉ xóa tài khoản chưa có dữ liệu; tài khoản bị từ chối được liệt kê kèm lý do.
+  async function deleteUsers(rows: UserRow[]) {
+    if (deleting) return
+    const failed: { name: string; reason: string }[] = []
+    setDeleting({ done: 0, total: rows.length })
+    for (const [i, r] of rows.entries()) {
+      try {
+        await api(`/api/admin/users/${r.id}`, { method: 'DELETE' })
+      } catch (err) {
+        failed.push({ name: r.fullName, reason: userErrorMessage(err) })
+      }
+      setDeleting({ done: i + 1, total: rows.length })
+    }
+    setDeleting(null)
+    setSelected([])
+    reload()
+    const deleted = rows.length - failed.length
+    if (failed.length === 0) {
+      message.success(rows.length === 1 ? `Đã xóa tài khoản ${rows[0].fullName}.` : `Đã xóa ${deleted} tài khoản.`)
+    } else if (rows.length === 1) {
+      message.error(failed[0].reason)
+    } else {
+      modal.warning({
+        title: `Đã xóa ${deleted}/${rows.length} tài khoản`,
+        content: (
+          <ul style={{ paddingInlineStart: 18, margin: 0 }}>
+            {failed.map((f) => <li key={f.name}><strong>{f.name}</strong>: {f.reason}</li>)}
+          </ul>
+        ),
+        okText: 'Đã hiểu',
+      })
+    }
+  }
+
+  function confirmDeleteSelected() {
+    modal.confirm({
+      title: `Xóa ${selected.length} tài khoản đã chọn?`,
+      content: 'Xóa hẳn, không khôi phục được. Chỉ xóa được tài khoản chưa có dữ liệu (ví dụ tạo nhầm); tài khoản đã dùng hệ thống sẽ bị bỏ qua, hãy khóa thay vì xóa.',
+      okText: 'Xóa',
+      okButtonProps: { danger: true },
+      cancelText: 'Hủy',
+      onOk: () => { void deleteUsers(selected) },
+    })
+  }
+
   async function toggleLock(row: UserRow) {
     setBusyId(row.id)
     try {
@@ -254,8 +305,29 @@ function UsersPageContent() {
         />
       )}
 
+      {(selected.length > 0 || deleting) && (
+        <Alert
+          type="info"
+          style={{ marginBottom: 12 }}
+          title={deleting ? `Đang xóa ${deleting.done}/${deleting.total} tài khoản...` : `Đã chọn ${selected.length} tài khoản`}
+          action={
+            !deleting && (
+              <Space wrap>
+                <Button size="small" onClick={() => setSelected([])}>Bỏ chọn</Button>
+                <Button size="small" danger icon={<Trash size={14} />} onClick={confirmDeleteSelected}>Xóa {selected.length} tài khoản</Button>
+              </Space>
+            )
+          }
+        />
+      )}
+
       <Table<UserRow>
         rowKey="id"
+        rowSelection={{
+          selectedRowKeys: selected.map((u) => u.id),
+          onChange: (_, rows) => setSelected(rows),
+          getCheckboxProps: (r) => ({ disabled: r.id === me?.id || !!deleting, 'aria-label': `Chọn ${r.fullName}` }),
+        }}
         loading={loading}
         dataSource={data?.items ?? []}
         scroll={{ x: 'max-content' }}
@@ -300,7 +372,7 @@ function UsersPageContent() {
             title: '',
             key: 'actions',
             align: 'right',
-            width: 136,
+            width: 176,
             render: (_, r) => {
               const self = r.id === me?.id
               return (
@@ -333,6 +405,20 @@ function UsersPageContent() {
                         icon={r.isActive ? <LockSimple size={16} /> : <LockSimpleOpen size={16} />}
                         aria-label={`${r.isActive ? 'Khóa' : 'Mở khóa'} ${r.fullName}`}
                       />
+                    </Popconfirm>
+                  )}
+                  {self ? (
+                    <Button type="text" icon={<Trash size={16} />} title="Không thể xóa tài khoản của chính mình" aria-label="Không thể xóa tài khoản của chính mình" disabled />
+                  ) : (
+                    <Popconfirm
+                      title={`Xóa tài khoản ${r.fullName}?`}
+                      description="Xóa hẳn, không khôi phục được. Chỉ xóa được tài khoản chưa có dữ liệu; đã dùng hệ thống thì hãy khóa."
+                      okText="Xóa"
+                      cancelText="Hủy"
+                      okButtonProps={{ danger: true }}
+                      onConfirm={() => deleteUsers([r])}
+                    >
+                      <Button type="text" danger icon={<Trash size={16} />} disabled={!!deleting} aria-label={`Xóa ${r.fullName}`} />
                     </Popconfirm>
                   )}
                 </Space>
