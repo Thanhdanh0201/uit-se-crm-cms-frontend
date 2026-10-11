@@ -4,7 +4,7 @@ import { cleanup, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { App } from 'antd'
 import Users, { type UserRow } from './Users'
-import { passwordsCsv, type ImportRow } from '../../admin/UserImportDrawer'
+import { type ImportRow } from '../../admin/UserImportDrawer'
 import { mockApi, ok, renderPage } from '../../lib/test-utils'
 
 beforeAll(() => {
@@ -56,7 +56,7 @@ function mockXhr(handle: (url: string) => { status: number; body: unknown }) {
 }
 
 const row = (n: number, extra: Partial<ImportRow> = {}): ImportRow => ({
-  row: n, fullName: `Sinh viên ${n}`, email: `sv${n}@gm.uit.edu.vn`, username: `2452010${n}`, role: 'student', status: 'valid', errors: [], temporaryPassword: null, ...extra,
+  row: n, fullName: `Sinh viên ${n}`, email: `sv${n}@gm.uit.edu.vn`, username: `2452010${n}`, role: 'student', status: 'valid', errors: [], ...extra,
 })
 
 test('đặt lại mật khẩu tạm: gửi newPassword null, hiện mật khẩu một lần; không đặt lại được cho chính mình', async () => {
@@ -89,12 +89,12 @@ test('tự đặt mật khẩu: kiểm tra độ dài trước khi gửi', async
   expect(body(api.calls('/api/admin/users/u2/reset-password')[0])).toEqual({ newPassword: '123456789' })
 })
 
-test('nhập Excel: xem trước báo lỗi từng dòng, chỉ tạo khi xác nhận, sau đó cho tải mật khẩu tạm', async () => {
+test('nhập Excel: xem trước báo lỗi từng dòng, chỉ tạo khi xác nhận, nhắc người dùng đổi mật khẩu lần đầu', async () => {
   const api = mockApi(base)
   const urls = mockXhr((url) =>
     url.includes('dryRun=true')
       ? { status: 200, body: { success: true, data: { dryRun: true, totalRows: 2, validRows: 1, createdRows: 0, failedRows: 0, rows: [row(1), row(2, { status: 'invalid', errors: ['Tên đăng nhập đã có tài khoản.'] })] } } }
-      : { status: 200, body: { success: true, data: { dryRun: false, totalRows: 2, validRows: 1, createdRows: 1, failedRows: 0, rows: [row(1, { status: 'created', temporaryPassword: 'Kx7mPq2rT9wa' }), row(2, { status: 'invalid', errors: ['Tên đăng nhập đã có tài khoản.'] })] } } },
+      : { status: 200, body: { success: true, data: { dryRun: false, totalRows: 2, validRows: 1, createdRows: 1, failedRows: 0, rows: [row(1, { status: 'created' }), row(2, { status: 'invalid', errors: ['Tên đăng nhập đã có tài khoản.'] })] } } },
   )
   open('/admin/users?action=import')
   const drawer = await screen.findByRole('dialog')
@@ -117,15 +117,7 @@ test('nhập Excel: xem trước báo lỗi từng dòng, chỉ tạo khi xác n
 
   expect(await within(drawer).findByText('Đã tạo 1/2 tài khoản.')).toBeTruthy()
   expect(urls).toEqual(['/api/admin/users/import?dryRun=true', '/api/admin/users/import?dryRun=false'])
-  expect(within(drawer).getByText('Tải danh sách mật khẩu tạm (.csv)')).toBeTruthy()
+  expect(within(drawer).getByText(/Lần đăng nhập đầu, hệ thống bắt đổi mật khẩu/)).toBeTruthy()
   // Tạo xong thì tải lại danh sách người dùng.
   await waitFor(() => expect(api.calls('/api/admin/users').length).toBeGreaterThan(1))
-})
-
-test('file mật khẩu tạm: BOM, chỉ dòng có mật khẩu, chặn chèn công thức', () => {
-  const csv = passwordsCsv([row(1, { temporaryPassword: 'Kx7mPq2rT9wa', fullName: '=HYPERLINK("x")' }), row(2)])
-  expect(csv.startsWith('﻿')).toBe(true)
-  const lines = csv.slice(1).trim().split('\r\n')
-  expect(lines).toHaveLength(2)
-  expect(lines[1]).toBe(`"'=HYPERLINK(""x"")",sv1@gm.uit.edu.vn,24520101,Kx7mPq2rT9wa`)
 })

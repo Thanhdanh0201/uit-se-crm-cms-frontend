@@ -1,9 +1,10 @@
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
 import { Navigate, useLocation } from 'react-router'
-import { api, AUTH_EXPIRED_EVENT } from './api'
+import { api, AUTH_EXPIRED_EVENT, PASSWORD_CHANGE_REQUIRED_EVENT } from './api'
 
 export type Role = 'student' | 'editor' | 'admin'
-export type User = { id: string; role: Role; email?: string | null; username?: string; fullName?: string }
+// mustChangePassword: đang dùng mật khẩu admin cấp (tạo tài khoản, nhập Excel, đặt lại), phải đổi trước khi dùng tiếp.
+export type User = { id: string; role: Role; email?: string | null; username?: string; fullName?: string; mustChangePassword?: boolean }
 
 type Auth = {
   user: User | null
@@ -13,14 +14,16 @@ type Auth = {
   loggingOut: boolean
   login: (usernameOrEmail: string, password: string) => Promise<User>
   logout: () => Promise<void>
+  // Gọi sau khi tự đổi mật khẩu thành công: bỏ yêu cầu đổi mật khẩu.
+  passwordChanged: () => void
 }
 
 // Chuẩn hóa role chữ thường một chỗ, cho cả /me và /login.
 export const toRole = (role: string) => role.toLowerCase() as Role
 
 // UserProfileDto của backend, dùng chung cho /api/auth/me và user trong response đăng nhập.
-export type Me = { id: string; username: string; fullName: string; role: string; email: string | null }
-export const fromMe = (me: Me): User => ({ id: me.id, username: me.username, fullName: me.fullName, role: toRole(me.role), email: me.email })
+export type Me = { id: string; username: string; fullName: string; role: string; email: string | null; mustChangePassword?: boolean }
+export const fromMe = (me: Me): User => ({ id: me.id, username: me.username, fullName: me.fullName, role: toRole(me.role), email: me.email, mustChangePassword: me.mustChangePassword === true })
 
 // Cache người dùng cấp module để clientLoader (React Router) kiểm tra quyền tức thời (0ms),
 // chặn không cho tải chunk của admin khi người dùng là sinh viên hoặc khách.
@@ -89,9 +92,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       })
     }
     window.addEventListener(AUTH_EXPIRED_EVENT, onExpired)
+    // Server chặn vì chưa đổi mật khẩu admin cấp: bật cờ, RequireRole chuyển tới trang đổi mật khẩu.
+    const onPasswordChangeRequired = () => setUser((u) => (u && !u.mustChangePassword ? { ...u, mustChangePassword: true } : u))
+    window.addEventListener(PASSWORD_CHANGE_REQUIRED_EVENT, onPasswordChangeRequired)
     return () => {
       setCachedUser(null)
       window.removeEventListener(AUTH_EXPIRED_EVENT, onExpired)
+      window.removeEventListener(PASSWORD_CHANGE_REQUIRED_EVENT, onPasswordChangeRequired)
       channel?.close()
     }
   }, [])
@@ -125,7 +132,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  return <AuthContext value={{ user, loading, sessionExpired, loggingOut, login, logout }}>{children}</AuthContext>
+  function passwordChanged() {
+    setUser((u) => {
+      const next = u ? { ...u, mustChangePassword: false } : u
+      setCachedUser(next)
+      return next
+    })
+  }
+
+  return <AuthContext value={{ user, loading, sessionExpired, loggingOut, login, logout, passwordChanged }}>{children}</AuthContext>
 }
 
 export function useAuth() {
@@ -133,6 +148,8 @@ export function useAuth() {
   if (!ctx) throw new Error('useAuth phải nằm trong <AuthProvider>')
   return ctx
 }
+
+export const CHANGE_PASSWORD_PATH = '/me/password'
 
 // Chỉ là UX. Quyền thật do server kiểm tra.
 export function RequireRole({ roles, children }: { roles: Role[]; children: ReactNode }) {
@@ -142,5 +159,9 @@ export function RequireRole({ roles, children }: { roles: Role[]; children: Reac
   if (!user) return <Navigate to={`/login?next=${encodeURIComponent(pathname + search)}`} replace />
   // Truyền trang bị chặn để trang 403 cho đăng nhập tài khoản khác rồi quay lại đúng chỗ.
   if (!roles.includes(user.role)) return <Navigate to="/403" replace state={{ from: pathname + search }} />
+  // Mật khẩu do admin cấp: phải đổi trước khi vào trang khác (server cũng chặn API).
+  if (user.mustChangePassword && pathname !== CHANGE_PASSWORD_PATH) {
+    return <Navigate to={`${CHANGE_PASSWORD_PATH}?next=${encodeURIComponent(pathname + search)}`} replace />
+  }
   return children
 }

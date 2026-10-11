@@ -1,7 +1,7 @@
 import { lazy, Suspense } from 'react'
 import { redirect, type ClientLoaderFunctionArgs, type LoaderFunctionArgs } from 'react-router'
 import { api } from '../lib/api'
-import { fromMe, getCachedUser, RequireRole, setCachedUser, type Me } from '../lib/auth'
+import { CHANGE_PASSWORD_PATH, fromMe, getCachedUser, RequireRole, setCachedUser, type Me } from '../lib/auth'
 import { noIndex } from '../lib/seo'
 
 // Lazy-load AdminLayout (chứa antd, menu, sidebar) để user không có quyền không phải tải bundle admin.
@@ -28,11 +28,12 @@ export async function loader({ request }: LoaderFunctionArgs) {
       throw redirect(`/login?next=${next}`)
     }
     const body = await res.json()
-    const me = (body && typeof body === 'object' && 'data' in body ? body.data : body) as { role?: string }
+    const me = (body && typeof body === 'object' && 'data' in body ? body.data : body) as { role?: string; mustChangePassword?: boolean }
     const role = (me?.role ?? '').toLowerCase()
     if (role !== 'admin' && role !== 'editor') {
       throw redirect('/403')
     }
+    if (me?.mustChangePassword) throw redirect(`${CHANGE_PASSWORD_PATH}?next=${next}`)
     return null
   } catch (err) {
     if (err instanceof Response) throw err
@@ -61,6 +62,8 @@ export async function clientLoader({ request }: ClientLoaderFunctionArgs) {
   if (user.role !== 'admin' && user.role !== 'editor') {
     throw redirect('/403')
   }
+  // Mật khẩu admin cấp: đổi trước rồi mới vào trang quản trị.
+  if (user.mustChangePassword) throw redirect(`${CHANGE_PASSWORD_PATH}?next=${next}`)
 
   return null
 }

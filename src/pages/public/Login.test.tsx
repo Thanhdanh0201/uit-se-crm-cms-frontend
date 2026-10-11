@@ -79,3 +79,13 @@ test('sinh viên đăng nhập khi next là trang admin: chuyển về /403 thay
   await waitFor(() => expect(screen.getByTestId('path').textContent).toBe('/403'))
 })
 
+test('đăng nhập bằng mật khẩu admin cấp: chuyển tới trang đổi mật khẩu, giữ trang định vào', async () => {
+  mockApi({ ...guest, '/api/auth/login': () => ok({ accessToken: 'x', expiresIn: 3600, user: { ...user, role: 'admin', mustChangePassword: true } }) })
+  renderPage('/login?next=/admin/users', '/login', <Login />)
+
+  await userEvent.type(screen.getByLabelText(/Tên đăng nhập hoặc email/), 'admin.khoa')
+  await userEvent.type(screen.getByLabelText(/^Mật khẩu/), 'Uit@24520264')
+  await userEvent.click(screen.getByRole('button', { name: 'Đăng nhập' }))
+
+  await waitFor(() => expect(screen.getByTestId('path').textContent).toBe('/me/password?next=%2Fadmin%2Fusers'))
+})

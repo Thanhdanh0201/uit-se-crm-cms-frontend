@@ -23,6 +23,8 @@ export class ApiError extends Error {
 
 // Phát khi refresh cũng thất bại (phiên hết hạn hẳn). AuthProvider nghe để đưa về trạng thái khách.
 export const AUTH_EXPIRED_EVENT = 'auth:expired'
+// Server trả 403 password_change_required: người dùng đang dùng mật khẩu admin cấp, phải đổi trước (FR-AUTH-04).
+export const PASSWORD_CHANGE_REQUIRED_EVENT = 'auth:password-change-required'
 // Không tự refresh cho chính các endpoint auth: 401 ở đây là kết quả thật, và tránh vòng lặp.
 const NO_REFRESH = ['/api/auth/login', '/api/auth/refresh', '/api/auth/logout']
 
@@ -69,7 +71,11 @@ export async function api<T>(path: string, init: RequestInit & { json?: unknown 
   }
 
   const body = res.headers.get('content-type')?.includes('json') ? await res.json() : undefined
-  if (!res.ok) throw toApiError(res.status, body)
+  if (!res.ok) {
+    const err = toApiError(res.status, body)
+    if (err.code === 'password_change_required' && typeof window !== 'undefined') window.dispatchEvent(new Event(PASSWORD_CHANGE_REQUIRED_EVENT))
+    throw err
+  }
   return unwrap(body) as T
 }
 

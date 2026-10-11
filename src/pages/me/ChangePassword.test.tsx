@@ -60,3 +60,17 @@ test('thành công: báo thành công và xóa trắng form', async () => {
   const [, init] = api.calls('/api/auth/change-password')[0]
   expect(JSON.parse(String(init?.body))).toEqual({ currentPassword: 'mat-khau-cu', newPassword: 'mat-khau-moi', confirmNewPassword: 'mat-khau-moi' })
 })
+
+test('bắt đổi mật khẩu lần đầu: hiện lý do, đổi xong vào trang định vào và không bị chặn nữa', async () => {
+  const api = mockApi({
+    '/api/auth/me': () => ok({ id: 'u1', username: '24520264', fullName: 'Trần Minh An', role: 'student', email: '24520264@gm.uit.edu.vn', mustChangePassword: true }),
+    '/api/auth/change-password': () => ok(undefined, 'Đổi mật khẩu thành công.'),
+  })
+  renderPage('/me/password?next=%2Fme', '/me/password', <ChangePassword />)
+  expect(await screen.findByText('Bạn cần đổi mật khẩu trước khi tiếp tục.')).toBeTruthy()
+  expect(screen.queryByText('Về tài khoản của tôi')).toBeNull()
+
+  await fill('Uit@24520264', 'MatKhauMoi#2026', 'MatKhauMoi#2026')
+  await waitFor(() => expect(screen.getByTestId('path').textContent).toBe('/me'))
+  expect(api.calls('/api/auth/change-password')).toHaveLength(1)
+})
