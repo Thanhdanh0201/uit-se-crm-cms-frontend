@@ -86,6 +86,10 @@
 - Đã kiểm tra bằng `npm run dev` với backend thật và chế độ giảm chuyển động: Select trong Drawer mở bằng chuột, chọn được mục và mở lại bình thường.
 - Test liên quan: 22/22 pass. `npm run typecheck` còn lỗi có sẵn: `src/pages/admin/Media.tsx` import `Popconfirm` nhưng không sử dụng.
 
+## Bổ sung nghiệm thu Sprint 1 (11/10/2026)
+- SCRUM-34 (FR-AUTH-03, 04): nút Đặt lại mật khẩu ở mỗi dòng `/admin/users` (tạo mật khẩu tạm hiện một lần kèm nút sao chép, hoặc admin tự đặt; người dùng bị đăng xuất khỏi mọi thiết bị; không áp dụng cho chính mình). Nút Nhập từ Excel (`?action=import`): tải file mẫu, chọn .xlsx, xem trước lỗi từng dòng, xác nhận rồi tạo các dòng hợp lệ, tải danh sách mật khẩu tạm (.csv, UTF-8 BOM, chống chèn công thức); đóng khi chưa tải thì hỏi lại. Test `UsersImportReset.test.tsx`.
+- Sửa lỗi typecheck trên main: import thừa `Popconfirm` trong `Media.tsx`.
+
 ## Kế tiếp
 - Sprint 5 còn lại: form liên hệ công khai `/contact` (SCRUM-48), phía sinh viên đăng ký sự kiện và yêu cầu đã gửi (SCRUM-46, 55).
 - Các trang được trang chủ liên kết tới nhưng chưa có (đang trả 404): `/categories/:slug` (chờ API bài theo chuyên mục), `/events`, `/events/:id`, `/contact`, `/search`.
@@ -101,4 +105,4 @@
 - `GET /api/auth/me` chỉ trả `userId`, `role`, `email`; sau khi F5 chưa có `fullName`. Cần backend bổ sung nếu UI hiển thị tên.
 
 ## Cập nhật lần cuối
-10/10/2026
+11/10/2026

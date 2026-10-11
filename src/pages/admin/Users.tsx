@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react'
 import { Alert, App, Button, Card, Drawer, Empty, Flex, Form, Input, Popconfirm, Segmented, Select, Skeleton, Space, Table, Tag } from 'antd'
-import { LockSimple, LockSimpleOpen, PencilSimple, Plus } from '@phosphor-icons/react'
+import { FileXls, Key, LockSimple, LockSimpleOpen, PencilSimple, Plus } from '@phosphor-icons/react'
 import { api, ApiError } from '../../lib/api'
 import { RequireRole, useAuth, type Role } from '../../lib/auth'
 import { noIndex } from '../../lib/seo'
 import { useListParams } from '../../lib/useListParams'
 import { ROLE_COLOR, ROLE_LABEL, ROLES } from '../../admin/roles'
+import ResetPasswordModal from '../../admin/ResetPasswordModal'
+import UserImportDrawer from '../../admin/UserImportDrawer'
 
 export const meta = () => noIndex('Người dùng')
 
@@ -77,7 +79,7 @@ function UsersPageContent() {
     if (status === 'active' || status === 'locked') clean.set('status', status)
     // Giữ action/id cho drawer
     const action = p.get('action')
-    if (action === 'create' || action === 'edit') clean.set('action', action)
+    if (action === 'create' || action === 'edit' || action === 'import') clean.set('action', action)
     const id = p.get('id')
     if (action === 'edit' && id) clean.set('id', id)
 
@@ -102,6 +104,7 @@ function UsersPageContent() {
   const [drawerError, setDrawerError] = useState('')
   const [saving, setSaving] = useState(false)
   const [busyId, setBusyId] = useState<string | null>(null)
+  const [resetting, setResetting] = useState<UserRow | null>(null)
 
   // Tải danh sách. Hủy request cũ khi đổi bộ lọc nhanh để kết quả cũ không đè kết quả mới.
   useEffect(() => {
@@ -235,6 +238,7 @@ function UsersPageContent() {
             onSearch={(v) => list.update({ keyword: v.trim() })}
             style={{ width: 260 }}
           />
+          <Button icon={<FileXls size={16} />} onClick={() => list.update({ action: 'import', id: null })}>Nhập từ Excel</Button>
           <Button type="primary" icon={<Plus size={16} />} title="Thêm người dùng" aria-label="Thêm người dùng" onClick={() => { form.resetFields(); list.openCreate() }} />
         </Space>
       }
@@ -296,12 +300,20 @@ function UsersPageContent() {
             title: '',
             key: 'actions',
             align: 'right',
-            width: 96,
+            width: 136,
             render: (_, r) => {
               const self = r.id === me?.id
               return (
                 <Space size={4}>
                   <Button type="text" icon={<PencilSimple size={16} />} title="Sửa" aria-label={`Sửa ${r.fullName}`} onClick={() => list.openEdit(r.id)} />
+                  <Button
+                    type="text"
+                    icon={<Key size={16} />}
+                    disabled={self}
+                    title={self ? 'Đổi mật khẩu của bạn ở trang Tài khoản' : 'Đặt lại mật khẩu'}
+                    aria-label={self ? 'Đổi mật khẩu của bạn ở trang Tài khoản' : `Đặt lại mật khẩu ${r.fullName}`}
+                    onClick={() => setResetting(r)}
+                  />
                   {self ? (
                     // Tự khóa mình sẽ mất quyền truy cập ngay. Backend chưa chặn, nên UI chặn.
                     <Button type="text" icon={<LockSimple size={16} />} title="Không thể tự khóa tài khoản của chính mình" aria-label="Không thể tự khóa tài khoản của chính mình" disabled />
@@ -331,7 +343,7 @@ function UsersPageContent() {
       />
 
       <Drawer
-        open={!!list.action}
+        open={list.action === 'create' || list.action === 'edit'}
         title={list.action === 'edit' ? 'Sửa người dùng' : 'Tạo người dùng'}
         size={520}
         onClose={() => { list.closeDrawer(); form.resetFields() }}
@@ -389,6 +401,8 @@ function UsersPageContent() {
           </Form.Item>
         </Form>
       </Drawer>
+      <ResetPasswordModal user={resetting} onClose={() => setResetting(null)} />
+      <UserImportDrawer open={list.params.get('action') === 'import'} onClose={list.closeDrawer} onImported={reload} />
     </Card>
   )
 }
