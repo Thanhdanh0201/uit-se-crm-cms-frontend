@@ -10,14 +10,11 @@ import './layout.css'
 export type NavItem = { id: string; label: string; kind: string; url: string | null; children: NavItem[] }
 
 // Menu dự phòng khi chưa tạo menu "main" trong trang quản trị hoặc không gọi được API.
+// Chỉ gồm route của ứng dụng, không cố định slug chuyên mục/trang tĩnh (Admin có thể đổi hoặc xóa).
 const FALLBACK: NavItem[] = [
-  ['Giới thiệu', '/pages/gioi-thieu'],
-  ['Tin tức', '/categories/tin-tuc'],
-  ['Sự kiện', '/events'],
-  ['Biểu mẫu', '/pages/bieu-mau'],
-  ['Tuyển sinh', '/pages/tuyen-sinh'],
-  ['Liên hệ', '/contact'],
-].map(([label, url]) => ({ id: url, label, kind: 'page', url, children: [] }))
+  ['Trang chủ', '/'],
+  ['Tin tức', '/search'],
+].map(([label, url]) => ({ id: url, label, kind: 'route', url, children: [] }))
 
 // Menu chính do Admin cấu hình (FR-MENU), mã "main". Lấy trên server để HTML trả về đã có menu.
 export async function loader() {
@@ -146,11 +143,8 @@ export default function PublicLayout() {
             </ul>
           </div>
           <nav className="site-footer__links" aria-label="Liên kết cuối trang">
-            <Link to="/pages/gioi-thieu">Giới thiệu</Link>
-            <Link to="/pages/chuong-trinh-dao-tao">Chương trình đào tạo</Link>
-            <Link to="/categories/thong-bao-hoc-vu">Thông báo học vụ</Link>
-            <Link to="/pages/bieu-mau">Biểu mẫu</Link>
-            <Link to="/contact">Liên hệ</Link>
+            {/* Mục cấp 1 của menu chính, cùng nguồn với header. */}
+            {nav.map((n) => <NavTo key={n.id} item={n} />)}
           </nav>
         </div>
       </footer>
