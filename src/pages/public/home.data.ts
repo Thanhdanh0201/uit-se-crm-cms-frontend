@@ -1,15 +1,8 @@
 // DTO của GET /api/public/home (backend HomeViewDto, SCRUM-17). events để trống cho tới khi có API sự kiện.
 // Gộp một request để SSR trang chủ nhanh: bài nổi bật (FR-POST-07), bài mới, nhóm nội dung theo home_sections (FR-PUB-02), sự kiện sắp tới.
 
-export type PostCard = {
-  slug: string
-  title: string
-  summary: string | null
-  coverUrl: string | null
-  publishedAt: string
-  categoryName: string | null
-  coverAlt?: string | null
-}
+import type { PostCard } from '../../components/PostList'
+export type { PostCard }
 
 export type HomeSection = { title: string; categorySlug: string | null; posts: PostCard[] }
 

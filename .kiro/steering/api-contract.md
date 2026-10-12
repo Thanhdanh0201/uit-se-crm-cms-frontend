@@ -157,8 +157,25 @@ Cần biết khi dùng:
 Cần biết khi dùng:
 - `slug` chỉ `a-z0-9-` (tối đa 150 với chuyên mục, 100 với thẻ). Trùng slug: 400 `detail` "Slug '...' đã tồn tại".
 - Chọn chính nó hoặc con cháu làm cha: 400 `detail`.
-- Chưa có API công khai lấy bài theo chuyên mục (trang `/categories/:slug` chờ API).
 - **Quyền cần backend sửa:** các controller menu, chuyên mục, thẻ đang `[Authorize(Roles = "admin,editor")]` cho cả thao tác ghi. SRS 3.2: quản lý menu và chuyên mục chỉ Admin. Frontend đã chỉ cho admin vào hai trang này.
+
+## Website công khai — ĐÃ CÓ (backend main) — SCRUM-42, 43, 44, 53
+
+| Method | Path | Body / Query | Ghi chú |
+|---|---|---|---|
+| GET | `/api/public/posts` | `?keyword&categoryId&categorySlug&tagId&tagSlug&fromDate&toDate&page&pageSize` (tối đa 50) | `PostCardDto[]` phân trang, mới xuất bản trước. Trang `/search` |
+| GET | `/api/public/categories/{slug}/posts` | `?page&pageSize` (mặc định 10) | Chuyên mục ẩn/không tồn tại: 404. Trang `/categories/:slug` |
+| GET | `/api/public/categories` | – | Danh sách phẳng chuyên mục đang hiện (bộ lọc tìm kiếm) |
+| POST | `/api/public/posts/{slug}/view` | – | `{ viewCount }`. Server chống lặp theo cookie phiên. Frontend gọi một lần mỗi bài mở ở trình duyệt |
+| GET | `/api/me/bookmarks` | `?page&pageSize` | Đăng nhập. Chỉ trả bài còn công khai. Trang `/me/saved` |
+| GET / PUT / DELETE | `/api/me/bookmarks/{postId}` | – | `{ bookmarked }`. Bài không công khai: 404 |
+
+`PostCardDto`: `{ id, slug, title, summary, coverUrl, coverAlt, publishedAt, categoryName, categorySlug }`. `id` thêm ở backend branch `feat/post-card-id` (chờ merge) để bỏ lưu từ danh sách. Type ở `src/components/PostList.tsx`.
+
+Cần biết khi dùng:
+- `fromDate`/`toDate` so sánh với `publishedAt` (`>=`, `<=`). Frontend gửi ngày theo giờ Việt Nam: `YYYY-MM-DDT00:00:00+07:00` và `YYYY-MM-DDT23:59:59.999+07:00`.
+- `keyword` dùng full-text Postgres (`simple`) trên tiêu đề, tóm tắt, nội dung.
+- `PostViewDto` (chi tiết bài) có `id`, `tags: [{ id, name }]`, `viewCount`; `category` chỉ có `{ id, name }` (không có slug) nên link "bài cùng chuyên mục" và thẻ đi tới `/search?category=<id>` / `/search?tag=<id>`.
 
 ## Đề xuất — CHƯA CÓ (theo tài liệu hướng dẫn dev)
 

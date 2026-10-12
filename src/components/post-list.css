@@ -1,0 +1,88 @@
+/* Danh sách bài công khai (PostList): chuyên mục, tìm kiếm, bài đã lưu. Chỉ dùng token trong styles/tokens.css. */
+.post-list {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.post-row {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr);
+  gap: var(--space-4);
+  align-items: start;
+  padding-block: var(--space-5);
+}
+.post-row + .post-row { border-top: 1px solid var(--color-border); }
+.post-row:first-child { padding-top: 0; }
+@media (min-width: 640px) {
+  .post-row { grid-template-columns: 200px minmax(0, 1fr); gap: var(--space-5); }
+}
+/* Có nút thao tác (bỏ lưu): thêm cột cuối, xuống dòng dưới nội dung trên màn hình hẹp. */
+.post-row:has(.post-row__action) { grid-template-columns: 96px minmax(0, 1fr); }
+.post-row__action { grid-column: 2; }
+@media (min-width: 640px) {
+  .post-row:has(.post-row__action) { grid-template-columns: 200px minmax(0, 1fr) auto; }
+  .post-row__action { grid-column: auto; }
+}
+
+.post-row__link { display: block; border-radius: var(--radius-control); }
+.post-row__thumb {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  border-radius: var(--radius-control);
+  background: var(--color-surface-muted);
+}
+.post-thumb--empty {
+  display: grid;
+  place-items: center;
+  color: var(--blue-300);
+  background: var(--color-primary-soft);
+}
+
+.post-row__body { display: flex; flex-direction: column; gap: var(--space-1); min-width: 0; }
+.post-row__category { color: var(--color-primary); font-size: var(--text-xs); font-weight: 600; }
+.post-row__title { margin: 0; font-size: var(--text-lg); line-height: var(--leading-tight); }
+.post-row__title a { color: var(--color-text); text-decoration: none; }
+.post-row__title a:hover { color: var(--color-primary); text-decoration: underline; text-underline-offset: 2px; }
+.post-row__summary {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.post-row__date { color: var(--color-text-subtle); font-size: var(--text-xs); }
+
+/* Đầu trang danh sách công khai và phân trang bên dưới */
+.list-page { display: flex; flex-direction: column; gap: var(--space-6); max-width: 960px; margin: 0 auto; width: 100%; }
+.list-page__head { display: flex; flex-direction: column; gap: var(--space-2); padding-top: var(--space-4); }
+.list-page__head h1 { margin: 0; font-size: var(--text-3xl); line-height: var(--leading-tight); }
+.list-page__head p { margin: 0; color: var(--color-text-muted); max-width: 65ch; }
+.list-page__crumbs { display: flex; gap: var(--space-2); font-size: var(--text-sm); color: var(--color-text-subtle); }
+.list-page__crumbs a { color: var(--color-text-subtle); }
+.list-page__crumbs a:hover { color: var(--color-primary); }
+.list-page__count { color: var(--color-text-subtle); font-size: var(--text-sm); }
+
+/* Form tìm kiếm (/search): từ khóa + nút trên một hàng, bộ lọc dạng lưới, xuống 1 cột trên màn hình hẹp. */
+.search-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-5);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+}
+.search-form__query { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--space-3); align-items: end; }
+.search-form__filters { display: grid; gap: var(--space-4); grid-template-columns: 1fr; }
+@media (min-width: 560px) { .search-form__filters { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (min-width: 900px) { .search-form__filters { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.search-form__reset { align-self: flex-start; font-size: var(--text-sm); color: var(--color-primary); }
+.search-results { display: flex; flex-direction: column; gap: var(--space-5); transition: opacity var(--duration) var(--ease); }
+.search-results.is-loading { opacity: 0.55; }
+@media (prefers-reduced-motion: reduce) { .search-results { transition: none; } }

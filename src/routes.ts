@@ -23,10 +23,13 @@ export default [
   layout('layouts/PublicLayout.tsx', [
     index('pages/public/Home.tsx'),
     route('login', 'pages/public/Login.tsx'),
+    route('categories/:slug', 'pages/public/Category.tsx'),
     route('posts/:slug', 'pages/public/PostDetail.tsx'),
+    route('search', 'pages/public/Search.tsx'),
     route('pages/:slug', 'pages/public/StaticPage.tsx'),
     route('me', 'pages/me/Account.tsx'),
     route('me/password', 'pages/me/ChangePassword.tsx'),
+    route('me/saved', 'pages/me/SavedPosts.tsx'),
     route('403', 'pages/public/Forbidden.tsx'),
     route('*', 'pages/public/NotFound.tsx'),
   ]),

@@ -1,50 +1,38 @@
-import { Link } from 'react-router'
-import {
-  ArrowRight,
-  Briefcase,
-  CalendarDots,
-  ChatCircleText,
-  FileText,
-  MapPin,
-  Megaphone,
-  Newspaper,
-  UsersThree,
-} from '@phosphor-icons/react'
+import { Link, useRouteLoaderData } from 'react-router'
+import { ArrowRight, CalendarDots, ChatCircleText, FolderSimple, MapPin, Megaphone, Newspaper } from '@phosphor-icons/react'
 import type { Route } from './+types/Home'
 import { api } from '../../lib/api'
 import { seo, siteUrl } from '../../lib/seo'
+import Alert from '../../components/ui/Alert'
 import Badge from '../../components/ui/Badge'
 import { buttonClass } from '../../components/ui/Button'
+import { EmptyState } from '../../components/ui/States'
+import { CoverThumb } from '../../components/PostList'
+import type { loader as layoutLoader } from '../../layouts/PublicLayout'
 import { EMPTY_HOME, eventStatus, type HomeData, type PostCard } from './home.data'
 import './home.css'
 
+// GET /api/public/categories/tree (CategoryTreeDto): chỉ chuyên mục đang hiện.
+type CategoryNode = { id: string; name: string; slug: string; description: string | null; postCount: number }
+
 export async function loader({ request }: Route.LoaderArgs) {
-  let home: HomeData
-  try {
-    home = await api<HomeData>('/api/public/home')
-  } catch {
-    // API chưa có: dev xem bằng dữ liệu mẫu, production ẩn các khối rỗng.
-    home = import.meta.env.DEV ? (await import('./home.sample')).SAMPLE_HOME : EMPTY_HOME
-  }
+  // Gọi song song. Chuyên mục lỗi thì chỉ mất khối Truy cập nhanh, không làm hỏng cả trang.
+  const [home, categories] = await Promise.all([
+    api<HomeData>('/api/public/home').catch(() => null),
+    api<CategoryNode[]>('/api/public/categories/tree').catch(() => [] as CategoryNode[]),
+  ])
   const now = new Date()
+  const data = home ?? EMPTY_HOME
   return {
     url: `${siteUrl(request)}/`,
-    ...home,
-    events: home.events.map((e) => ({ ...e, status: eventStatus(e, now) })),
+    failed: !home,
+    ...data,
+    events: data.events.map((e) => ({ ...e, status: eventStatus(e, now) })),
+    categories: categories.map(({ id, name, slug, description, postCount }) => ({ id, name, slug, description, postCount })),
   }
 }
 
 export const meta: Route.MetaFunction = ({ loaderData }) => seo({ url: loaderData?.url })
-
-// ponytail: đường dẫn chuyên mục cố định. Đổi sang dữ liệu menu/chuyên mục từ CMS khi có API (FR-MENU, FR-CAT).
-const QUICK_LINKS = [
-  { to: '/categories/thong-bao-hoc-vu', label: 'Thông báo học vụ', hint: 'Lịch học, thi, đồ án, thực tập', icon: Megaphone },
-  { to: '/categories/hoc-bong-tuyen-dung', label: 'Học bổng và tuyển dụng', hint: 'Cơ hội từ doanh nghiệp đối tác', icon: Briefcase },
-  { to: '/events', label: 'Sự kiện', hint: 'Seminar, workshop, ngày hội', icon: CalendarDots },
-  { to: '/pages/bieu-mau', label: 'Biểu mẫu', hint: 'Đơn từ và mẫu báo cáo', icon: FileText },
-  { to: '/categories/hoat-dong-sinh-vien', label: 'Hoạt động sinh viên', hint: 'Câu lạc bộ, cuộc thi, tình nguyện', icon: UsersThree },
-  { to: '/contact', label: 'Hỏi đáp', hint: 'Gửi câu hỏi cho Khoa', icon: ChatCircleText },
-]
 
 const shortDate = new Intl.DateTimeFormat('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', day: '2-digit', month: '2-digit', year: 'numeric' })
 const eventDay = new Intl.DateTimeFormat('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', day: '2-digit' })
@@ -56,17 +44,20 @@ function PostDate({ iso }: { iso: string }) {
 }
 
 function Cover({ post, className }: { post: PostCard; className: string }) {
-  return post.coverUrl ? (
-    <img className={className} src={post.coverUrl} alt="" loading="lazy" />
-  ) : (
-    <span className={`${className} home-cover--empty`} aria-hidden>
-      <Newspaper size={28} />
-    </span>
-  )
+  return <CoverThumb src={post.coverUrl} className={className} />
 }
 
 export default function Home({ loaderData: home }: Route.ComponentProps) {
   const [lead, ...others] = home.featured
+  // Trang giới thiệu lấy từ menu chính do Admin cấu hình (mục đầu tiên trỏ tới trang tĩnh), không cố định slug.
+  const intro = useRouteLoaderData<typeof layoutLoader>('layouts/PublicLayout')?.nav.find((n) => n.kind === 'page' && n.url)
+  const empty = !home.failed && !home.featured.length && !home.latest.length && !home.sections.length
+  // Truy cập nhanh: chuyên mục cấp 1 đang hiện (Admin đổi trong trang Chuyên mục), cộng sự kiện và hỏi đáp.
+  const quickLinks = [
+    ...home.categories.map((c) => ({ to: `/categories/${c.slug}`, label: c.name, hint: c.description || `${c.postCount} bài viết`, icon: FolderSimple })),
+    { to: '/events', label: 'Sự kiện', hint: 'Seminar, workshop, ngày hội', icon: CalendarDots },
+    { to: '/contact', label: 'Hỏi đáp', hint: 'Gửi câu hỏi cho Khoa', icon: ChatCircleText },
+  ]
 
   return (
     <div className="home">
@@ -75,8 +66,8 @@ export default function Home({ loaderData: home }: Route.ComponentProps) {
           <h1 id="home-title">Khoa Công nghệ Phần mềm</h1>
           <p className="home-hero__lead">Đào tạo kỹ sư phần mềm, nghiên cứu và kết nối doanh nghiệp. Thông báo, sự kiện và biểu mẫu của Khoa ở cùng một nơi.</p>
           <div className="home-hero__actions">
-            <Link to="/pages/tuyen-sinh" className={buttonClass('primary', 'lg')}>Thông tin tuyển sinh</Link>
-            <Link to="/pages/gioi-thieu" className={buttonClass('secondary', 'lg')}>Giới thiệu Khoa</Link>
+            <Link to="/search" className={buttonClass('primary', 'lg')}>Xem tin mới</Link>
+            {intro?.url && <Link to={intro.url} className={buttonClass('secondary', 'lg')}>{intro.label}</Link>}
           </div>
         </div>
 
@@ -94,15 +85,26 @@ export default function Home({ loaderData: home }: Route.ComponentProps) {
                 </li>
               ))}
             </ul>
-            <Link to="/categories/thong-bao-hoc-vu" className="home-more">
-              Tất cả thông báo <ArrowRight size={14} aria-hidden />
+            <Link to="/search" className="home-more">
+              Tất cả tin mới <ArrowRight size={14} aria-hidden />
             </Link>
           </aside>
         )}
       </section>
 
+      {home.failed && (
+        <Alert tone="danger" title="Chưa tải được tin tức">
+          Máy chủ đang bận hoặc mất kết nối. Tải lại trang sau ít phút.
+        </Alert>
+      )}
+      {empty && (
+        <EmptyState icon={<Newspaper size={32} />} title="Chưa có bài viết nào">
+          Tin tức và thông báo của Khoa sẽ hiện ở đây khi được xuất bản.
+        </EmptyState>
+      )}
+
       <nav className="home-quick" aria-label="Truy cập nhanh">
-        {QUICK_LINKS.map(({ to, label, hint, icon: Icon }) => (
+        {quickLinks.map(({ to, label, hint, icon: Icon }) => (
           <Link key={to} to={to} className="home-quick__item">
             <span className="home-quick__icon" aria-hidden><Icon size={22} /></span>
             <span>
@@ -152,13 +154,15 @@ export default function Home({ loaderData: home }: Route.ComponentProps) {
       {home.sections.length > 0 && (
         <section className="home-block" aria-label="Tin theo chuyên mục">
           <div className="home-sections">
-            {home.sections.map((s) => (
-              <article key={s.categorySlug} className="home-section" aria-labelledby={`sec-${s.categorySlug}`}>
+            {home.sections.map((s, i) => (
+              <article key={`${i}-${s.title}`} className="home-section" aria-labelledby={`sec-${i}`}>
                 <header className="home-block__head">
-                  <h2 id={`sec-${s.categorySlug}`}>{s.title}</h2>
-                  <Link to={`/categories/${s.categorySlug}`} className="home-more" aria-label={`Xem tất cả ${s.title}`}>
-                    Xem tất cả <ArrowRight size={14} aria-hidden />
-                  </Link>
+                  <h2 id={`sec-${i}`}>{s.title}</h2>
+                  {s.categorySlug && (
+                    <Link to={`/categories/${s.categorySlug}`} className="home-more" aria-label={`Xem tất cả ${s.title}`}>
+                      Xem tất cả <ArrowRight size={14} aria-hidden />
+                    </Link>
+                  )}
                 </header>
                 <ul className="home-section__list">
                   {s.posts.map((p) => (

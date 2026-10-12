@@ -14,7 +14,7 @@ type Item = { label: string; hint: string; icon: Icon; to?: string }
 // Mục chưa có API để "Sắp có" thay vì link tới trang 404.
 const ITEMS: Item[] = [
   { label: 'Đổi mật khẩu', hint: 'Xác nhận bằng mật khẩu hiện tại', icon: Key, to: '/me/password' },
-  { label: 'Bài đã lưu', hint: 'Bài viết bạn đánh dấu để đọc sau', icon: BookmarkSimple },
+  { label: 'Bài đã lưu', hint: 'Bài viết bạn đánh dấu để đọc sau', icon: BookmarkSimple, to: '/me/saved' },
   { label: 'Sự kiện đã đăng ký', hint: 'Xem và hủy đăng ký trước hạn', icon: CalendarCheck },
   { label: 'Yêu cầu đã gửi', hint: 'Theo dõi trạng thái câu hỏi gửi Khoa', icon: ChatCircleText },
 ]
