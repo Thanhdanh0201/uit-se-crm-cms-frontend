@@ -173,3 +173,13 @@ test('mở bài kết thúc bằng trích dẫn: không báo "Chưa lưu" khi ch
   await new Promise((r) => setTimeout(r, 300))
   expect(screen.queryByText('Chưa lưu')).toBeNull()
 })
+
+test('nội dung từ server có thứ tự key khác Tiptap: không báo "Chưa lưu" khi chưa sửa gì', async () => {
+  // Backend serialize node theo thứ tự {"text","type"}; Tiptap trả {"type","text"}.
+  const serverOrder = { ...POST, content: { content: [{ content: [{ text: 'Lịch thi cuối kỳ HK1.', type: 'text' }], type: 'paragraph' }], type: 'doc' } }
+  mockApi({ ...editor, ...lists, '/api/posts/p1': () => ok(serverOrder) })
+  open('/admin/posts/p1/edit')
+  expect(await screen.findByText('Lịch thi cuối kỳ HK1.')).toBeTruthy()
+  await new Promise((r) => setTimeout(r, 300))
+  expect(screen.queryByText('Chưa lưu')).toBeNull()
+})

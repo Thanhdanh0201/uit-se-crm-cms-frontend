@@ -69,6 +69,16 @@ export function withMediaUrls(node: RichNode, media: MediaMap): RichNode {
   return { ...node, ...(attrs && { attrs }), ...(node.content && { content: node.content.map((c) => withMediaUrls(c, media)) }) }
 }
 
+// Chuỗi so sánh "có thay đổi chưa lưu". Bỏ đoạn trống cuối bài (Tiptap tự thêm khi bài kết thúc bằng ảnh,
+// danh sách, trích dẫn...). Sắp key: backend trả node dạng {"text","type"}, Tiptap trả {"type","text"}.
+export function docSnapshot(doc: RichNode): string {
+  const c = [...(doc.content ?? [])]
+  while (c.length && c[c.length - 1].type === 'paragraph' && !c[c.length - 1].content?.length) c.pop()
+  return JSON.stringify({ ...doc, content: c }, (_, x) =>
+    x && typeof x === 'object' && !Array.isArray(x) ? Object.fromEntries(Object.entries(x).sort(([a], [b]) => (a < b ? -1 : 1))) : x,
+  )
+}
+
 const BLOCKS = [
   { value: 'p', label: 'Đoạn văn' },
   { value: '2', label: 'Tiêu đề lớn' },
