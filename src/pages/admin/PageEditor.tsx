@@ -7,7 +7,7 @@ import { api, ApiError } from '../../lib/api'
 import { RequireRole } from '../../lib/auth'
 import { noIndex } from '../../lib/seo'
 import { RichText } from '../../components/PostArticle'
-import { RichTextEditor, withMediaUrls } from '../../admin/RichTextEditor'
+import { docSnapshot, RichTextEditor, withMediaUrls } from '../../admin/RichTextEditor'
 import type { MediaDto } from '../../admin/media'
 import { formatDateTime, type PostMedia, type RichNode } from '../../admin/posts'
 import { SCHEDULE_LABEL, scheduleState, utcToVnPicker, vnPickerToUtc } from '../../admin/vnTime'
@@ -34,11 +34,9 @@ type Values = { title: string; slug?: string; status: PageStatus; publishedAt?: 
 
 const EMPTY_DOC: RichNode = { type: 'doc', content: [{ type: 'paragraph' }] }
 
-// So sánh để biết có thay đổi chưa lưu: key cố định, bỏ đoạn trống cuối Tiptap tự thêm.
+// So sánh để biết có thay đổi chưa lưu: giá trị form theo thứ tự cố định.
 function snap(v: Partial<Values>, doc: RichNode) {
-  const c = [...(doc.content ?? [])]
-  while (c.length && c[c.length - 1].type === 'paragraph' && !c[c.length - 1].content?.length) c.pop()
-  return JSON.stringify([v.title ?? '', v.slug ?? '', v.status ?? '', v.publishedAt?.valueOf() ?? null, v.expiresAt?.valueOf() ?? null, { ...doc, content: c }])
+  return JSON.stringify([v.title ?? '', v.slug ?? '', v.status ?? '', v.publishedAt?.valueOf() ?? null, v.expiresAt?.valueOf() ?? null, docSnapshot(doc)])
 }
 
 function PageEditorContent() {

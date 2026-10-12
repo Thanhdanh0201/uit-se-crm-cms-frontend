@@ -92,6 +92,11 @@
 - SCRUM-34 (FR-AUTH-03, 04): nút Đặt lại mật khẩu ở mỗi dòng `/admin/users` (tạo mật khẩu tạm hiện một lần kèm nút sao chép, hoặc admin tự đặt; người dùng bị đăng xuất khỏi mọi thiết bị; không áp dụng cho chính mình). Nút Nhập từ Excel (`?action=import`): tải file mẫu, chọn .xlsx, xem trước lỗi từng dòng, xác nhận rồi tạo các dòng hợp lệ, tải danh sách mật khẩu tạm (.csv, UTF-8 BOM, chống chèn công thức); đóng khi chưa tải thì hỏi lại. Test `UsersImportReset.test.tsx`.
 - Sửa lỗi typecheck trên main: import thừa `Popconfirm` trong `Media.tsx`.
 
+## Nghiệm thu Sprint 3 với backend thật (12/10/2026)
+- Chạy backend main bằng Docker (Colima) và frontend main, tài khoản quản trị viên thật trên Supabase. Đạt: SCRUM-15, 16, 17, 39, 41 (đã chuyển Done). Vai trò biên tập viên mới kiểm bằng test tự động, chưa test tay.
+- SCRUM-40: sửa lỗi trình soạn thảo báo "Chưa lưu" và chặn rời trang ngay khi mở bài hoặc vừa tạo nháp. Backend trả node rich text theo thứ tự key khác Tiptap, so sánh `JSON.stringify` phụ thuộc thứ tự key. Thêm `docSnapshot()` trong `src/admin/RichTextEditor.tsx` (sắp key, bỏ đoạn trống cuối), dùng cho cả `PostEditor` và `PageEditor`. Test mới trong `PostEditor.test.tsx`. Branch `fix/editor-dirty-key-order`, chờ merge rồi chuyển Done.
+- Góp ý nhỏ còn mở: hộp thoại Yêu cầu chỉnh sửa có dòng gợi ý đè lên bộ đếm ký tự; backend nhận xuất bản với `expiresAt` đã qua.
+
 ## Kế tiếp
 - Sprint 5 còn lại: form liên hệ công khai `/contact` (SCRUM-48), phía sinh viên đăng ký sự kiện và yêu cầu đã gửi (SCRUM-46, 55).
 - Các trang được trang chủ liên kết tới nhưng chưa có (đang trả 404): `/categories/:slug` (chờ API bài theo chuyên mục), `/events`, `/events/:id`, `/contact`, `/search`.
@@ -107,4 +112,4 @@
 - `GET /api/auth/me` chỉ trả `userId`, `role`, `email`; sau khi F5 chưa có `fullName`. Cần backend bổ sung nếu UI hiển thị tên.
 
 ## Cập nhật lần cuối
-11/10/2026
+12/10/2026

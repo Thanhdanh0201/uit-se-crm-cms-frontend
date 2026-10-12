@@ -7,7 +7,7 @@ import { useAuth } from '../../lib/auth'
 import { noIndex } from '../../lib/seo'
 import { PostArticle } from '../../components/PostArticle'
 import { MediaPicker } from '../../admin/MediaPicker'
-import { RichTextEditor, withMediaUrls } from '../../admin/RichTextEditor'
+import { docSnapshot, RichTextEditor, withMediaUrls } from '../../admin/RichTextEditor'
 import type { MediaDto } from '../../admin/media'
 import { canEdit, formatDateTime, postErrorMessage, STATUS_COLOR, statusLabel, type PostDetail, type PostMedia, type Ref, type RichNode } from '../../admin/posts'
 import { viSearchMatch } from '../../admin/tree'
@@ -21,14 +21,11 @@ const EMPTY_DOC: RichNode = { type: 'doc', content: [{ type: 'paragraph' }] }
 const EMPTY_VALUES: Values = { title: '', slug: '', summary: '', categoryIds: [], tagIds: [] }
 const backupKey = (id: string | undefined) => `post-backup:${id ?? 'new'}`
 
-// Ảnh chụp để so "có thay đổi chưa lưu". Bỏ đoạn trống cuối bài: Tiptap tự thêm khi bài kết thúc bằng ảnh,
-// danh sách, trích dẫn... nên không tính là người dùng sửa.
+// Ảnh chụp để so "có thay đổi chưa lưu".
 // Giá trị form lấy theo thứ tự key cố định: antd trả object với thứ tự key khác nhau tùy lúc.
 function snap(values: Partial<Values>, doc: RichNode, cover: PostMedia | null) {
-  const c = [...(doc.content ?? [])]
-  while (c.length && c[c.length - 1].type === 'paragraph' && !c[c.length - 1].content?.length) c.pop()
   const v = [values.title ?? '', values.slug ?? '', values.summary ?? '', values.primaryCategoryId ?? '', values.categoryIds ?? [], values.tagIds ?? []]
-  return JSON.stringify({ v, c: { ...doc, content: c }, cv: cover?.id ?? null })
+  return JSON.stringify({ v, c: docSnapshot(doc), cv: cover?.id ?? null })
 }
 
 // Sao lưu bản đang soạn vào máy (localStorage), để không mất nội dung khi API lỗi, mất mạng hoặc hết phiên (SCRUM-40).
