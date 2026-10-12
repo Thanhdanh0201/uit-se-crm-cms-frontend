@@ -7,6 +7,7 @@ import Alert from '../../components/ui/Alert'
 import Badge from '../../components/ui/Badge'
 import { buttonClass } from '../../components/ui/Button'
 import { EmptyState } from '../../components/ui/States'
+import { CoverThumb } from '../../components/PostList'
 import type { loader as layoutLoader } from '../../layouts/PublicLayout'
 import { EMPTY_HOME, eventStatus, type HomeData, type PostCard } from './home.data'
 import './home.css'
@@ -43,13 +44,7 @@ function PostDate({ iso }: { iso: string }) {
 }
 
 function Cover({ post, className }: { post: PostCard; className: string }) {
-  return post.coverUrl ? (
-    <img className={className} src={post.coverUrl} alt="" loading="lazy" />
-  ) : (
-    <span className={`${className} home-cover--empty`} aria-hidden>
-      <Newspaper size={28} />
-    </span>
-  )
+  return <CoverThumb src={post.coverUrl} className={className} />
 }
 
 export default function Home({ loaderData: home }: Route.ComponentProps) {

@@ -228,12 +228,6 @@
   border-radius: var(--radius-control);
   background: var(--color-surface-muted);
 }
-.home-cover--empty {
-  display: grid;
-  place-items: center;
-  color: var(--blue-300);
-  background: var(--color-primary-soft);
-}
 
 /* Nhóm theo chuyên mục */
 /* flex-wrap thay vì grid: số nhóm do Admin cấu hình, nhóm lẻ cuối giãn đầy hàng, không để ô trống */

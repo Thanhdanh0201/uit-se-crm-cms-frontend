@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import './post.css'
 
 // Kiểu tối thiểu, khớp DTO backend (PostViewDto / PostDetailDto). Khai báo ở đây để trang public không phụ thuộc src/admin.
@@ -31,12 +31,18 @@ export function PostArticle({ post, footer }: { post: ArticleData; footer?: Reac
           {post.authorName && `, ${post.authorName}`}
         </p>
       </header>
-      {post.cover?.url && <img className="post-article__cover" src={post.cover.url} alt={post.cover.altText ?? ''} />}
+      {post.cover?.url && <Cover src={post.cover.url} alt={post.cover.altText ?? ''} />}
       {post.summary && <p className="post-article__summary">{post.summary}</p>}
       <RichText doc={post.content} media={post.media} />
       {footer}
     </article>
   )
+}
+
+// Ảnh bìa là signed URL có hạn: lỗi tải (hết hạn, file bị xóa) thì bỏ hẳn khung ảnh thay vì để ảnh vỡ.
+function Cover({ src, alt }: { src: string; alt: string }) {
+  const [failed, setFailed] = useState(false)
+  return failed ? null : <img className="post-article__cover" src={src} alt={alt} onError={() => setFailed(true)} />
 }
 
 // Renderer JSON Tiptap sang React. Chỉ hiểu các node/mark trong allowlist của backend (RichTextContent.cs);
