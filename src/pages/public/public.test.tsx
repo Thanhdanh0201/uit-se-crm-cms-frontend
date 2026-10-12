@@ -240,3 +240,38 @@ test('tìm kiếm: ngày bắt đầu sau ngày kết thúc thì báo lỗi, kh�
   openPublic('/search?q=khong-co', searchRoute)
   expect(await screen.findByText('Không có bài phù hợp')).toBeTruthy()
 })
+
+const student = { '/api/auth/me': () => ok({ id: 'u1', username: '24520100', fullName: 'Trần Minh An', role: 'student', email: 'an@gm.uit.edu.vn' }) }
+
+test('lưu bài: khách được mời đăng nhập rồi quay lại đúng bài', async () => {
+  mockApi({ ...guest, ...menu, '/api/public/posts/lich-thi-hk1': () => ok(post), '/api/public/posts/lich-thi-hk1/view': () => ok({ viewCount: 42 }) })
+  openPublic('/posts/lich-thi-hk1', postRoute)
+  const link = await screen.findByRole('link', { name: 'Đăng nhập để lưu bài' })
+  expect(link.getAttribute('href')).toBe('/login?next=%2Fposts%2Flich-thi-hk1')
+})
+
+test('lưu bài: bấm nhiều lần chỉ gửi một request, chỉ đổi trạng thái khi API thành công', async () => {
+  const put = deferred<Response>()
+  const api = mockApi({
+    ...student, ...menu,
+    '/api/public/posts/lich-thi-hk1': () => ok(post),
+    '/api/public/posts/lich-thi-hk1/view': () => ok({ viewCount: 42 }),
+    '/api/me/bookmarks/p1': (_url, init) => (init?.method === 'PUT' ? put.promise : init?.method === 'DELETE' ? reply(404) : ok({ bookmarked: false })),
+  })
+  openPublic('/posts/lich-thi-hk1', postRoute)
+  const button = await screen.findByRole('button', { name: 'Lưu bài' })
+  await waitFor(() => expect((button as HTMLButtonElement).disabled).toBe(false))
+  await userEvent.click(button)
+  await userEvent.click(button)
+  expect(api.calls('/api/me/bookmarks/p1').filter(([, i]) => (i as RequestInit)?.method === 'PUT')).toHaveLength(1)
+  expect(screen.queryByRole('button', { name: 'Đã lưu' })).toBeNull()
+
+  put.resolve(ok({ bookmarked: true }))
+  const saved = await screen.findByRole('button', { name: 'Đã lưu' })
+  expect(saved.getAttribute('aria-pressed')).toBe('true')
+
+  // Bài bị gỡ trong lúc đang xem: báo rõ, giữ trạng thái cũ.
+  await userEvent.click(saved)
+  expect(await screen.findByRole('alert')).toHaveProperty('textContent', 'Bài này không còn công khai nên không lưu được.')
+  expect(screen.getByRole('button', { name: 'Đã lưu' })).toBeTruthy()
+})

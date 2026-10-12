@@ -29,6 +29,7 @@ export default [
     route('pages/:slug', 'pages/public/StaticPage.tsx'),
     route('me', 'pages/me/Account.tsx'),
     route('me/password', 'pages/me/ChangePassword.tsx'),
+    route('me/saved', 'pages/me/SavedPosts.tsx'),
     route('403', 'pages/public/Forbidden.tsx'),
     route('*', 'pages/public/NotFound.tsx'),
   ]),

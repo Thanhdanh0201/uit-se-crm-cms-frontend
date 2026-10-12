@@ -97,9 +97,17 @@
 - SCRUM-40: sửa lỗi trình soạn thảo báo "Chưa lưu" và chặn rời trang ngay khi mở bài hoặc vừa tạo nháp. Backend trả node rich text theo thứ tự key khác Tiptap, so sánh `JSON.stringify` phụ thuộc thứ tự key. Thêm `docSnapshot()` trong `src/admin/RichTextEditor.tsx` (sắp key, bỏ đoạn trống cuối), dùng cho cả `PostEditor` và `PageEditor`. Test mới trong `PostEditor.test.tsx`. Branch `fix/editor-dirty-key-order`, chờ merge rồi chuyển Done.
 - Góp ý nhỏ còn mở: hộp thoại Yêu cầu chỉnh sửa có dòng gợi ý đè lên bộ đếm ký tự; backend nhận xuất bản với `expiresAt` đã qua.
 
+## Sprint 4 website công khai (12/10/2026)
+- SCRUM-42 trang chủ và điều hướng: Truy cập nhanh lấy chuyên mục cấp 1 đang hiện, nút giới thiệu và footer lấy từ menu chính, bỏ slug cố định và dữ liệu mẫu `home.sample.ts`; lỗi API báo lỗi, chưa có bài hiện trạng thái rỗng. Branch `feat/public-home-nav`.
+- SCRUM-43 `/categories/:slug` (SSR, phân trang trên URL, 404 khi chuyên mục ẩn) và chi tiết bài (thẻ, lượt xem ghi một lần mỗi bài, link bài cùng chuyên mục, ảnh lỗi có ô thay thế). Component dùng chung `src/components/PostList.tsx`. Branch `feat/category-post-detail`.
+- SCRUM-44 `/search`: từ khóa, chuyên mục, thẻ, khoảng ngày; lọc/phân trang ở server; tiêu chí trên URL, Back/Forward giữ tiêu chí; hủy request cũ khi đổi tiêu chí. Branch `feat/public-search`.
+- SCRUM-53 lưu bài: nút Lưu bài ở cuối bài (khách được mời đăng nhập rồi quay lại), chống bấm lặp; trang `/me/saved` có phân trang và bỏ lưu. Cần backend `feat/post-card-id` (thêm `id` vào `PostCardDto`). Branch `feat/bookmarks`.
+- Test: `src/pages/public/public.test.tsx` (router thật với loader layout và trang), `src/pages/me/SavedPosts.test.tsx`.
+- Branch xếp chồng theo thứ tự trên, merge lần lượt.
+
 ## Kế tiếp
 - Sprint 5 còn lại: form liên hệ công khai `/contact` (SCRUM-48), phía sinh viên đăng ký sự kiện và yêu cầu đã gửi (SCRUM-46, 55).
-- Các trang được trang chủ liên kết tới nhưng chưa có (đang trả 404): `/categories/:slug` (chờ API bài theo chuyên mục), `/events`, `/events/:id`, `/contact`, `/search`.
+- Các trang được trang chủ liên kết tới nhưng chưa có (đang trả 404): `/events`, `/events/:id`, `/contact`.
 - FR-AUTH-05: màn hình đổi mật khẩu (`POST /api/auth/change-password`).
 - Trang tĩnh và cấu hình trang chủ (backend đã có ở `feat/pages-home`, chưa có task FE).
 
@@ -112,4 +120,4 @@
 - `GET /api/auth/me` chỉ trả `userId`, `role`, `email`; sau khi F5 chưa có `fullName`. Cần backend bổ sung nếu UI hiển thị tên.
 
 ## Cập nhật lần cuối
-12/10/2026
+12/10/2026 (Sprint 4)
