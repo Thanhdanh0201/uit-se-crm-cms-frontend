@@ -25,6 +25,7 @@ export default [
     route('login', 'pages/public/Login.tsx'),
     route('categories/:slug', 'pages/public/Category.tsx'),
     route('posts/:slug', 'pages/public/PostDetail.tsx'),
+    route('search', 'pages/public/Search.tsx'),
     route('pages/:slug', 'pages/public/StaticPage.tsx'),
     route('me', 'pages/me/Account.tsx'),
     route('me/password', 'pages/me/ChangePassword.tsx'),

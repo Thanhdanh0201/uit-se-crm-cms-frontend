@@ -5,11 +5,12 @@ import { cleanup, render, screen, waitFor, within } from '@testing-library/react
 import userEvent from '@testing-library/user-event'
 import { createMemoryRouter, isRouteErrorResponse, RouterProvider, useLoaderData, useRouteError, type LoaderFunctionArgs } from 'react-router'
 import { AuthProvider } from '../../lib/auth'
-import { mockApi, ok, reply } from '../../lib/test-utils'
+import { deferred, mockApi, ok, reply } from '../../lib/test-utils'
 import PublicLayout, { loader as layoutLoader } from '../../layouts/PublicLayout'
 import Home, { loader as homeLoader } from './Home'
 import Category, { loader as categoryLoader } from './Category'
 import PostDetail, { loader as postLoader } from './PostDetail'
+import Search, { loader as searchLoader } from './Search'
 
 afterEach(() => {
   cleanup()
@@ -69,7 +70,7 @@ const tree = [
   { id: 'c1', name: 'Thông báo học vụ', slug: 'thong-bao-hoc-vu', description: 'Lịch học, thi, đồ án', postCount: 4, children: [] },
   { id: 'c2', name: 'Nghiên cứu khoa học', slug: 'nghien-cuu-khoa-hoc', description: null, postCount: 2, children: [] },
 ]
-const homeRoute = { index: true, loader: homeLoader, Component: withData(Home) } as PageRoute
+const homeRoute = { index: true, loader: homeLoader, Component: withData(Home) } as unknown as PageRoute
 
 test('trang chủ: truy cập nhanh, nút giới thiệu và footer lấy từ API, không cố định slug', async () => {
   mockApi({ ...guest, ...menu, '/api/public/home': () => ok(home), '/api/public/categories/tree': () => ok(tree) })
@@ -102,7 +103,7 @@ test('trang chủ: API lỗi thì báo lỗi; chưa có bài thì hiện trạng
   expect(await screen.findByText('Chưa có bài viết nào')).toBeTruthy()
 })
 
-const categoryRoute = { path: 'categories/:slug', loader: categoryLoader, Component: withData(Category) } as PageRoute
+const categoryRoute = { path: 'categories/:slug', loader: categoryLoader, Component: withData(Category) } as unknown as PageRoute
 const tbhv = { id: 'c1', name: 'Thông báo học vụ', slug: 'thong-bao-hoc-vu', description: 'Lịch học, thi, đồ án', parentName: null }
 const pageOf = (items: unknown[], page = 1, totalItems = items.length, pageSize = 10) => ({ items, totalItems, page, pageSize, totalPages: Math.ceil(totalItems / pageSize) })
 
@@ -141,7 +142,7 @@ test('chuyên mục ẩn hoặc không tồn tại: trang 404; chưa có bài: t
   expect(await screen.findByText('Chuyên mục chưa có bài viết')).toBeTruthy()
 })
 
-const postRoute = { path: 'posts/:slug', loader: postLoader, Component: withData(PostDetail) } as PageRoute
+const postRoute = { path: 'posts/:slug', loader: postLoader, Component: withData(PostDetail) } as unknown as PageRoute
 const post = {
   id: 'p1', slug: 'lich-thi-hk1', title: 'Lịch thi cuối kỳ HK1', summary: 'Lịch thi và phòng thi.', status: 'published',
   content: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Sinh viên xem phòng thi trên cổng thông tin.' }] }] },
@@ -167,4 +168,75 @@ test('bài nháp, hết hạn hoặc không tồn tại: trang 404', async () =>
   mockApi({ ...guest, ...menu, '/api/public/posts/ban-nhap': () => reply(404) })
   openPublic('/posts/ban-nhap', postRoute)
   expect(await screen.findByText('Không tìm thấy trang')).toBeTruthy()
+})
+
+const searchRoute = { path: 'search', loader: searchLoader, Component: withData(Search) } as unknown as PageRoute
+const filters = {
+  '/api/public/categories': () => ok([{ id: 'c1', name: 'Thông báo học vụ' }, { id: 'c2', name: 'Nghiên cứu khoa học' }]),
+  '/api/public/tags': () => ok([{ id: 't1', name: 'học bổng' }]),
+}
+const query = (call: unknown[]) => new URL(String(call[0]), 'http://x').searchParams
+
+test('tìm kiếm: tiêu chí gửi lên server, đổi bộ lọc về trang 1, Back giữ tiêu chí', async () => {
+  const api = mockApi({
+    ...guest, ...menu, ...filters,
+    '/api/public/posts': (url) => {
+      const q = new URL(url, 'http://x').searchParams
+      return ok(pageOf([card(`ket-qua-${q.get('page')}`, `Kết quả ${q.get('keyword') ?? 'tất cả'} trang ${q.get('page')}`)], Number(q.get('page')), 25))
+    },
+  })
+  const router = openPublic('/search?q=học bổng&page=2', searchRoute)
+  expect(await screen.findByRole('link', { name: 'Kết quả học bổng trang 2' })).toBeTruthy()
+  expect(screen.getByText('Tìm thấy 25 bài cho "học bổng"')).toBeTruthy()
+
+  // Đổi chuyên mục: về trang 1, gửi categoryId; ngày theo giờ Việt Nam, "đến ngày" lấy hết ngày.
+  await userEvent.selectOptions(screen.getByLabelText('Chuyên mục'), 'c2')
+  await waitFor(() => expect(router.state.location.search).toBe('?q=h%E1%BB%8Dc+b%E1%BB%95ng&category=c2'))
+  expect(await screen.findByRole('link', { name: 'Kết quả học bổng trang 1' })).toBeTruthy()
+  expect(document.activeElement).toBe(screen.getByLabelText('Chuyên mục')) // Không mất focus sau khi lọc.
+  const last = query(api.calls('/api/public/posts').at(-1)!)
+  expect([last.get('keyword'), last.get('categoryId'), last.get('page'), last.get('pageSize')]).toEqual(['học bổng', 'c2', '1', '10'])
+
+  await userEvent.type(screen.getByLabelText('Đến ngày'), '2026-10-31')
+  await waitFor(() => expect(query(api.calls('/api/public/posts').at(-1)!).get('toDate')).toBe('2026-10-31T23:59:59.999+07:00'))
+
+  // Back: URL và ô lọc quay về tiêu chí trước.
+  await router.navigate(-1)
+  await waitFor(() => expect(router.state.location.search).toBe('?q=h%E1%BB%8Dc+b%E1%BB%95ng&category=c2'))
+  await waitFor(() => expect((screen.getByLabelText('Đến ngày') as HTMLInputElement).value).toBe(''))
+  await router.navigate(-1)
+  await waitFor(() => expect((screen.getByLabelText('Chuyên mục') as HTMLSelectElement).value).toBe(''))
+  expect((screen.getByLabelText('Từ khóa') as HTMLInputElement).value).toBe('học bổng')
+})
+
+test('tìm kiếm: kết quả của tiêu chí cũ về sau không đè kết quả mới', async () => {
+  const slow = deferred<Response>()
+  mockApi({
+    ...guest, ...menu, ...filters,
+    '/api/public/posts': (url) => (url.includes('keyword=lich')
+      ? slow.promise
+      : ok(pageOf([card('hoc-bong', url.includes('keyword=hoc') ? 'Kết quả học bổng' : 'Bài mới nhất')]))),
+  })
+  const router = openPublic('/search', searchRoute)
+  expect(await screen.findByRole('link', { name: 'Bài mới nhất' })).toBeTruthy()
+  // Không await: request của "lich" treo cho tới khi resolve ở dưới.
+  void router.navigate('/search?q=lich')
+  void router.navigate('/search?q=hoc')
+  expect(await screen.findByRole('link', { name: 'Kết quả học bổng' })).toBeTruthy()
+  slow.resolve(ok(pageOf([card('lich-thi', 'Kết quả lịch thi')])))
+  await new Promise((r) => setTimeout(r, 50))
+  expect(screen.queryByRole('link', { name: 'Kết quả lịch thi' })).toBeNull()
+  expect(screen.getByRole('link', { name: 'Kết quả học bổng' })).toBeTruthy()
+})
+
+test('tìm kiếm: ngày bắt đầu sau ngày kết thúc thì báo lỗi, không gọi API; không có bài thì trạng thái rỗng', async () => {
+  const api = mockApi({ ...guest, ...menu, ...filters, '/api/public/posts': () => ok(pageOf([])) })
+  openPublic('/search?from=2026-10-20&to=2026-10-01', searchRoute)
+  expect(await screen.findByText('Ngày bắt đầu phải trước hoặc bằng ngày kết thúc.')).toBeTruthy()
+  expect(api.calls('/api/public/posts')).toHaveLength(0)
+  cleanup()
+
+  mockApi({ ...guest, ...menu, ...filters, '/api/public/posts': () => ok(pageOf([])) })
+  openPublic('/search?q=khong-co', searchRoute)
+  expect(await screen.findByText('Không có bài phù hợp')).toBeTruthy()
 })
