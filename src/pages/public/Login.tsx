@@ -82,36 +82,38 @@ export default function Login() {
   }
 
   return (
-    <div className="auth">
-      <div className="auth__intro">
-        <h1>Đăng nhập</h1>
-        <p className="muted">Dùng tài khoản do Khoa Công nghệ Phần mềm cấp cho sinh viên, giảng viên và cán bộ.</p>
+    <div className="login-scene">
+      <div className="auth auth--scene">
+        <div className="auth__intro">
+          <h1>Đăng nhập</h1>
+          <p className="muted">Dùng tài khoản do Khoa Công nghệ Phần mềm cấp cho sinh viên, giảng viên và cán bộ.</p>
+        </div>
+
+        <form className="auth__card stack" onSubmit={onSubmit} noValidate aria-busy={pending || undefined}>
+          {sessionExpired && !errors.form && <Alert tone="warning">Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.</Alert>}
+          {errors.form && <Alert tone="danger">{errors.form}</Alert>}
+
+          <fieldset className="auth__fields" disabled={pending}>
+            <TextField
+              label="Tên đăng nhập hoặc email"
+              name="usernameOrEmail"
+              autoComplete="username"
+              autoCapitalize="none"
+              spellCheck={false}
+              autoFocus
+              required
+              error={errors.usernameOrEmail}
+            />
+            <PasswordField label="Mật khẩu" name="password" autoComplete="current-password" required error={errors.password} />
+          </fieldset>
+
+          <Button type="submit" size="lg" block loading={pending}>{pending ? 'Đang đăng nhập' : 'Đăng nhập'}</Button>
+
+          <p className="auth__help">
+            Quên mật khẩu hoặc tài khoản bị khóa? Liên hệ Văn phòng Khoa qua <a href="mailto:se@uit.edu.vn">se@uit.edu.vn</a> để được cấp lại.
+          </p>
+        </form>
       </div>
-
-      <form className="auth__card stack" onSubmit={onSubmit} noValidate aria-busy={pending || undefined}>
-        {sessionExpired && !errors.form && <Alert tone="warning">Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.</Alert>}
-        {errors.form && <Alert tone="danger">{errors.form}</Alert>}
-
-        <fieldset className="auth__fields" disabled={pending}>
-          <TextField
-            label="Tên đăng nhập hoặc email"
-            name="usernameOrEmail"
-            autoComplete="username"
-            autoCapitalize="none"
-            spellCheck={false}
-            autoFocus
-            required
-            error={errors.usernameOrEmail}
-          />
-          <PasswordField label="Mật khẩu" name="password" autoComplete="current-password" required error={errors.password} />
-        </fieldset>
-
-        <Button type="submit" size="lg" block loading={pending}>{pending ? 'Đang đăng nhập' : 'Đăng nhập'}</Button>
-
-        <p className="auth__help">
-          Quên mật khẩu hoặc tài khoản bị khóa? Liên hệ Văn phòng Khoa qua <a href="mailto:se@uit.edu.vn">se@uit.edu.vn</a> để được cấp lại.
-        </p>
-      </form>
     </div>
   )
 }
