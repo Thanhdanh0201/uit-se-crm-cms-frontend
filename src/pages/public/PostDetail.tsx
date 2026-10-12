@@ -46,19 +46,21 @@ export const meta: Route.MetaFunction = ({ loaderData: data }) =>
     : noIndex('Không tìm thấy bài viết')
 
 export default function PostDetail({ loaderData: { post } }: Route.ComponentProps) {
-  const [views, setViews] = useState(post.viewCount)
+  // Số lượt xem server trả sau khi ghi; chỉ dùng khi còn đúng bài đang mở.
+  const [recorded, setRecorded] = useState<{ slug: string; count: number } | null>(null)
+  const views = recorded?.slug === post.slug ? recorded.count : post.viewCount
   const counted = useRef<string | null>(null)
 
   // Ghi lượt xem ở trình duyệt, một lần cho mỗi bài được mở (bot SSR không tính). Server chống lặp theo phiên.
   // Ref chặn gọi lại khi React chạy effect hai lần (StrictMode) hoặc khi loader chạy lại cùng bài.
   useEffect(() => {
-    setViews(post.viewCount)
-    if (counted.current === post.slug) return
-    counted.current = post.slug
-    api<{ viewCount: number }>(`/api/public/posts/${encodeURIComponent(post.slug)}/view`, { method: 'POST' })
-      .then((r) => setViews(r.viewCount))
+    const slug = post.slug
+    if (counted.current === slug) return
+    counted.current = slug
+    api<{ viewCount: number }>(`/api/public/posts/${encodeURIComponent(slug)}/view`, { method: 'POST' })
+      .then((r) => setRecorded({ slug, count: r.viewCount }))
       .catch(() => {}) // Không ghi được lượt xem thì người đọc không cần biết.
-  }, [post.slug, post.viewCount])
+  }, [post.slug])
 
   return (
     <PostArticle
