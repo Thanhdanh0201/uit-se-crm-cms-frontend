@@ -26,14 +26,28 @@ export async function loader() {
   }
 }
 
-// Menu không đổi theo trang: chỉ tải khi mở site (F5), không tải lại mỗi lần chuyển trang.
-export const shouldRevalidate = () => false
+function parseAppUrl(url: string) {
+  if (!url) return { isExternal: false, path: '/' }
+  if (!/^https?:\/\//i.test(url)) return { isExternal: false, path: url.startsWith('/') ? url : `/${url}` }
+  try {
+    const target = new URL(url)
+    const isLocal = target.hostname === 'localhost' || target.hostname === '127.0.0.1'
+    const isSameOrigin = typeof window !== 'undefined' && target.origin === window.location.origin
+    if (isLocal || isSameOrigin) {
+      return { isExternal: false, path: (target.pathname || '/') + target.search + target.hash }
+    }
+  } catch {
+    return { isExternal: true, path: url }
+  }
+  return { isExternal: true, path: url }
+}
 
 function NavTo({ item, className }: { item: NavItem; className?: string }) {
   if (!item.url) return <span className={className}>{item.label}</span>
-  if (/^https?:\/\//i.test(item.url))
+  const { isExternal, path } = parseAppUrl(item.url)
+  if (isExternal)
     return <a href={item.url} className={className} target="_blank" rel="noopener noreferrer">{item.label}</a>
-  return <NavLink to={item.url} className={className}>{item.label}</NavLink>
+  return <NavLink to={path} className={className}>{item.label}</NavLink>
 }
 
 // Cấp 2 và cấp 3 (cấp 3 thụt vào trong cùng danh sách).

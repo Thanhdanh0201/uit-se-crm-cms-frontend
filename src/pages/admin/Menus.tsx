@@ -433,9 +433,33 @@ function MenuModal({ value, onClose, onSaved }: { value: Menu | 'new' | null; on
     }
   }
 
+  const PRESET_MENUS = [
+    { code: 'main', name: 'Menu chính' },
+    { code: 'footer', name: 'Menu chân trang' },
+    { code: 'quick-links', name: 'Liên kết nhanh' },
+  ]
+
   return (
     <Modal open={!!value} title={editing ? `Sửa menu "${editing.name}"` : 'Thêm menu'} okText="Lưu" cancelText="Hủy" confirmLoading={busy} onOk={() => form.submit()} onCancel={onClose} destroyOnHidden>
       {error && <Alert type="error" showIcon title={error} style={{ marginBottom: 16 }} />}
+      {!editing && (
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)', marginBottom: 6 }}>Gợi ý vị trí chuẩn:</div>
+          <Flex gap={8} wrap="wrap">
+            {PRESET_MENUS.map((p) => (
+              <Button
+                key={p.code}
+                size="small"
+                onClick={() => {
+                  form.setFieldsValue({ code: p.code, name: p.name })
+                }}
+              >
+                {p.name} ({p.code})
+              </Button>
+            ))}
+          </Flex>
+        </div>
+      )}
       <Form form={form} layout="vertical" onFinish={onFinish} disabled={busy} requiredMark>
         <Form.Item name="name" label="Tên menu" rules={[{ required: true, whitespace: true, message: 'Nhập tên menu.' }, { max: 150, message: 'Tên tối đa 150 ký tự.' }]}>
           <Input maxLength={150} placeholder="Ví dụ: Menu chân trang" />
@@ -446,7 +470,7 @@ function MenuModal({ value, onClose, onSaved }: { value: Menu | 'new' | null; on
           extra={editing ? 'Website tìm menu theo mã này. Đổi mã thì nơi đang dùng mã cũ sẽ không còn menu.' : 'Website tìm menu theo mã này, ví dụ main (menu chính), footer.'}
           rules={[{ required: true, message: 'Nhập mã menu.' }, { max: 50, message: 'Mã tối đa 50 ký tự.' }, { pattern: /^[a-z0-9-]+$/, message: 'Mã chỉ gồm chữ thường không dấu, chữ số và dấu gạch ngang.' }]}
         >
-          <Input maxLength={50} placeholder="footer" />
+          <Input maxLength={50} placeholder="main" />
         </Form.Item>
       </Form>
     </Modal>
@@ -614,17 +638,64 @@ function ItemDrawer({ menuId, tree, action, editing, parentId, onClose, onSaved 
           </Form.Item>
         )}
         {kind === 'external' && (
-          <Form.Item
-            name="externalUrl"
-            label="Địa chỉ liên kết"
-            extra="Mở ở tab mới trên website."
-            rules={[
-              { required: true, whitespace: true, message: 'Nhập địa chỉ liên kết.' },
-              { pattern: /^https?:\/\/\S+$/i, message: 'Địa chỉ phải bắt đầu bằng http:// hoặc https://, ví dụ https://tuyensinh.uit.edu.vn' },
-            ]}
-          >
-            <Input type="url" inputMode="url" placeholder="https://" />
-          </Form.Item>
+          <>
+            <Form.Item
+              name="externalUrl"
+              label="Địa chỉ liên kết"
+              extra="Mở ở tab mới nếu là website ngoài (hoặc chuyển trang nội bộ nếu là link của trường)."
+              rules={[
+                { required: true, whitespace: true, message: 'Nhập địa chỉ liên kết.' },
+                { pattern: /^https?:\/\/\S+$/i, message: 'Địa chỉ phải bắt đầu bằng http:// hoặc https://, ví dụ https://tuyensinh.uit.edu.vn' },
+              ]}
+            >
+              <Input type="url" inputMode="url" placeholder="https://" />
+            </Form.Item>
+            <div style={{ marginTop: -8, marginBottom: 16 }}>
+              <div style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)', marginBottom: 6 }}>Gợi ý trang nội bộ:</div>
+              <Flex gap={6} wrap="wrap">
+                <Button
+                  size="small"
+                  onClick={() => {
+                    const origin = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:5173'
+                    form.setFieldValue('externalUrl', `${origin}/`)
+                    if (!form.getFieldValue('label')) form.setFieldValue('label', 'Trang chủ')
+                  }}
+                >
+                  Trang chủ (/)
+                </Button>
+                <Button
+                  size="small"
+                  onClick={() => {
+                    const origin = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:5173'
+                    form.setFieldValue('externalUrl', `${origin}/events`)
+                    if (!form.getFieldValue('label')) form.setFieldValue('label', 'Sự kiện')
+                  }}
+                >
+                  Sự kiện (/events)
+                </Button>
+                <Button
+                  size="small"
+                  onClick={() => {
+                    const origin = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:5173'
+                    form.setFieldValue('externalUrl', `${origin}/contact`)
+                    if (!form.getFieldValue('label')) form.setFieldValue('label', 'Liên hệ')
+                  }}
+                >
+                  Liên hệ (/contact)
+                </Button>
+                <Button
+                  size="small"
+                  onClick={() => {
+                    const origin = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:5173'
+                    form.setFieldValue('externalUrl', `${origin}/search`)
+                    if (!form.getFieldValue('label')) form.setFieldValue('label', 'Tìm kiếm')
+                  }}
+                >
+                  Tìm kiếm (/search)
+                </Button>
+              </Flex>
+            </div>
+          </>
         )}
         <Form.Item
           name="parentId"
