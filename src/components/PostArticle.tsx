@@ -14,13 +14,25 @@ export type ArticleData = {
   authorName: string | null
   categoryName: string | null
   publishedAt: string | null
+  updatedAt?: string | null
 }
 
 const dateFmt = new Intl.DateTimeFormat('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', dateStyle: 'long' })
+const updateFmt = new Intl.DateTimeFormat('vi-VN', {
+  timeZone: 'Asia/Ho_Chi_Minh',
+  dateStyle: 'short',
+  timeStyle: 'short',
+})
 
 // Bài viết dạng hiển thị công khai. Dùng chung cho trang chi tiết public, trang xem trước và xem trước trong trình soạn thảo,
 // để "xem trước giống public" (SCRUM-40).
 export function PostArticle({ post, footer }: { post: ArticleData; footer?: ReactNode }) {
+  const showUpdated = Boolean(
+    post.publishedAt &&
+      post.updatedAt &&
+      new Date(post.updatedAt).getTime() - new Date(post.publishedAt).getTime() >= 5 * 60 * 1000
+  )
+
   return (
     <article className="post-article">
       <header className="post-article__header">
@@ -28,6 +40,11 @@ export function PostArticle({ post, footer }: { post: ArticleData; footer?: Reac
         <h1>{post.title || 'Chưa có tiêu đề'}</h1>
         <p className="muted">
           {post.publishedAt ? <time dateTime={post.publishedAt}>{dateFmt.format(new Date(post.publishedAt))}</time> : 'Chưa xuất bản'}
+          {showUpdated && (
+            <span className="post-article__updated">
+              {' · '}Cập nhật: <time dateTime={post.updatedAt!}>{updateFmt.format(new Date(post.updatedAt!))}</time>
+            </span>
+          )}
           {post.authorName && `, ${post.authorName}`}
         </p>
       </header>

@@ -116,16 +116,16 @@ export default function Search({ loaderData: { criteria: c, results, failed, cat
           <Button type="submit" icon={<MagnifyingGlass size={18} aria-hidden />} loading={loading}>Tìm</Button>
         </div>
         <div className="search-form__filters">
-          <Select label="Chuyên mục" name="category" defaultValue={c.category} onChange={() => submit()}>
+          <Select label="Chuyên mục" name="category" defaultValue={c.category}>
             <option value="">Tất cả chuyên mục</option>
             {categories.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}
           </Select>
-          <Select label="Thẻ" name="tag" defaultValue={c.tag} onChange={() => submit()}>
+          <Select label="Thẻ" name="tag" defaultValue={c.tag}>
             <option value="">Tất cả thẻ</option>
             {tags.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}
           </Select>
-          <TextField label="Từ ngày" name="from" type="date" defaultValue={c.from} error={c.dateError || undefined} onChange={() => submit()} />
-          <TextField label="Đến ngày" name="to" type="date" defaultValue={c.to} onChange={() => submit()} />
+          <TextField label="Từ ngày" name="from" type="date" defaultValue={c.from} error={c.dateError || undefined} />
+          <TextField label="Đến ngày" name="to" type="date" defaultValue={c.to} />
         </div>
         {filtered && <Link to="/search" className="search-form__reset">Xóa tiêu chí</Link>}
       </form>

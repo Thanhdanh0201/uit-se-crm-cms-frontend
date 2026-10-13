@@ -183,3 +183,10 @@ test('nội dung từ server có thứ tự key khác Tiptap: không báo "Chưa
   await new Promise((r) => setTimeout(r, 300))
   expect(screen.queryByText('Chưa lưu')).toBeNull()
 })
+
+test('bài đã xuất bản: nút lưu hiển thị "Lưu thay đổi"', async () => {
+  mockApi({ ...editor, ...lists, '/api/posts/p1': () => ok({ ...POST, status: 'published' }) })
+  open('/admin/posts/p1/edit')
+  expect(await screen.findByRole('button', { name: 'Lưu thay đổi' })).toBeTruthy()
+  expect(screen.queryByRole('button', { name: 'Lưu nháp' })).toBeNull()
+})

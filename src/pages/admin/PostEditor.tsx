@@ -379,7 +379,9 @@ export default function PostEditor() {
                 </div>
                 {post && <div className="muted" style={{ fontSize: 'var(--text-sm)' }}>Lưu lần cuối {formatDateTime(post.updatedAt)}</div>}
                 <Flex wrap gap={8}>
-                  <Button type="primary" loading={saving} disabled={!editable} onClick={save}>Lưu nháp</Button>
+                  <Button type="primary" loading={saving} disabled={!editable} onClick={save}>
+                    {post?.status === 'published' ? 'Lưu thay đổi' : 'Lưu nháp'}
+                  </Button>
                   <Button icon={<Eye size={16} />} onClick={() => setPreview(true)} disabled={false}>Xem trước</Button>
                   {canSubmit && (
                     <Button icon={<PaperPlaneTilt size={16} />} disabled={!editable || saving} onClick={submitForReview}>Gửi duyệt</Button>

@@ -191,13 +191,14 @@ test('tìm kiếm: tiêu chí gửi lên server, đổi bộ lọc về trang 1,
 
   // Đổi chuyên mục: về trang 1, gửi categoryId; ngày theo giờ Việt Nam, "đến ngày" lấy hết ngày.
   await userEvent.selectOptions(screen.getByLabelText('Chuyên mục'), 'c2')
+  await userEvent.click(screen.getByRole('button', { name: 'Tìm' }))
   await waitFor(() => expect(router.state.location.search).toBe('?q=h%E1%BB%8Dc+b%E1%BB%95ng&category=c2'))
   expect(await screen.findByRole('link', { name: 'Kết quả học bổng trang 1' })).toBeTruthy()
-  expect(document.activeElement).toBe(screen.getByLabelText('Chuyên mục')) // Không mất focus sau khi lọc.
   const last = query(api.calls('/api/public/posts').at(-1)!)
   expect([last.get('keyword'), last.get('categoryId'), last.get('page'), last.get('pageSize')]).toEqual(['học bổng', 'c2', '1', '10'])
 
   await userEvent.type(screen.getByLabelText('Đến ngày'), '2026-10-31')
+  await userEvent.click(screen.getByRole('button', { name: 'Tìm' }))
   await waitFor(() => expect(query(api.calls('/api/public/posts').at(-1)!).get('toDate')).toBe('2026-10-31T23:59:59.999+07:00'))
 
   // Back: URL và ô lọc quay về tiêu chí trước.
