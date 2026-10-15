@@ -1,6 +1,6 @@
 import { lazy, Suspense } from 'react'
 import { redirect, type ClientLoaderFunctionArgs, type LoaderFunctionArgs } from 'react-router'
-import { api } from '../lib/api'
+import { ApiError, api } from '../lib/api'
 import { CHANGE_PASSWORD_PATH, fromMe, getCachedUser, RequireRole, setCachedUser, type Me } from '../lib/auth'
 import { noIndex } from '../lib/seo'
 
@@ -25,6 +25,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
       headers: { Cookie: cookie, Accept: 'application/json' },
     })
     if (!res.ok) {
+      if (res.status === 403) throw redirect('/403')
       throw redirect(`/login?next=${next}`)
     }
     const body = await res.json()
@@ -54,7 +55,8 @@ export async function clientLoader({ request }: ClientLoaderFunctionArgs) {
       const res = await api<Me>('/api/auth/me')
       user = fromMe(res)
       setCachedUser(user)
-    } catch {
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 403) throw redirect('/403')
       throw redirect(`/login?next=${next}`)
     }
   }
