@@ -20,7 +20,7 @@ export type MediaDto = {
 }
 export type MediaPage = { items: MediaDto[]; totalItems: number; page: number; pageSize: number; totalPages: number }
 export type MediaUsageItem = { id: string; title: string; status: string | null }
-export type MediaUsages = { coverOf: MediaUsageItem[]; posts: MediaUsageItem[]; pages: MediaUsageItem[]; total: number }
+export type MediaUsages = { coverOf: MediaUsageItem[]; posts: MediaUsageItem[]; pages: MediaUsageItem[]; slides?: MediaUsageItem[]; total: number }
 
 export const KIND_LABEL: Record<MediaKind, string> = { image: 'Ảnh', document: 'Tài liệu', video: 'Video' }
 export const MEDIA_PAGE_SIZE = 24

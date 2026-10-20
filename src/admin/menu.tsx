@@ -40,6 +40,7 @@ export const ADMIN_MENU: MenuGroup[] = [
       { path: '/admin/menus', label: 'Menu', roles: A },
       { path: '/admin/categories', label: 'Chuyên mục và thẻ', roles: A },
       { path: '/admin/home-sections', label: 'Trang chủ', roles: A },
+      { path: '/admin/home-slides', label: 'Slider trang chủ', roles: A },
     ],
   },
   {

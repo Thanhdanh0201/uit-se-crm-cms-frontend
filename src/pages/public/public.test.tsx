@@ -276,3 +276,51 @@ test('lưu bài: bấm nhiều lần chỉ gửi một request, chỉ đổi tr�
   expect(await screen.findByRole('alert')).toHaveProperty('textContent', 'Bài này không còn công khai nên không lưu được.')
   expect(screen.getByRole('button', { name: 'Đã lưu' })).toBeTruthy()
 })
+
+const slides = [
+  { id: 's1', title: 'Học bổng Tài năng Công nghệ 2026', caption: 'Nhận hồ sơ đến 30/11/2026.', imageUrl: 'https://storage.test/hb.jpg', imageAlt: 'Lễ trao học bổng', linkUrl: '/posts/hoc-bong-2026', buttonLabel: 'Xem chi tiết' },
+  { id: 's2', title: 'Ngày hội việc làm SE 2026', caption: null, imageUrl: 'https://storage.test/jf.jpg', imageAlt: 'Doanh nghiệp phỏng vấn sinh viên', linkUrl: 'https://se.uit.edu.vn', buttonLabel: null },
+]
+
+test('slider trang chủ: thay phần giới thiệu, giữ tiêu đề trang, điều khiển bằng nút, slide ẩn không nhận focus', async () => {
+  window.matchMedia ??= ((query: string) => ({ matches: false, media: query, addEventListener: () => {}, removeEventListener: () => {} })) as unknown as typeof window.matchMedia
+  mockApi({ ...guest, ...menu, '/api/public/home': () => ok({ ...home, slides }), '/api/public/categories/tree': () => ok(tree) })
+  openPublic('/', homeRoute)
+
+  const slider = await screen.findByRole('region', { name: 'Tin nổi bật của Khoa' })
+  expect(slider.getAttribute('aria-roledescription')).toBe('carousel')
+  expect(screen.getByRole('heading', { level: 1, name: 'Khoa Công nghệ Phần mềm' }).className).toContain('visually-hidden')
+  expect(screen.queryByRole('link', { name: 'Xem tin mới' })).toBeNull()
+  expect(screen.getByRole('img', { name: 'Lễ trao học bổng' })).toBeTruthy()
+  expect(within(slider).getByRole('link', { name: 'Xem chi tiết' }).getAttribute('href')).toBe('/posts/hoc-bong-2026')
+
+  // Slide 2 đang ẩn: không vào được bằng Tab. Bấm "Slide sau" thì slide 2 thành slide hiện tại.
+  const [first, second] = slider.querySelectorAll('[aria-roledescription="slide"]')
+  expect(second.hasAttribute('inert')).toBe(true)
+  await userEvent.click(within(slider).getByRole('button', { name: 'Slide sau' }))
+  expect(second.hasAttribute('inert')).toBe(false)
+  expect(first.hasAttribute('inert')).toBe(true)
+  expect(within(slider).getByRole('button', { name: 'Xem slide 2: Ngày hội việc làm SE 2026' }).getAttribute('aria-current')).toBe('true')
+  // Slide không có chữ nút: cả slide là link ngoài, mở tab mới an toàn.
+  const external = second.querySelector('a')!
+  expect([external.getAttribute('href'), external.getAttribute('rel')]).toEqual(['https://se.uit.edu.vn', 'noopener noreferrer'])
+  expect(within(slider).getByRole('button', { name: 'Tạm dừng tự chuyển slide' })).toBeTruthy()
+})
+
+test('slider trang chủ: không có slide thì giữ phần giới thiệu mặc định', async () => {
+  mockApi({ ...guest, ...menu, '/api/public/home': () => ok({ ...home, slides: [] }), '/api/public/categories/tree': () => ok(tree) })
+  openPublic('/', homeRoute)
+  expect(await screen.findByRole('link', { name: 'Xem tin mới' })).toBeTruthy()
+  expect(screen.queryByRole('region', { name: 'Tin nổi bật của Khoa' })).toBeNull()
+})
+
+test('slider cuối trang: hiện trên khối hỏi đáp, tách riêng slider đầu trang', async () => {
+  window.matchMedia ??= ((query: string) => ({ matches: false, media: query, addEventListener: () => {}, removeEventListener: () => {} })) as unknown as typeof window.matchMedia
+  mockApi({ ...guest, ...menu, '/api/public/home': () => ok({ ...home, slides: [], bottomSlides: [slides[1]] }), '/api/public/categories/tree': () => ok(tree) })
+  openPublic('/', homeRoute)
+  const bottom = await screen.findByRole('region', { name: 'Hoạt động và đối tác của Khoa' })
+  expect(bottom.className).toContain('home-slider--wide')
+  expect(within(bottom).queryByRole('button', { name: 'Slide sau' })).toBeNull() // một slide thì không có nút điều khiển
+  expect(screen.getByRole('link', { name: 'Xem tin mới' })).toBeTruthy() // đầu trang không có slide: giữ phần giới thiệu
+  expect(bottom.compareDocumentPosition(screen.getByRole('heading', { name: 'Có câu hỏi cho Khoa?' })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+})
