@@ -256,3 +256,10 @@ test('sửa bài: ô chọn ngôn ngữ bị khóa, không cho đổi locale', a
   expect(enRadio.disabled).toBe(true)
 })
 
+test('docSnapshot bỏ thuộc tính mặc định null của Tiptap (textAlign, colwidth) khi so "Chưa lưu"', async () => {
+  const { docSnapshot } = await import('../../admin/RichTextEditor')
+  const server = { type: 'doc', content: [{ type: 'paragraph', content: [{ text: 'Lịch thi', type: 'text' }] }] }
+  const editor = { type: 'doc', content: [{ type: 'paragraph', attrs: { textAlign: null }, content: [{ type: 'text', text: 'Lịch thi' }] }] }
+  expect(docSnapshot(editor)).toBe(docSnapshot(server))
+  expect(docSnapshot({ ...editor, content: [{ ...editor.content[0], attrs: { textAlign: 'center' } }] })).not.toBe(docSnapshot(server))
+})

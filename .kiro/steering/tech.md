@@ -35,6 +35,7 @@ docker compose up -d --build         # API: http://localhost:5179, Swagger: /swa
 - **React Router 8 framework mode** (`@react-router/dev`), **SSR bật** (`react-router.config.ts`). Trang public render HTML trên server để Google và Facebook/Zalo đọc được tiêu đề, mô tả, ảnh (thẻ OG). Trang `/admin` chỉ render ở client.
 - **fetch** gốc qua một wrapper nhỏ `src/lib/api.ts`. Không axios.
 - **Tiptap** cho trình soạn thảo (FR-POST-02) — lưu JSON khớp cột `posts.content` JSON của backend.
+  - Extension chính thức thêm cho SCRUM-68 (bảng và định dạng kiểu Word), ghim đúng phiên bản của `@tiptap/core`: `@tiptap/extension-table` (bảng, gộp ô, kéo độ rộng cột, dán bảng từ Word), `extension-text-align` (căn lề), `extension-highlight` và `extension-text-style` (tô nền, màu chữ theo bảng màu `src/components/richTextPalette.ts`), `extension-subscript`, `extension-superscript`. Tự viết các phần này tốn hơn nhiều và dễ sai với ProseMirror.
 - Styling trang public: CSS thuần + CSS variables (`src/styles/tokens.css`). Không Tailwind.
 - **Ant Design 6 chỉ cho `/admin`** (lazy-load, trang public không tải). Theme map từ token ở `src/admin/theme.ts`. Không import `antd` ngoài `src/admin/` và `src/pages/admin/`.
 - dayjs chỉ dùng khi component antd bắt buộc (DatePicker). Còn lại format ngày bằng `Intl`.
