@@ -190,6 +190,14 @@
 .home-section-row__index { width: 20px; text-align: right; }
 .home-section-row__info { flex: 1 1 220px; min-width: 0; }
 .home-section-row__actions { display: flex; align-items: center; gap: var(--space-1); margin-left: auto; }
+
+/* Slider trang chủ (SCRUM-65): hàng có ảnh thu nhỏ, ô chọn ảnh trong drawer */
+.slide-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-2); }
+.slide-row__thumb { width: 96px; aspect-ratio: 16 / 9; object-fit: cover; border-radius: var(--radius-control); background: var(--color-surface-muted); flex: none; }
+.slide-image-field { display: flex; flex-direction: column; gap: var(--space-2); }
+.slide-image-field__preview { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; border-radius: var(--radius-control); background: var(--color-surface-muted); }
+.slide-image-field__empty { display: grid; place-items: center; width: 100%; aspect-ratio: 16 / 9; border: 1px dashed var(--color-border-strong); border-radius: var(--radius-control); color: var(--color-text-subtle); background: var(--color-surface-muted); }
+.slide-row .slide-image-field__empty { width: 96px; border-style: solid; }
 .rich-editor__content > :first-child { margin-top: 0; }
 
 /* Tiêu đề trang quản trị có bố cục nhiều khối (Menu, Chuyên mục và thẻ) */

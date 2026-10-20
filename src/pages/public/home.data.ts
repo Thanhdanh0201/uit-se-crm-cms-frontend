@@ -4,6 +4,9 @@
 import type { PostCard } from '../../components/PostList'
 export type { PostCard }
 
+// Slide đầu trang chủ (backend HomeSlideViewDto, SCRUM-64): chỉ slide đang hiện, đã sắp xếp. imageUrl là signed URL có hạn.
+export type HomeSlide = { id: string; title: string; caption: string | null; imageUrl: string; imageAlt: string; linkUrl: string | null; buttonLabel: string | null }
+
 export type HomeSection = { title: string; categorySlug: string | null; posts: PostCard[] }
 
 export type EventCard = {
@@ -17,13 +20,15 @@ export type EventCard = {
 }
 
 export type HomeData = {
+  slides?: HomeSlide[]
+  bottomSlides?: HomeSlide[]
   featured: PostCard[]
   latest: PostCard[]
   sections: HomeSection[]
   events: EventCard[]
 }
 
-export const EMPTY_HOME: HomeData = { featured: [], latest: [], sections: [], events: [] }
+export const EMPTY_HOME: HomeData = { slides: [], bottomSlides: [], featured: [], latest: [], sections: [], events: [] }
 
 export type EventStatus = { label: string; tone: 'success' | 'warning' | 'neutral' }
 

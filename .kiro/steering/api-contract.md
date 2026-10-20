@@ -118,6 +118,21 @@ Type ở `src/admin/posts.ts`. Cần biết khi dùng:
 
 Xóa trang đang có trong menu: 409 `page_in_menu` kèm `menuItems`. Frontend chưa có màn hình trang tĩnh và cấu hình trang chủ (chưa có task FE trong Sprint 3).
 
+## Slider trang chủ — backend branch `feat/home-slides` (`admin`) — SCRUM-64, SCRUM-65
+
+| Method | Path | Body / Query | Ghi chú |
+|---|---|---|---|
+| GET | `/api/admin/home-slides` | – | `HomeSlideDto[]` theo thứ tự: `{ id, title, caption, image: { id, name, altText, url }, linkUrl, buttonLabel, position, sortOrder, isVisible, startsAt, endsAt, status }`. `status`: `showing` / `scheduled` / `expired` / `hidden` |
+| POST / PUT | `/api/admin/home-slides[/{id}]` | `{ title, caption?, mediaId, linkUrl?, buttonLabel?, position, isVisible, startsAt?, endsAt? }` | `position`: `top` (đầu trang) / `bottom` (cuối trang) |
+| DELETE | `/api/admin/home-slides/{id}` | – | Xóa hẳn, ảnh vẫn còn trong thư viện |
+| PUT | `/api/admin/home-slides/order` | `{ ids }` | Toàn bộ id slide (mọi vị trí) theo thứ tự mới |
+| GET | `/api/public/home` | – | Thêm `slides` (đầu trang) và `bottomSlides` (cuối trang): `[{ id, title, caption, imageUrl, imageAlt, linkUrl, buttonLabel }]`, chỉ slide đang hiện |
+
+Cần biết khi dùng:
+- Ảnh phải là media loại ảnh, còn trong thư viện, có alt text (400 `errors.MediaId`). Link chỉ `/...` hoặc http/https (400 `errors.LinkUrl`). Có `buttonLabel` thì bắt buộc `linkUrl`.
+- Tối đa 10 slide đang bật ở mỗi vị trí: 422 `too_many_slides` (`detail` tiếng Việt).
+- Ảnh đang làm slide tính vào `usageCount` và `usages.slides` của media: xóa ảnh trả 409 `media_in_use`.
+
 ## Menu — ĐÃ CÓ (backend main, PR #1) — trang `/admin/menus` (SCRUM-35)
 
 | Method | Path | Body / Query | Ghi chú |

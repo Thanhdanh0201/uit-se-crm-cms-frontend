@@ -105,6 +105,12 @@
 - Test: `src/pages/public/public.test.tsx` (router thật với loader layout và trang), `src/pages/me/SavedPosts.test.tsx`.
 - Branch xếp chồng theo thứ tự trên, merge lần lượt.
 
+## Slider trang chủ (SCRUM-65, 20/10/2026)
+- Trang `/admin/home-slides` (chỉ admin, menu Cấu trúc website > Slider trang chủ): tab Đầu trang / Cuối trang trên URL, danh sách có ảnh thu nhỏ và trạng thái (đang hiện, hẹn giờ, hết hạn, đang ẩn), bật/tắt, lên/xuống, xóa có xác nhận. Drawer tạo/sửa: chọn ảnh từ thư viện (bắt buộc alt), tiêu đề, mô tả, link an toàn, chữ nút, vị trí, hẹn giờ theo giờ Việt Nam. Tối đa 10 slide đang bật mỗi vị trí.
+- Trang chủ: slider đầu trang thay phần giới thiệu khi có slide (giữ h1 ẩn cho SEO), slider cuối trang rộng 21:9 trên khối Có câu hỏi cho Khoa. `src/pages/public/HomeSlider.tsx`: CSS scroll-snap, tự chuyển 6 giây, dừng khi rê chuột/focus, nút tạm dừng, không tự chuyển khi giảm chuyển động, slide ẩn dùng `inert`.
+- Thư viện media: ảnh đang làm slide hiện trong danh sách nơi đang dùng.
+- Test: `src/pages/admin/HomeSlides.test.tsx`, `src/pages/public/public.test.tsx`. Cần backend branch `feat/home-slides`.
+
 ## Kế tiếp
 - Sprint 5 còn lại: form liên hệ công khai `/contact` (SCRUM-48), phía sinh viên đăng ký sự kiện và yêu cầu đã gửi (SCRUM-46, 55).
 - Các trang được trang chủ liên kết tới nhưng chưa có (đang trả 404): `/events`, `/events/:id`, `/contact`.

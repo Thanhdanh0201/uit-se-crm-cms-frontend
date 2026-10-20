@@ -24,7 +24,7 @@ export const meta = () => noIndex('Thư viện media')
 
 const KINDS = [{ value: 'all', label: 'Tất cả' }, ...(Object.keys(KIND_LABEL) as MediaKind[]).map((k) => ({ value: k, label: KIND_LABEL[k] }))]
 const dateFmt = new Intl.DateTimeFormat('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', dateStyle: 'short', timeStyle: 'short' })
-const STATUS_LABEL: Record<string, string> = { draft: 'Nháp', pending: 'Chờ duyệt', changes_requested: 'Yêu cầu chỉnh sửa', published: 'Đã xuất bản', archived: 'Lưu trữ' }
+const STATUS_LABEL: Record<string, string> = { draft: 'Nháp', pending: 'Chờ duyệt', changes_requested: 'Yêu cầu chỉnh sửa', published: 'Đã xuất bản', archived: 'Lưu trữ', visible: 'Đang bật', hidden: 'Đang tắt' }
 
 type MetaValues = { name: string; altText?: string; description?: string }
 type VideoValues = { url: string; name: string; description?: string }
@@ -182,7 +182,7 @@ export default function Media() {
 
   const filtered = Boolean(list.keyword || kind !== 'all' || mine)
   const items = data?.items ?? []
-  const usageList = usages ? [...usages.coverOf.map((u) => ({ ...u, where: 'Ảnh đại diện bài' })), ...usages.posts.map((u) => ({ ...u, where: 'Nội dung bài' })), ...usages.pages.map((u) => ({ ...u, where: 'Trang' }))] : []
+  const usageList = usages ? [...usages.coverOf.map((u) => ({ ...u, where: 'Ảnh đại diện bài' })), ...usages.posts.map((u) => ({ ...u, where: 'Nội dung bài' })), ...usages.pages.map((u) => ({ ...u, where: 'Trang' })), ...(usages.slides ?? []).map((u) => ({ ...u, where: 'Slide trang chủ' }))] : []
 
   return (
     <Card

@@ -10,6 +10,7 @@ import { EmptyState } from '../../components/ui/States'
 import { CoverThumb } from '../../components/PostList'
 import type { loader as layoutLoader } from '../../layouts/PublicLayout'
 import { EMPTY_HOME, eventStatus, type HomeData, type PostCard } from './home.data'
+import HomeSlider from './HomeSlider'
 import './home.css'
 
 // GET /api/public/categories/tree (CategoryTreeDto): chỉ chuyên mục đang hiện.
@@ -27,6 +28,8 @@ export async function loader({ request }: Route.LoaderArgs) {
     url: `${siteUrl(request)}/`,
     failed: !home,
     ...data,
+    slides: data.slides ?? [],
+    bottomSlides: data.bottomSlides ?? [],
     events: data.events.map((e) => ({ ...e, status: eventStatus(e, now) })),
     categories: categories.map(({ id, name, slug, description, postCount }) => ({ id, name, slug, description, postCount })),
   }
@@ -62,14 +65,22 @@ export default function Home({ loaderData: home }: Route.ComponentProps) {
   return (
     <div className="home">
       <section className="home-hero" aria-labelledby="home-title">
-        <div className="home-hero__text">
-          <h1 id="home-title">Khoa Công nghệ Phần mềm</h1>
-          <p className="home-hero__lead">Đào tạo kỹ sư phần mềm, nghiên cứu và kết nối doanh nghiệp. Thông báo, sự kiện và biểu mẫu của Khoa ở cùng một nơi.</p>
-          <div className="home-hero__actions">
-            <Link to="/search" className={buttonClass('primary', 'lg')}>Xem tin mới</Link>
-            {intro?.url && <Link to={intro.url} className={buttonClass('secondary', 'lg')}>{intro.label}</Link>}
+        {/* Có slide do Admin cấu hình (SCRUM-65) thì slider thay phần giới thiệu; tiêu đề trang vẫn giữ cho SEO và trình đọc màn hình. */}
+        {home.slides.length > 0 ? (
+          <div className="home-hero__text">
+            <h1 id="home-title" className="visually-hidden">Khoa Công nghệ Phần mềm</h1>
+            <HomeSlider slides={home.slides} />
           </div>
-        </div>
+        ) : (
+          <div className="home-hero__text">
+            <h1 id="home-title">Khoa Công nghệ Phần mềm</h1>
+            <p className="home-hero__lead">Đào tạo kỹ sư phần mềm, nghiên cứu và kết nối doanh nghiệp. Thông báo, sự kiện và biểu mẫu của Khoa ở cùng một nơi.</p>
+            <div className="home-hero__actions">
+              <Link to="/search" className={buttonClass('primary', 'lg')}>Xem tin mới</Link>
+              {intro?.url && <Link to={intro.url} className={buttonClass('secondary', 'lg')}>{intro.label}</Link>}
+            </div>
+          </div>
+        )}
 
         {home.latest.length > 0 && (
           <aside className="home-notice" aria-labelledby="notice-title">
@@ -208,6 +219,9 @@ export default function Home({ loaderData: home }: Route.ComponentProps) {
           </ul>
         </section>
       )}
+
+      {/* Slider cuối trang do Admin cấu hình (vị trí "Cuối trang"), không có slide thì bỏ khối. */}
+      {home.bottomSlides.length > 0 && <HomeSlider slides={home.bottomSlides} label="Hoạt động và đối tác của Khoa" wide />}
 
       <section className="home-ask" aria-labelledby="ask-title">
         <div>
