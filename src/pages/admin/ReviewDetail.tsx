@@ -18,6 +18,7 @@ import {
   type PostHistoryItem,
   type PostStatus,
 } from '../../admin/posts'
+import { localeColor, localeLabel } from '../../admin/locale'
 
 export const meta = () => noIndex('Duyệt bài')
 
@@ -120,9 +121,10 @@ function ReviewDetailContent() {
       <Col xs={24} lg={16}>
         <Card
           title={
-            <Flex align="center" gap={8}>
+            <Flex align="center" gap={8} wrap>
               <Link to="/admin/review" aria-label="Về danh sách duyệt bài"><ArrowLeft size={18} aria-hidden /></Link>
               <span>Nội dung bài</span>
+              <Tag color={localeColor(post.locale)}>{localeLabel(post.locale)}</Tag>
               <Tag color={STATUS_COLOR[post.status]}>{statusLabel(post.status)}</Tag>
             </Flex>
           }
