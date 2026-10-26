@@ -13,6 +13,7 @@ export type PostListItem = {
   id: string
   title: string
   slug: string
+  locale: 'vi' | 'en'
   status: PostStatus
   author: Ref
   primaryCategory: Ref
@@ -43,6 +44,7 @@ export type PostDetail = Omit<PostListItem, 'primaryCategory'> & {
 export type PostView = {
   id: string
   slug: string
+  locale: 'vi' | 'en'
   title: string
   summary: string
   content: RichNode

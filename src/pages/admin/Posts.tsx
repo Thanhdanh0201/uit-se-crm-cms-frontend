@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router'
-import { Alert, App, Button, Card, Checkbox, Empty, Input, Popconfirm, Segmented, Select, Space, Table, Tag } from 'antd'
+import { Alert, App, Button, Card, Checkbox, Empty, Flex, Input, Popconfirm, Segmented, Select, Space, Table, Tag } from 'antd'
 import { CheckSquareOffset, Eye, PencilSimple, Plus, Star } from '@phosphor-icons/react'
 import { api, ApiError } from '../../lib/api'
 import { useAuth } from '../../lib/auth'
 import { noIndex } from '../../lib/seo'
 import { useListParams } from '../../lib/useListParams'
+import { LOCALES, localeColor, localeLabel, parseLocale } from '../../admin/locale'
 import { viSearchMatch } from '../../admin/tree'
 import { SCHEDULE_LABEL, scheduleState } from '../../admin/vnTime'
 import {
@@ -34,6 +35,8 @@ export function postsQuery(params: URLSearchParams): string {
   q.set('page', String(Number(params.get('page')) || 1))
   const size = Number(params.get('pageSize'))
   q.set('pageSize', String(PAGE_SIZES.includes(size) ? size : 20))
+  const locale = parseLocale(params.get('locale'))
+  q.set('locale', locale)
   const status = params.get('status')
   if (status && (STATUSES as string[]).includes(status)) q.set('status', status)
   const keyword = params.get('keyword')?.trim()
@@ -50,6 +53,7 @@ export default function Posts() {
   const navigate = useNavigate()
   const isAdmin = me?.role === 'admin'
   const list = useListParams(20)
+  const locale = parseLocale(list.params.get('locale'))
   const status = list.params.get('status') ?? 'all'
   const category = list.params.get('category')
   const mine = list.params.get('mine') === '1'
@@ -78,13 +82,13 @@ export default function Posts() {
     return () => ctrl.abort()
   }, [query, reloadKey])
 
-  // Danh sách chuyên mục cho bộ lọc. Lỗi thì chỉ mất bộ lọc, danh sách bài vẫn dùng được.
+  // Danh sách chuyên mục cho bộ lọc (theo locale đang chọn). Lỗi thì chỉ mất bộ lọc, danh sách bài vẫn dùng được.
   useEffect(() => {
-    api<Ref[]>('/api/admin/categories')
-      .catch(() => api<Ref[]>('/api/public/categories'))
+    api<Ref[]>(`/api/admin/categories?locale=${locale}`)
+      .catch(() => api<Ref[]>(`/api/public/categories?locale=${locale}`))
       .then((items) => setCategories(items.map((c) => ({ id: c.id, name: c.name }))))
       .catch(() => setCategories([]))
-  }, [])
+  }, [locale])
 
   async function changeStatus(post: PostListItem, toStatus: PostStatus) {
     setBusyId(post.id)
@@ -101,17 +105,25 @@ export default function Posts() {
     }
   }
 
-  const filtered = Boolean(list.keyword || status !== 'all' || category || mine)
+  const filtered = Boolean(list.keyword || status !== 'all' || category || mine || list.params.get('locale'))
 
   return (
     <Card
       title={
-        <Segmented
-          value={status}
-          aria-label="Lọc theo trạng thái"
-          options={[{ value: 'all', label: 'Tất cả' }, ...STATUSES.map((s) => ({ value: s, label: statusLabel(s) }))]}
-          onChange={(v) => list.update({ status: v === 'all' ? null : v })}
-        />
+        <Flex gap={12} align="center" wrap>
+          <Segmented
+            value={locale}
+            aria-label="Lọc theo ngôn ngữ"
+            options={LOCALES}
+            onChange={(v) => list.update({ locale: v === 'vi' ? null : v, page: 1, category: null })}
+          />
+          <Segmented
+            value={status}
+            aria-label="Lọc theo trạng thái"
+            options={[{ value: 'all', label: 'Tất cả' }, ...STATUSES.map((s) => ({ value: s, label: statusLabel(s) }))]}
+            onChange={(v) => list.update({ status: v === 'all' ? null : v })}
+          />
+        </Flex>
       }
       extra={
         <Space wrap>
@@ -140,7 +152,7 @@ export default function Posts() {
             onSearch={(v) => list.update({ keyword: v.trim() })}
             style={{ width: 220 }}
           />
-          <Button type="primary" icon={<Plus size={16} />} title="Viết bài mới" aria-label="Viết bài mới" onClick={() => navigate('/admin/posts/new')} />
+          <Button type="primary" icon={<Plus size={16} />} title="Viết bài mới" aria-label="Viết bài mới" onClick={() => navigate(`/admin/posts/new?locale=${locale}`)} />
         </Space>
       }
     >
@@ -157,9 +169,9 @@ export default function Posts() {
           emptyText: error ? ' ' : (
             <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={filtered ? 'Không có bài viết khớp bộ lọc.' : 'Chưa có bài viết nào.'}>
               {filtered ? (
-                <Button onClick={() => list.update({ keyword: null, status: null, category: null, mine: null })}>Xóa bộ lọc</Button>
+                <Button onClick={() => list.update({ keyword: null, status: null, category: null, mine: null, locale: null })}>Xóa bộ lọc</Button>
               ) : (
-                <Button type="primary" onClick={() => navigate('/admin/posts/new')}>Viết bài đầu tiên</Button>
+                <Button type="primary" onClick={() => navigate(`/admin/posts/new?locale=${locale}`)}>Viết bài đầu tiên</Button>
               )}
             </Empty>
           ),
@@ -181,6 +193,7 @@ export default function Posts() {
               <div>
                 <div style={{ fontWeight: 500 }}>
                   {p.isFeatured && <Star size={14} weight="fill" aria-label="Nổi bật" style={{ color: 'var(--color-warning)', marginInlineEnd: 4 }} />}
+                  <Tag color={localeColor(p.locale)} style={{ marginInlineEnd: 6 }}>{localeLabel(p.locale)}</Tag>
                   {canEdit(p, me) ? <Link to={`/admin/posts/${p.id}/edit`}>{p.title}</Link> : p.title}
                 </div>
                 <div className="muted" style={{ fontSize: 'var(--text-xs)' }}>/{p.slug}</div>
