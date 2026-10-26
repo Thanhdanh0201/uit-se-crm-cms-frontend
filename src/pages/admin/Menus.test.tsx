@@ -166,3 +166,35 @@ test('xóa menu: mở hộp thoại xác nhận, gọi DELETE, tải lại danh 
   await waitFor(() => expect(deleted).toBe(1))
 })
 
+test('lọc menu theo ngôn ngữ và tạo menu mới gửi kèm locale', async () => {
+  let createdMenu: any = null
+  mockApi({
+    ...base(),
+    '/api/admin/menus': (url, init) => {
+      if (init?.method === 'POST') {
+        createdMenu = JSON.parse(String(init.body))
+        return ok({ id: 'm-en', code: createdMenu.code, name: createdMenu.name, itemCount: 0, locale: createdMenu.locale })
+      }
+      if (url.includes('locale=en')) {
+        return ok([{ id: 'm-en', code: 'main-en', name: 'Main Menu EN', itemCount: 0, locale: 'en' }])
+      }
+      return ok([{ id: 'm1', code: 'main', name: 'Menu chính', itemCount: 5, locale: 'vi' }])
+    },
+    '/api/admin/menus/m-en/items': () => ok([]),
+  })
+
+  open('/admin/menus?locale=en')
+  expect((await screen.findAllByText(/Main Menu EN/)).length).toBeGreaterThan(0)
+
+  // Bấm Thêm menu
+  await userEvent.click(screen.getByRole('button', { name: 'Thêm menu' }))
+  const modal = await screen.findByRole('dialog')
+  expect(within(modal).getByText('English')).toBeTruthy()
+  await userEvent.type(within(modal).getByLabelText('Tên menu'), 'Footer Menu EN')
+  await userEvent.type(within(modal).getByLabelText('Mã menu'), 'footer-en')
+  await userEvent.click(within(modal).getByRole('button', { name: 'Lưu' }))
+
+  await waitFor(() => expect(createdMenu).toBeTruthy())
+  expect(createdMenu).toEqual({ name: 'Footer Menu EN', code: 'footer-en', locale: 'en' })
+})
+

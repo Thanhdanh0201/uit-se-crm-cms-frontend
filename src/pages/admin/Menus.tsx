@@ -8,11 +8,12 @@ import { RequireRole } from '../../lib/auth'
 import { noIndex } from '../../lib/seo'
 import { useListParams } from '../../lib/useListParams'
 import { changedCount, dropNode, findNode, flatten, height, step, subtreeIds, toOrder, viSearchMatch, type Move } from '../../admin/tree'
+import { LOCALES, localeColor, localeLabel, parseLocale } from '../../admin/locale'
 
 export const meta = () => noIndex('Menu website')
 
 // DTO theo backend: MenuResponseDto, MenuItemTreeDto (GET /api/admin/menus, /api/admin/menus/{id}/items).
-type Menu = { id: string; code: string; name: string; itemCount: number }
+type Menu = { id: string; code: string; name: string; itemCount: number; locale?: 'vi' | 'en' }
 type Kind = 'page' | 'category' | 'external'
 export type MenuItem = {
   id: string
@@ -57,6 +58,7 @@ const FIELD: Record<string, keyof ItemValues> = { label: 'label', kind: 'kind', 
 function MenusContent() {
   const { message, modal } = App.useApp()
   const list = useListParams()
+  const locale = parseLocale(list.params.get('locale'))
   const [menus, setMenus] = useState<Menu[] | null>(null)
   const [menusError, setMenusError] = useState('')
   const [items, setItems] = useState<MenuItem[] | null>(null)
@@ -80,11 +82,11 @@ function MenusContent() {
   useEffect(() => {
     const ctrl = new AbortController()
     setMenusError('')
-    api<Menu[]>('/api/admin/menus', { signal: ctrl.signal })
+    api<Menu[]>(`/api/admin/menus?locale=${locale}`, { signal: ctrl.signal })
       .then(setMenus)
       .catch((err) => !ctrl.signal.aborted && setMenusError(errorMessage(err)))
     return () => ctrl.abort()
-  }, [menuReload])
+  }, [locale, menuReload])
 
   useEffect(() => {
     if (!menuId) return
@@ -263,6 +265,13 @@ function MenusContent() {
       title="Menu"
       extra={<Button type="primary" size="small" icon={<Plus size={14} />} title="Thêm menu" aria-label="Thêm menu" onClick={() => setMenuForm('new')} />}
     >
+      <Segmented
+        value={locale}
+        onChange={(v) => list.update({ locale: v as 'vi' | 'en', menu: null, action: null, id: null, parent: null })}
+        options={LOCALES.map((l) => ({ value: l.code, label: l.label }))}
+        block
+        style={{ marginBottom: 12 }}
+      />
       {menusError && <Alert type="error" showIcon title="Không tải được danh sách menu" description={menusError} action={<Button size="small" onClick={() => setMenuReload((k) => k + 1)}>Thử lại</Button>} />}
       {!menus && !menusError && <Skeleton active paragraph={{ rows: 3 }} />}
       {menus?.length === 0 && <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="Chưa có menu nào." />}
@@ -320,7 +329,7 @@ function MenusContent() {
 
         <Card
           className="menus-page__tree"
-          title={menu ? <Flex gap={8} align="center">{menu.name} <Tag>{menu.code}</Tag></Flex> : 'Mục menu'}
+          title={menu ? <Flex gap={8} align="center"><span>{menu.name}</span><Tag>{menu.code}</Tag><Tag color={localeColor(menu.locale ?? locale)}>{localeLabel(menu.locale ?? locale)}</Tag></Flex> : 'Mục menu'}
           extra={menu && <Button type="primary" icon={<Plus size={16} />} disabled={busy || dirty} title={lockedTitle} onClick={() => list.update({ action: 'create', id: null, parent: null })}>Thêm mục</Button>}
         >
           {dirty && (
@@ -387,11 +396,12 @@ function MenusContent() {
           action={list.action}
           editing={list.action === 'edit' && list.id ? findNode(items, list.id) ?? null : null}
           parentId={list.params.get('parent')}
+          locale={menu.locale ?? locale}
           onClose={() => list.update({ action: null, id: null, parent: null })}
           onSaved={() => (list.update({ action: null, id: null, parent: null }), reloadItems())}
         />
       )}
-      <MenuModal value={menuForm} onClose={() => setMenuForm(null)} onSaved={(m) => (setMenuForm(null), setMenuReload((k) => k + 1), list.update({ menu: m.id }))} />
+      <MenuModal value={menuForm} locale={locale} onClose={() => setMenuForm(null)} onSaved={(m) => (setMenuForm(null), setMenuReload((k) => k + 1), list.update({ menu: m.id }))} />
     </div>
   )
 }
@@ -400,7 +410,7 @@ function MenusContent() {
 type TreeItem = Omit<MenuItem, 'children'> & { key: string; children: TreeItem[] }
 const withKeys = (nodes: MenuItem[]): TreeItem[] => nodes.map((n) => ({ ...n, key: n.id, children: withKeys(n.children) }))
 
-function MenuModal({ value, onClose, onSaved }: { value: Menu | 'new' | null; onClose: () => void; onSaved: (m: Menu) => void }) {
+function MenuModal({ value, locale, onClose, onSaved }: { value: Menu | 'new' | null; locale: 'vi' | 'en'; onClose: () => void; onSaved: (m: Menu) => void }) {
   const { message } = App.useApp()
   const [form] = Form.useForm<{ code: string; name: string }>()
   const [busy, setBusy] = useState(false)
@@ -417,7 +427,9 @@ function MenuModal({ value, onClose, onSaved }: { value: Menu | 'new' | null; on
     if (busy) return
     setBusy(true)
     setError('')
-    const body = { code: v.code.trim(), name: v.name.trim() }
+    const body = editing
+      ? { code: v.code.trim(), name: v.name.trim() }
+      : { code: v.code.trim(), name: v.name.trim(), locale }
     try {
       const saved = editing
         ? await api<Menu>(`/api/admin/menus/${editing.id}`, { method: 'PUT', json: body })
@@ -440,7 +452,28 @@ function MenuModal({ value, onClose, onSaved }: { value: Menu | 'new' | null; on
   ]
 
   return (
-    <Modal open={!!value} title={editing ? `Sửa menu "${editing.name}"` : 'Thêm menu'} okText="Lưu" cancelText="Hủy" confirmLoading={busy} onOk={() => form.submit()} onCancel={onClose} destroyOnHidden>
+    <Modal
+      open={!!value}
+      title={
+        editing ? (
+          <Flex gap={8} align="center">
+            <span>{`Sửa menu "${editing.name}"`}</span>
+            <Tag color={localeColor(editing.locale ?? locale)}>{localeLabel(editing.locale ?? locale)}</Tag>
+          </Flex>
+        ) : (
+          <Flex gap={8} align="center">
+            <span>Thêm menu</span>
+            <Tag color={localeColor(locale)}>{localeLabel(locale)}</Tag>
+          </Flex>
+        )
+      }
+      okText="Lưu"
+      cancelText="Hủy"
+      confirmLoading={busy}
+      onOk={() => form.submit()}
+      onCancel={onClose}
+      destroyOnHidden
+    >
       {error && <Alert type="error" showIcon title={error} style={{ marginBottom: 16 }} />}
       {!editing && (
         <div style={{ marginBottom: 16 }}>
@@ -477,12 +510,13 @@ function MenuModal({ value, onClose, onSaved }: { value: Menu | 'new' | null; on
   )
 }
 
-function ItemDrawer({ menuId, tree, action, editing, parentId, onClose, onSaved }: {
+function ItemDrawer({ menuId, tree, action, editing, parentId, locale, onClose, onSaved }: {
   menuId: string
   tree: MenuItem[]
   action: 'create' | 'edit' | null
   editing: MenuItem | null
   parentId: string | null
+  locale: 'vi' | 'en'
   onClose: () => void
   onSaved: () => void
 }) {
@@ -519,13 +553,13 @@ function ItemDrawer({ menuId, tree, action, editing, parentId, onClose, onSaved 
     } else form.setFieldsValue({ label: '', kind: 'page', pageId: undefined, categoryId: undefined, externalUrl: undefined, parentId: parentId ?? undefined, isVisible: true })
   }, [open, editing, parentId, form])
 
-  // Nguồn chọn đích: tải khi mở drawer. Lỗi thì chỉ mất danh sách chọn, vẫn hiện thông báo.
+  // Nguồn chọn đích: tải khi mở drawer theo đúng locale của menu để tránh locale_mismatch
   useEffect(() => {
     if (!open || pages) return
     // ponytail: lấy tối đa 50 trang tĩnh, lọc ở máy. Khoa có ít trang tĩnh; nhiều hơn thì chuyển sang tìm trên server.
-    api<{ items: PageRef[] }>('/api/admin/pages?pageSize=50').then((r) => setPages(r.items)).catch(() => setPages([]))
-    api<CategoryRef[]>('/api/admin/categories').then(setCategories).catch(() => setCategories([]))
-  }, [open, pages])
+    api<{ items: PageRef[] }>(`/api/admin/pages?pageSize=50&locale=${locale}`).then((r) => setPages(r.items)).catch(() => setPages([]))
+    api<CategoryRef[]>(`/api/admin/categories?locale=${locale}`).then(setCategories).catch(() => setCategories([]))
+  }, [open, pages, locale])
 
   const flat = useMemo(() => flatten(tree, (n) => n.label), [tree])
   const blocked = editing ? subtreeIds(editing) : new Set<string>()
@@ -582,7 +616,12 @@ function ItemDrawer({ menuId, tree, action, editing, parentId, onClose, onSaved 
   return (
     <Drawer
       open={open}
-      title={editing ? `Sửa mục "${editing.label}"` : 'Thêm mục menu'}
+      title={
+        <Flex gap={8} align="center">
+          <span>{editing ? `Sửa mục "${editing.label}"` : 'Thêm mục menu'}</span>
+          <Tag color={localeColor(locale)}>{localeLabel(locale)}</Tag>
+        </Flex>
+      }
       size={480}
       onClose={onClose}
       footer={
