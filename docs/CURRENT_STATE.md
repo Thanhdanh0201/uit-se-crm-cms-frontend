@@ -151,6 +151,31 @@
   - Mobile: Dạng cây thụt lề đóng/mở độc lập từng nhánh con qua nút toggle riêng biệt, hiển thị tối ưu và không tràn ngang ở màn hình 360px (`max-width: calc(100vw - 32px)`).
 - Test: Cập nhật `Menus.test.tsx` (kiểm tra giới hạn động theo menu `maxDepth: 2`, `maxDepth: 4`, bắt lỗi 422 `menu_depth_exceeded`) và tạo mới `src/layouts/PublicLayout.test.tsx` (kiểm tra menu 4 cấp, query locale, phím Escape, đóng/mở nhánh mobile). Toàn bộ 189/189 tests pass trên 35 file test.
 
+## Website song ngữ và nút chuyển ngôn ngữ (SCRUM-71, 26/10/2026)
+- Kiến trúc độc lập theo tiền tố URL: Tiếng Việt (`/`) và Tiếng Anh (`/en`). Locale suy ra trực tiếp từ URL pathname, không phụ thuộc cookie để F5 hoặc chia sẻ link luôn hiển thị đúng ngôn ngữ. Mọi link nội bộ (breadcrumb, phân trang, liên kết bài viết, chuyên mục, danh mục con) bảo toàn tiền tố `/en` khi đang ở website tiếng Anh.
+- Không fallback: Bài viết hoặc trang tiếng Anh không tồn tại trên `/en` trả về HTTP 404 thật; trang 404/lỗi ở `/en` hiển thị thông điệp tiếng Anh.
+- Combobox chuyển ngôn ngữ (`PublicLayout.tsx`, `layout.css`):
+  - Hiển thị trên thanh Header desktop và trong menu di động (`<select>` với nhãn a11y `aria-label="Chọn ngôn ngữ"` / `"Select language"`, icon quả địa cầu `Globe`).
+  - Hỗ trợ thao tác hoàn toàn bằng bàn phím (Tab, mũi tên lên/xuống, Enter) và focus outline rõ ràng theo NFR-07.
+  - Khi người dùng đổi ngôn ngữ, chuyển hướng trực tiếp về trang chủ của website tương ứng (`/` cho Tiếng Việt, `/en` cho Tiếng Anh).
+  - Khu vực `/me` nằm trong layout công khai nên có combobox chuyển ngôn ngữ; khu vực quản trị `/admin` giữ nguyên tiếng Việt.
+- Từ điển tĩnh (`src/lib/dictionary.ts`):
+  - Chứa toàn bộ chuỗi giao diện dùng chung (nhãn header/footer, tìm kiếm, nút bấm, bộ lọc, phân trang, đếm bài, trạng thái rỗng/lỗi, trang 404). Không phụ thuộc thư viện i18n bên ngoài.
+  - Hàm `formatDate(iso, locale, style)` định dạng ngày tháng chuẩn hóa theo `Intl.DateTimeFormat` (`vi-VN` và `en-US`).
+- Định tuyến và SEO (`src/routes.ts`, `src/root.tsx`, `src/lib/seo.ts`):
+  - Định tuyến React Router 8 với prefix route `en` cho toàn bộ các trang công khai (`en-home`, `en-category`, `en-post-detail`, `en-search`, `en-static-page`, `en-me`, `en-403`, `en-not-found`).
+  - Thẻ `<html lang="vi">` hoặc `<html lang="en">` đọc động từ URL pathname. ErrorBoundary tự động hiển thị thông báo lỗi tiếng Anh khi gặp lỗi ở site `/en`.
+  - SEO meta: sinh thẻ canonical URL đúng prefix `/en`, thẻ `og:locale` (`vi_VN` hoặc `en_US`), thẻ alternate hreflang (`vi`, `en`, `x-default`) cho trang chủ của cả hai website.
+- Tích hợp và dịch toàn diện các trang công khai:
+  - `Home.tsx`: Loader nạp dữ liệu trang chủ và cây danh mục kèm `?locale=`.
+  - `Category.tsx`: Loader nạp danh mục và danh sách bài viết theo locale; breadcrumb và link bảo toàn tiền tố locale.
+  - `PostDetail.tsx`: Loader nạp bài viết theo locale; link chuyên mục, breadcrumbs, thẻ, nút lưu bài dùng từ điển tĩnh.
+  - `Search.tsx`: Form tìm kiếm lọc bài viết và chuyên mục theo locale; nhãn, placeholder, thông báo lỗi ngày tháng và empty state được bản địa hóa.
+  - `StaticPage.tsx`: Loader nạp trang đơn kèm `?locale=`; hiển thị ngày cập nhật và nút về trang chủ theo ngôn ngữ.
+  - `NotFound.tsx`: Trả HTTP 404 thật và hiển thị thông điệp theo locale từ URL pathname.
+  - `Account.tsx`, `ChangePassword.tsx`, `SavedPosts.tsx`: Link nội bộ bảo toàn locale khi truy cập từ `/en/me`.
+- Test: Cập nhật `PublicLayout.test.tsx` (kiểm tra combobox chuyển đổi `/` <-> `/en`, thao tác bàn phím, nạp menu theo locale) và tạo mới `src/pages/public/Bilingual.test.tsx` (kiểm tra `getLocaleFromPath`, `localePath`, `formatDate`, thẻ SEO hreflang & og:locale, link bài viết PostList bảo toàn `/en`, trang 404 song ngữ). Toàn bộ 197/197 tests pass trên 36 file test.
+
 ## Ghi chú
 - Refresh token và logout thu hồi session đã làm ở cả backend (chưa commit trong repo backend) và frontend (`api.ts` tự refresh khi 401).
 - Còn lại: sau logout, access token (JWT) vẫn qua được kiểm tra chữ ký ở backend đến khi hết hạn. Nên giảm JWT expiry trong Supabase xuống 10-15 phút (đã có refresh nên người dùng không bị đăng xuất sớm).
