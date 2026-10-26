@@ -42,3 +42,28 @@ test('safeHref', () => {
   expect(safeHref(' JavaScript:alert(1)')).toBeNull()
   expect(safeHref('data:text/html,x')).toBeNull()
 })
+
+test('video YouTube duoc nhung qua youtube-nocookie voi thuoc tinh bao mat va a11y', () => {
+  const videoMedia = {
+    v_ok: { id: 'v_ok', kind: 'video', name: 'Lễ tốt nghiệp 2026', altText: null, url: null, videoId: 'dQw4w9WgXcQ' },
+    v_no_id: { id: 'v_no_id', kind: 'video', name: 'Video hỏng', altText: null, url: null, videoId: null },
+  }
+  const doc: RichNode = {
+    type: 'doc',
+    content: [
+      { type: 'video', attrs: { mediaId: 'v_ok' } },
+      { type: 'video', attrs: { mediaId: 'v_no_id' } },
+      { type: 'video', attrs: { mediaId: 'v_deleted' } },
+    ],
+  }
+  const html = renderToStaticMarkup(<RichText doc={doc} media={videoMedia} />)
+  // Chỉ render đúng 1 video hợp lệ
+  expect(html.match(/<iframe/g)).toHaveLength(1)
+  expect(html).toContain('class="rich-text__video"')
+  expect(html).toContain('src="https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ"')
+  expect(html).toContain('title="Lễ tốt nghiệp 2026"')
+  expect(html).toContain('loading="lazy"')
+  expect(html).toContain('referrerPolicy="strict-origin-when-cross-origin"')
+  expect(html).toContain('allow="encrypted-media; picture-in-picture; fullscreen"')
+})
+

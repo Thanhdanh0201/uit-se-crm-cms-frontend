@@ -190,3 +190,33 @@ test('bài đã xuất bản: nút lưu hiển thị "Lưu thay đổi"', async 
   expect(await screen.findByRole('button', { name: 'Lưu thay đổi' })).toBeTruthy()
   expect(screen.queryByRole('button', { name: 'Lưu nháp' })).toBeNull()
 })
+
+test('bai viet co video: hien video trong phan xem truoc voi youtube-nocookie', async () => {
+  const postWithVideo = {
+    ...POST,
+    content: {
+      type: 'doc',
+      content: [
+        { type: 'paragraph', content: [{ type: 'text', text: 'Video huong dan' }] },
+        { type: 'video', attrs: { mediaId: 'v1' } },
+      ],
+    },
+    media: {
+      v1: {
+        id: 'v1',
+        kind: 'video' as const,
+        name: 'Huong dan dang ky',
+        altText: null,
+        url: null,
+        videoId: 'dQw4w9WgXcQ',
+      },
+    },
+  }
+  mockApi({ ...editor, ...lists, '/api/posts/p1': () => ok(postWithVideo) })
+  open('/admin/posts/p1/edit')
+  await userEvent.click(await screen.findByRole('button', { name: 'Xem trước' }))
+  expect(await screen.findByTitle('Huong dan dang ky')).toBeTruthy()
+  const iframe = screen.getByTitle('Huong dan dang ky')
+  expect(iframe.getAttribute('src')).toBe('https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ')
+})
+

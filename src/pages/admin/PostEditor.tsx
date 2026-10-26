@@ -8,7 +8,7 @@ import { noIndex } from '../../lib/seo'
 import { PostArticle } from '../../components/PostArticle'
 import { MediaPicker } from '../../admin/MediaPicker'
 import { docSnapshot, RichTextEditor, withMediaUrls } from '../../admin/RichTextEditor'
-import type { MediaDto } from '../../admin/media'
+import { videoIdOf, type MediaDto } from '../../admin/media'
 import { canEdit, formatDateTime, postErrorMessage, STATUS_COLOR, statusLabel, type PostDetail, type PostMedia, type Ref, type RichNode } from '../../admin/posts'
 import { viSearchMatch } from '../../admin/tree'
 
@@ -363,7 +363,7 @@ export default function PostEditor() {
                 setContentError('')
                 onAnyChange(doc)
               }}
-              onMediaAdded={(m: MediaDto) => setMedia((all) => ({ ...all, [m.id]: { id: m.id, kind: m.kind, name: m.name, altText: m.altText, url: m.url, videoId: null } }))}
+              onMediaAdded={(m: MediaDto) => setMedia((all) => ({ ...all, [m.id]: { id: m.id, kind: m.kind, name: m.name, altText: m.altText, url: m.url, videoId: videoIdOf(m) } }))}
             />
             {contentError && <div role="alert" style={{ color: 'var(--color-danger)', marginTop: 8 }}>{contentError}</div>}
           </Card>

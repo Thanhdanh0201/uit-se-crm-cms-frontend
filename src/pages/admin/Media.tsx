@@ -375,11 +375,11 @@ export default function Media() {
         <Form form={videoForm} layout="vertical" onFinish={onAddVideo} disabled={saving}>
           <Form.Item
             name="url"
-            label="Đường dẫn video"
-            extra="Ví dụ: https://www.youtube.com/watch?v=... hoặc https://youtu.be/..."
-            rules={[{ required: true, whitespace: true, message: 'Nhập đường dẫn video.' }, { type: 'url', message: 'Đường dẫn chưa đúng định dạng.' }]}
+            label="Đường dẫn hoặc mã nhúng video"
+            extra="Nhập URL (youtube.com, youtu.be, shorts) hoặc mã nhúng <iframe> từ YouTube."
+            rules={[{ required: true, whitespace: true, message: 'Nhập đường dẫn hoặc mã nhúng video.' }]}
           >
-            <Input type="url" inputMode="url" />
+            <Input.TextArea autoSize={{ minRows: 2, maxRows: 4 }} placeholder="https://www.youtube.com/watch?v=... hoặc <iframe ...></iframe>" />
           </Form.Item>
           <Form.Item name="name" label="Tên video" rules={[{ required: true, whitespace: true, message: 'Nhập tên video.' }, { max: 200, message: 'Tên tối đa 200 ký tự.' }]}>
             <Input maxLength={200} />

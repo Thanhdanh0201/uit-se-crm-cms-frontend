@@ -132,3 +132,64 @@ test('upload: chặn file sai loại ở client, ảnh bắt buộc alt text, hi
   expect(sent[0].get('altText')).toBe('Ảnh bìa thông báo')
   expect(within(document.body).queryByText('Đã tải lên')).toBeNull()
 })
+
+test('them video: gui URL hoac ma nhung iframe len /api/media/videos', async () => {
+  const VIDEO_DTO: MediaDto = {
+    ...ANH,
+    id: 'v1',
+    kind: 'video',
+    name: 'Video Gioi Thieu',
+    altText: null,
+    externalUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+    thumbnailUrl: 'https://img.youtube.com/vi/dQw4w9WgXcQ/hqdefault.jpg',
+  }
+  const api = mockApi({
+    ...me,
+    '/api/media': () => page([]),
+    '/api/media/videos': (_, init) => ok(VIDEO_DTO),
+  })
+  const user = userEvent.setup()
+  open('/admin/media?action=video')
+
+  expect(await screen.findByRole('dialog')).toBeTruthy()
+  const urlInput = screen.getByLabelText(/Đường dẫn hoặc mã nhúng video/)
+  const nameInput = screen.getByLabelText(/Tên video/)
+
+  await user.type(urlInput, '<iframe src="https://www.youtube.com/embed/dQw4w9WgXcQ"></iframe>')
+  await user.type(nameInput, 'Video Gioi Thieu')
+  await user.click(screen.getByRole('button', { name: 'Thêm' }))
+
+  await waitFor(() => {
+    expect(api.calls('/api/media/videos')).toHaveLength(1)
+  })
+  const reqBody = JSON.parse(api.calls('/api/media/videos')[0][1]?.body as string)
+  expect(reqBody.url).toContain('<iframe')
+  expect(reqBody.name).toBe('Video Gioi Thieu')
+})
+
+test('them video: server tra 422 video_url_not_allowed thi hien loi tren o nhap', async () => {
+  mockApi({
+    ...me,
+    '/api/media': () => page([]),
+    '/api/media/videos': () => reply(422, {
+      type: 'https://tools.ietf.org/html/rfc9110#section-15.5.21',
+      title: 'Đường dẫn video không hợp lệ',
+      status: 422,
+      code: 'video_url_not_allowed',
+      detail: 'Chỉ nhận video YouTube (youtube.com/watch?v=..., youtu.be/..., youtube.com/shorts/...).',
+    }),
+  })
+  const user = userEvent.setup()
+  open('/admin/media?action=video')
+
+  expect(await screen.findByRole('dialog')).toBeTruthy()
+  const urlInput = screen.getByLabelText(/Đường dẫn hoặc mã nhúng video/)
+  const nameInput = screen.getByLabelText(/Tên video/)
+
+  await user.type(urlInput, 'https://vimeo.com/123456')
+  await user.type(nameInput, 'Video Vimeo')
+  await user.click(screen.getByRole('button', { name: 'Thêm' }))
+
+  expect(await screen.findByText(/Chỉ nhận video YouTube/)).toBeTruthy()
+})
+

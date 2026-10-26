@@ -18,7 +18,7 @@ import {
 } from '@phosphor-icons/react'
 import { safeHref, type RichNode } from '../components/PostArticle'
 import { MediaPicker } from './MediaPicker'
-import type { MediaDto } from './media'
+import { videoIdOf, type MediaDto } from './media'
 
 // Ảnh và video trong nội dung chỉ lưu mediaId (backend bỏ src khi lưu, vì signed URL có hạn).
 // src/videoId chỉ dùng để hiện trong trình soạn thảo, được gắn lại từ danh sách media khi mở bài (withMediaUrls).
@@ -153,11 +153,6 @@ export function RichTextEditor({
       {editor && <LinkModal open={linkOpen} editor={editor} onClose={() => setLinkOpen(false)} />}
     </div>
   )
-}
-
-// MediaDto của video có thumbnailUrl dạng https://i.ytimg.com/vi/<id>/...; lấy id để hiện ảnh trong trình soạn thảo.
-function videoIdOf(m: MediaDto): string | null {
-  return m.thumbnailUrl?.match(/\/vi\/([^/]+)\//)?.[1] ?? null
 }
 
 function Toolbar({ editor, onImage, onVideo, onLink }: { editor: Editor; onImage: () => void; onVideo: () => void; onLink: () => void }) {

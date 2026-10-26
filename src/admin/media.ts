@@ -84,3 +84,10 @@ export function mediaQuery(f: { kind?: string | null; search?: string | null; mi
   if (f.mine) q.set('mine', 'true')
   return q.toString()
 }
+
+// Lấy videoId của YouTube từ thumbnailUrl (https://img.youtube.com/vi/<id>/...) hoặc externalUrl.
+export function videoIdOf(m: MediaDto): string | null {
+  if (m.kind !== 'video') return null
+  return m.thumbnailUrl?.match(/\/vi\/([^/]+)\//)?.[1] ?? m.externalUrl?.match(/[?&]v=([^&]+)/)?.[1] ?? null
+}
+
