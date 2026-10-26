@@ -137,6 +137,20 @@
 - Slider trang chủ (`HomeSlides.tsx`): Segmented lọc slide theo ngôn ngữ kết hợp cùng bộ lọc vị trí (đầu/cuối trang), gửi kèm `locale` khi tạo slide mới, Tag ngôn ngữ trên từng hàng slide và Drawer.
 - Test: Cập nhật và bổ sung test case đa ngôn ngữ cho toàn bộ các module admin (`Posts.test.tsx`, `PostEditor.test.tsx`, `Review.test.tsx`, `ReviewDetail.test.tsx`, `pagesHome.test.tsx`, `Categories.test.tsx`, `Menus.test.tsx`, `HomeSlides.test.tsx`). Toàn bộ 182/182 tests pass trên 34 file test.
 
+## Menu nhiều cấp: chỉnh số cấp và hiển thị n cấp trên website (SCRUM-63, 26/10/2026)
+- Quản trị Menu (`src/pages/admin/Menus.tsx`):
+  - Form tạo/sửa menu (`MenuModal`): bổ sung ô nhập "Số cấp tối đa" (1..10, `maxDepth`, mặc định 3 khi tạo mới); gửi `maxDepth` khi POST/PUT menu.
+  - Bỏ hoàn toàn hardcode `MAX_DEPTH = 3`, đọc giới hạn động từ menu đang chọn: `const maxDepth = menu?.maxDepth ?? 3`.
+  - Cây kéo thả (`allowDrop`, `onDrop`) và nút Di chuyển (`step`, `can(m)`): kiểm tra trước ở client theo `maxDepth` của menu; thông báo ghi đúng số cấp cho phép (`Đã ở cấp ${maxDepth}, không thêm mục con được`, `Tối đa ${maxDepth} cấp.`).
+  - Drawer thêm/sửa mục (`ItemDrawer`): nhận `maxDepth` từ menu; validator `parentId` kiểm tra `p.depth + ownHeight <= maxDepth`, báo lỗi trực quan đúng số cấp cho phép.
+  - Xử lý lỗi 422 ProblemDetails `menu_depth_exceeded` khi giảm số cấp tối đa: hiển thị Alert trực quan trong modal kèm danh sách `invalidItems: [{ id, label, depth }]` cần điều chỉnh; không đóng modal để người dùng điều chỉnh.
+- Giao diện người dùng công khai (`src/layouts/PublicLayout.tsx`, `layout.css`):
+  - Menu nạp qua `GET /api/public/menus/main?locale={vi|en}` theo locale của trang đang xem.
+  - Desktop: Dropdown n tầng (cấp 1 ngang, cấp 2 xổ xuống, cấp 3 trở đi mở sang bên cạnh `left: 100%; top: 0;`), tự động đảo hướng sang trái (`right: 100%; left: auto;`) khi chạm mép màn hình (`rect.right > window.innerWidth - 16`).
+  - Điều hướng bàn phím: `Tab` để duyệt liên tục qua các mục con, `Escape` để đóng dropdown.
+  - Mobile: Dạng cây thụt lề đóng/mở độc lập từng nhánh con qua nút toggle riêng biệt, hiển thị tối ưu và không tràn ngang ở màn hình 360px (`max-width: calc(100vw - 32px)`).
+- Test: Cập nhật `Menus.test.tsx` (kiểm tra giới hạn động theo menu `maxDepth: 2`, `maxDepth: 4`, bắt lỗi 422 `menu_depth_exceeded`) và tạo mới `src/layouts/PublicLayout.test.tsx` (kiểm tra menu 4 cấp, query locale, phím Escape, đóng/mở nhánh mobile). Toàn bộ 189/189 tests pass trên 35 file test.
+
 ## Ghi chú
 - Refresh token và logout thu hồi session đã làm ở cả backend (chưa commit trong repo backend) và frontend (`api.ts` tự refresh khi 401).
 - Còn lại: sau logout, access token (JWT) vẫn qua được kiểm tra chữ ký ở backend đến khi hết hạn. Nên giảm JWT expiry trong Supabase xuống 10-15 phút (đã có refresh nên người dùng không bị đăng xuất sớm).
