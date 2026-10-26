@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useBlocker } from 'react-router'
-import { Alert, App, Button, Card, Drawer, Dropdown, Empty, Flex, Form, Input, Modal, Segmented, Select, Skeleton, Switch, Tag, Tree } from 'antd'
+import { Alert, App, Button, Card, Drawer, Dropdown, Empty, Flex, Form, Input, InputNumber, Modal, Segmented, Select, Skeleton, Switch, Tag, Tree } from 'antd'
 import type { MenuProps } from 'antd'
 import { ArrowsDownUp, ArrowSquareOut, CaretDown, DotsSixVertical, DotsThreeVertical, FloppyDisk, Info, PencilSimple, Plus, Trash, Warning } from '@phosphor-icons/react'
 import { api, ApiError } from '../../lib/api'
@@ -13,7 +13,7 @@ import { LOCALES, localeColor, localeLabel, parseLocale } from '../../admin/loca
 export const meta = () => noIndex('Menu website')
 
 // DTO theo backend: MenuResponseDto, MenuItemTreeDto (GET /api/admin/menus, /api/admin/menus/{id}/items).
-type Menu = { id: string; code: string; name: string; itemCount: number; locale?: 'vi' | 'en' }
+type Menu = { id: string; code: string; name: string; itemCount: number; locale?: 'vi' | 'en'; maxDepth?: number }
 type Kind = 'page' | 'category' | 'external'
 export type MenuItem = {
   id: string
@@ -37,7 +37,6 @@ type CategoryRef = { id: string; name: string; slug: string; isVisible: boolean;
 type ItemValues = { label: string; kind: Kind; pageId?: string; categoryId?: string; externalUrl?: string; parentId?: string | null; isVisible: boolean }
 
 const NO_ITEMS: MenuItem[] = []
-const MAX_DEPTH = 3 // FR-MENU-01, backend MenuService.MaxTreeDepth
 const KIND: Record<Kind, { label: string; color: string }> = {
   page: { label: 'Trang', color: 'blue' },
   category: { label: 'Chuyên mục', color: 'cyan' },
@@ -76,6 +75,7 @@ function MenusContent() {
 
   const menuId = list.params.get('menu') ?? menus?.[0]?.id ?? null
   const menu = menus?.find((m) => m.id === menuId) ?? null
+  const maxDepth = menu?.maxDepth ?? 3
   const tree = draft ?? items ?? NO_ITEMS
   const dirty = draft !== null && items !== null && changedCount(items, draft) > 0
 
@@ -144,7 +144,7 @@ function MenusContent() {
 
   function move(id: string, m: Move) {
     setOpenMenu(null)
-    const next = step(tree, id, m, MAX_DEPTH)
+    const next = step(tree, id, m, maxDepth)
     if (next) setDraft(next)
   }
 
@@ -163,7 +163,7 @@ function MenusContent() {
   const allKeys = useMemo(() => flatten(tree).filter((f) => f.node.children.length).map((f) => f.node.id), [tree])
 
   function rowActions(item: MenuItem): MenuProps['items'] {
-    const can = (m: Move) => step(tree, item.id, m, MAX_DEPTH) !== null
+    const can = (m: Move) => step(tree, item.id, m, maxDepth) !== null
     return (['up', 'down', 'in', 'out'] as Move[]).map((m) => ({ key: m, label: MOVE_LABEL[m], disabled: busy || !can(m), onClick: () => move(item.id, m) }))
   }
 
@@ -204,7 +204,7 @@ function MenusContent() {
 
   function renderRow(item: MenuItem) {
     const depth = depthOf.get(item.id) ?? 1
-    const atMax = depth >= MAX_DEPTH
+    const atMax = depth >= maxDepth
     const target = item.resolvedUrl ?? item.externalUrl
     const parentHidden = hiddenByParent.has(item.id)
     return (
@@ -233,7 +233,7 @@ function MenusContent() {
           <Dropdown {...dropdown(`${item.id}:move`)} menu={{ items: rowActions(item) }}>
             <Button type="text" size="small" icon={<ArrowsDownUp size={16} />} title="Di chuyển" aria-label={`Di chuyển "${item.label}"`} />
           </Dropdown>
-          <Button type="text" size="small" icon={<Plus size={16} />} disabled={busy || dirty || atMax} title={atMax ? 'Đã ở cấp 3, không thêm mục con được' : lockedTitle ?? 'Thêm mục con'} aria-label={`Thêm mục con cho "${item.label}"`} onClick={() => list.update({ action: 'create', id: null, parent: item.id })} />
+          <Button type="text" size="small" icon={<Plus size={16} />} disabled={busy || dirty || atMax} title={atMax ? `Đã ở cấp ${maxDepth}, không thêm mục con được` : lockedTitle ?? 'Thêm mục con'} aria-label={`Thêm mục con cho "${item.label}"`} onClick={() => list.update({ action: 'create', id: null, parent: item.id })} />
           <Button type="text" size="small" icon={<PencilSimple size={16} />} disabled={busy || dirty} title={lockedTitle ?? 'Sửa'} aria-label={`Sửa "${item.label}"`} onClick={() => list.update({ action: 'edit', id: item.id, parent: null })} />
           <Button type="text" size="small" danger icon={<Trash size={16} />} disabled={busy || dirty} title={lockedTitle ?? 'Xóa'} aria-label={`Xóa "${item.label}"`} onClick={() => confirmDelete(item)} />
         </div>
@@ -356,7 +356,7 @@ function MenusContent() {
           )}
           {items && items.length > 0 && (
             <>
-              <p className="menus-page__hint muted"><Info size={14} aria-hidden /> Kéo <DotsSixVertical size={14} aria-label="biểu tượng kéo" /> để đổi thứ tự hoặc cấp, hoặc dùng nút Di chuyển (dùng được bằng bàn phím). Tối đa 3 cấp.</p>
+              <p className="menus-page__hint muted"><Info size={14} aria-hidden /> Kéo <DotsSixVertical size={14} aria-label="biểu tượng kéo" /> để đổi thứ tự hoặc cấp, hoặc dùng nút Di chuyển (dùng được bằng bàn phím). Tối đa {maxDepth} cấp.</p>
               <div className="menu-tree">
                 <div className="menu-tree__head" aria-hidden>
                   <span>Tên mục và đích</span>
@@ -374,12 +374,12 @@ function MenusContent() {
                   treeData={withKeys(tree)}
                   titleRender={(n) => renderRow(findNode(tree, n.key)!)}
                   allowDrop={({ dragNode, dropNode: target, dropPosition }) =>
-                    dropNode(tree, dragNode.key as string, target.key as string, dropPosition === 0 ? 'inside' : dropPosition < 0 ? 'before' : 'after', MAX_DEPTH) !== null
+                    dropNode(tree, dragNode.key as string, target.key as string, dropPosition === 0 ? 'inside' : dropPosition < 0 ? 'before' : 'after', maxDepth) !== null
                   }
                   onDrop={(info) => {
                     const rel = info.dropPosition - Number(info.node.pos.split('-').pop())
                     const where = !info.dropToGap ? 'inside' : rel < 0 ? 'before' : 'after'
-                    const next = dropNode(tree, info.dragNode.key as string, info.node.key as string, where, MAX_DEPTH)
+                    const next = dropNode(tree, info.dragNode.key as string, info.node.key as string, where, maxDepth)
                     if (next) setDraft(next)
                   }}
                 />
@@ -397,6 +397,7 @@ function MenusContent() {
           editing={list.action === 'edit' && list.id ? findNode(items, list.id) ?? null : null}
           parentId={list.params.get('parent')}
           locale={menu.locale ?? locale}
+          maxDepth={maxDepth}
           onClose={() => list.update({ action: null, id: null, parent: null })}
           onSaved={() => (list.update({ action: null, id: null, parent: null }), reloadItems())}
         />
@@ -412,24 +413,27 @@ const withKeys = (nodes: MenuItem[]): TreeItem[] => nodes.map((n) => ({ ...n, ke
 
 function MenuModal({ value, locale, onClose, onSaved }: { value: Menu | 'new' | null; locale: 'vi' | 'en'; onClose: () => void; onSaved: (m: Menu) => void }) {
   const { message } = App.useApp()
-  const [form] = Form.useForm<{ code: string; name: string }>()
+  const [form] = Form.useForm<{ code: string; name: string; maxDepth: number }>()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const [invalidItems, setInvalidItems] = useState<Array<{ id: string; label: string; depth: number }> | null>(null)
   const editing = value && value !== 'new' ? value : null
 
   useEffect(() => {
     setError('')
-    if (value === 'new') form.setFieldsValue({ code: '', name: '' })
-    else if (value) form.setFieldsValue({ code: value.code, name: value.name })
+    setInvalidItems(null)
+    if (value === 'new') form.setFieldsValue({ code: '', name: '', maxDepth: 3 })
+    else if (value) form.setFieldsValue({ code: value.code, name: value.name, maxDepth: value.maxDepth ?? 3 })
   }, [value, form])
 
-  async function onFinish(v: { code: string; name: string }) {
+  async function onFinish(v: { code: string; name: string; maxDepth: number }) {
     if (busy) return
     setBusy(true)
     setError('')
+    setInvalidItems(null)
     const body = editing
-      ? { code: v.code.trim(), name: v.name.trim() }
-      : { code: v.code.trim(), name: v.name.trim(), locale }
+      ? { code: v.code.trim(), name: v.name.trim(), maxDepth: v.maxDepth }
+      : { code: v.code.trim(), name: v.name.trim(), maxDepth: v.maxDepth, locale }
     try {
       const saved = editing
         ? await api<Menu>(`/api/admin/menus/${editing.id}`, { method: 'PUT', json: body })
@@ -437,9 +441,19 @@ function MenuModal({ value, locale, onClose, onSaved }: { value: Menu | 'new' | 
       message.success(editing ? 'Đã lưu menu.' : `Đã tạo menu "${saved.name}".`)
       onSaved(saved)
     } catch (err) {
-      if (err instanceof ApiError && err.errors) form.setFields(Object.entries(err.errors).map(([k, errors]) => ({ name: k.toLowerCase() as 'code' | 'name', errors })))
-      else if (err instanceof ApiError && err.status === 400) form.setFields([{ name: 'code', errors: [err.message] }])
-      else setError(errorMessage(err))
+      if (err instanceof ApiError && err.status === 422 && err.code === 'menu_depth_exceeded') {
+        setError(err.message || 'Không thể giảm số cấp tối đa của menu vì cây hiện có các mục ở cấp sâu hơn.')
+        const items = (err.body as any)?.invalidItems
+        if (Array.isArray(items)) {
+          setInvalidItems(items)
+        }
+      } else if (err instanceof ApiError && err.errors) {
+        form.setFields(Object.entries(err.errors).map(([k, errors]) => ({ name: k.toLowerCase() as 'code' | 'name' | 'maxDepth', errors })))
+      } else if (err instanceof ApiError && err.status === 400) {
+        form.setFields([{ name: 'code', errors: [err.message] }])
+      } else {
+        setError(errorMessage(err))
+      }
     } finally {
       setBusy(false)
     }
@@ -474,7 +488,28 @@ function MenuModal({ value, locale, onClose, onSaved }: { value: Menu | 'new' | 
       onCancel={onClose}
       destroyOnHidden
     >
-      {error && <Alert type="error" showIcon title={error} style={{ marginBottom: 16 }} />}
+      {error && (
+        <Alert
+          type="error"
+          showIcon
+          title={error}
+          description={
+            invalidItems && invalidItems.length > 0 ? (
+              <div style={{ marginTop: 8 }}>
+                <div style={{ fontWeight: 500, marginBottom: 4 }}>Các mục cần điều chỉnh:</div>
+                <ul style={{ margin: 0, paddingLeft: 20 }}>
+                  {invalidItems.map((item) => (
+                    <li key={item.id}>
+                      <strong>{item.label}</strong> (cấp {item.depth})
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : undefined
+          }
+          style={{ marginBottom: 16 }}
+        />
+      )}
       {!editing && (
         <div style={{ marginBottom: 16 }}>
           <div style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)', marginBottom: 6 }}>Gợi ý vị trí chuẩn:</div>
@@ -505,18 +540,27 @@ function MenuModal({ value, locale, onClose, onSaved }: { value: Menu | 'new' | 
         >
           <Input maxLength={50} placeholder="main" />
         </Form.Item>
+        <Form.Item
+          name="maxDepth"
+          label="Số cấp tối đa"
+          extra="Giới hạn độ sâu phân cấp của menu (từ 1 đến 10). Mặc định 3."
+          rules={[{ required: true, message: 'Nhập số cấp tối đa (1..10).' }]}
+        >
+          <InputNumber min={1} max={10} style={{ width: '100%' }} />
+        </Form.Item>
       </Form>
     </Modal>
   )
 }
 
-function ItemDrawer({ menuId, tree, action, editing, parentId, locale, onClose, onSaved }: {
+function ItemDrawer({ menuId, tree, action, editing, parentId, locale, maxDepth, onClose, onSaved }: {
   menuId: string
   tree: MenuItem[]
   action: 'create' | 'edit' | null
   editing: MenuItem | null
   parentId: string | null
   locale: 'vi' | 'en'
+  maxDepth: number
   onClose: () => void
   onSaved: () => void
 }) {
@@ -745,9 +789,9 @@ function ItemDrawer({ menuId, tree, action, editing, parentId, locale, onClose, 
               validator: (_, value: string | null | undefined) => {
                 if (!value) return Promise.resolve()
                 const p = flat.find((f) => f.node.id === value)
-                if (!p || p.depth + ownHeight <= MAX_DEPTH) return Promise.resolve()
+                if (!p || p.depth + ownHeight <= maxDepth) return Promise.resolve()
                 return Promise.reject(
-                  new Error(ownHeight === 1 ? `Không thể tạo mục con vì "${p.node.label}" đã ở cấp ${p.depth}. Menu chỉ cho phép tối đa 3 cấp.` : `Không chuyển được: mục này có mục con, đặt dưới "${p.node.label}" sẽ vượt quá 3 cấp.`),
+                  new Error(ownHeight === 1 ? `Không thể tạo mục con vì "${p.node.label}" đã ở cấp ${p.depth}. Menu chỉ cho phép tối đa ${maxDepth} cấp.` : `Không chuyển được: mục này có mục con, đặt dưới "${p.node.label}" sẽ vượt quá ${maxDepth} cấp.`),
                 )
               },
             },
