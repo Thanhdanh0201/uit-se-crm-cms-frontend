@@ -75,24 +75,46 @@
   visibility: hidden;
   opacity: 0;
 }
-.site-nav__group:hover .site-nav__dropdown,
-.site-nav__group:focus-within .site-nav__dropdown { visibility: visible; opacity: 1; }
-.site-nav__dropdown ul,
-.site-menu__item ul { list-style: none; margin: 0; padding: 0; }
-.site-nav__dropdown a,
-.site-menu__item ul a { display: block; }
-.site-nav__dropdown ul ul,
-.site-menu__item ul { padding-left: var(--space-3); }
-@media (prefers-reduced-motion: no-preference) {
-  .site-nav__dropdown { transition: opacity 0.15s, visibility 0.15s; }
+.site-nav__group:hover > .site-nav__dropdown,
+.site-nav__group:focus-within > .site-nav__dropdown { visibility: visible; opacity: 1; }
+.site-nav__list,
+.site-nav__sublist { list-style: none; margin: 0; padding: 0; }
+.site-nav__item { position: relative; list-style: none; }
+.site-nav__item-row { display: flex; align-items: center; justify-content: space-between; }
+.site-nav__item-row .site-nav__link { flex: 1; display: block; }
+.site-nav__caret-right { margin-right: var(--space-2); color: var(--color-text-muted); pointer-events: none; flex-shrink: 0; }
+
+/* Cấp 3 trở đi: mở sang bên phải, đảo sang trái nếu chạm mép màn hình */
+.site-nav__subdropdown {
+  position: absolute;
+  top: 0;
+  left: 100%;
+  z-index: 30;
+  min-width: 220px;
+  padding: var(--space-2);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-lg);
+  visibility: hidden;
+  opacity: 0;
 }
-.site-menu__item { display: flex; flex-direction: column; }
-.site-menu__item a { display: block; }
+.site-nav__item:hover > .site-nav__subdropdown,
+.site-nav__item:focus-within > .site-nav__subdropdown { visibility: visible; opacity: 1; }
+.site-nav__subdropdown.site-nav__subdropdown--flip {
+  left: auto;
+  right: 100%;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .site-nav__dropdown,
+  .site-nav__subdropdown { transition: opacity 0.15s, visibility 0.15s; }
+}
 
 .site-actions { display: flex; align-items: center; gap: var(--space-2); margin-left: auto; }
 .site-actions__account { display: none; gap: var(--space-2); }
 
-/* Menu mobile: <details> gốc, mở được cả khi JS chưa tải */
+/* Menu mobile: <details> gốc, mở được cả khi JS chưa tải, hỗ trợ tốt từ 360px */
 .site-menu { position: relative; }
 .site-menu summary { list-style: none; }
 .site-menu summary::-webkit-details-marker { display: none; }
@@ -102,7 +124,8 @@
   top: calc(100% + var(--space-2));
   display: flex;
   flex-direction: column;
-  min-width: 240px;
+  min-width: 260px;
+  max-width: calc(100vw - 32px);
   max-height: calc(100vh - 88px);
   overflow-y: auto;
   padding: var(--space-2);
@@ -110,6 +133,43 @@
   border: 1px solid var(--color-border);
   border-radius: var(--radius-card);
   box-shadow: var(--shadow-lg);
+}
+.site-menu__branch { display: flex; flex-direction: column; }
+.site-menu__row { display: flex; align-items: center; justify-content: space-between; }
+.site-menu__link {
+  flex: 1;
+  display: block;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-control);
+  color: var(--color-text-subtle);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  text-decoration: none;
+}
+.site-menu__link:hover { color: var(--color-primary); background: var(--color-primary-soft); }
+.site-menu__link.active { color: var(--color-primary); font-weight: 600; }
+.site-menu__toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: var(--color-text-muted);
+  border-radius: var(--radius-control);
+  flex-shrink: 0;
+}
+.site-menu__toggle:hover { background: var(--color-primary-soft); color: var(--color-primary); }
+.site-menu__caret { transition: transform 0.2s ease; }
+.site-menu__caret--open { transform: rotate(180deg); }
+.site-menu__children {
+  padding-left: var(--space-3);
+  margin-left: var(--space-2);
+  border-left: 2px solid var(--color-border);
+  display: flex;
+  flex-direction: column;
 }
 .site-menu__account {
   display: flex;

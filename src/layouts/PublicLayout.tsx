@@ -1,6 +1,6 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, NavLink, Outlet, useLoaderData, useLocation, useNavigate } from 'react-router'
-import { CaretDown, EnvelopeSimple, List, MagnifyingGlass, MapPin, Phone } from '@phosphor-icons/react'
+import { CaretDown, CaretRight, EnvelopeSimple, List, MagnifyingGlass, MapPin, Phone } from '@phosphor-icons/react'
 import { api } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { buttonClass } from '../components/ui/Button'
@@ -16,10 +16,19 @@ const FALLBACK: NavItem[] = [
   ['Tin tức', '/search'],
 ].map(([label, url]) => ({ id: url, label, kind: 'route', url, children: [] }))
 
-// Menu chính do Admin cấu hình (FR-MENU), mã "main". Lấy trên server để HTML trả về đã có menu.
-export async function loader() {
+// Menu chính do Admin cấu hình (FR-MENU), mã "main". Nạp theo locale của trang.
+export async function loader({ request }: { request?: Request } = {}) {
+  let locale = 'vi'
+  if (request?.url) {
+    try {
+      const url = new URL(request.url)
+      locale = url.searchParams.get('locale') || 'vi'
+    } catch {
+      // ignore
+    }
+  }
   try {
-    const menu = await api<{ items: NavItem[] }>('/api/public/menus/main')
+    const menu = await api<{ items: NavItem[] }>(`/api/public/menus/main?locale=${locale}`)
     return { nav: menu.items.length ? menu.items : FALLBACK }
   } catch {
     return { nav: FALLBACK }
@@ -42,25 +51,96 @@ function parseAppUrl(url: string) {
   return { isExternal: true, path: url }
 }
 
-function NavTo({ item, className }: { item: NavItem; className?: string }) {
+function NavTo({ item, className, onClick }: { item: NavItem; className?: string; onClick?: () => void }) {
   if (!item.url) return <span className={className}>{item.label}</span>
   const { isExternal, path } = parseAppUrl(item.url)
   if (isExternal)
-    return <a href={item.url} className={className} target="_blank" rel="noopener noreferrer">{item.label}</a>
-  return <NavLink to={path} className={className}>{item.label}</NavLink>
+    return <a href={item.url} className={className} target="_blank" rel="noopener noreferrer" onClick={onClick}>{item.label}</a>
+  return <NavLink to={path} className={className} onClick={onClick}>{item.label}</NavLink>
 }
 
-// Cấp 2 và cấp 3 (cấp 3 thụt vào trong cùng danh sách).
-function SubItems({ items }: { items: NavItem[] }) {
+// Menu con Desktop đa tầng (cấp 2 xổ xuống, cấp 3 trở đi mở sang bên, tự đảo hướng khi chạm mép màn hình)
+function DesktopSubMenu({ items, level = 2 }: { items: NavItem[]; level?: number }) {
+  const checkFlip = (el: HTMLElement | null) => {
+    if (!el || typeof window === 'undefined') return
+    const rect = el.getBoundingClientRect()
+    if (rect.right > window.innerWidth - 16) {
+      el.classList.add('site-nav__subdropdown--flip')
+    } else {
+      el.classList.remove('site-nav__subdropdown--flip')
+    }
+  }
+
   return (
-    <ul>
-      {items.map((c) => (
-        <li key={c.id}>
-          <NavTo item={c} />
-          {c.children.length > 0 && <SubItems items={c.children} />}
-        </li>
-      ))}
+    <ul className={level === 2 ? 'site-nav__list' : 'site-nav__sublist'}>
+      {items.map((item) => {
+        const hasChildren = item.children && item.children.length > 0
+        return (
+          <li
+            key={item.id}
+            className={`site-nav__item ${hasChildren ? 'site-nav__item--has-children' : ''}`}
+            onMouseEnter={(e) => {
+              if (hasChildren) {
+                const sub = e.currentTarget.querySelector<HTMLElement>(':scope > .site-nav__subdropdown')
+                checkFlip(sub)
+              }
+            }}
+            onFocus={(e) => {
+              if (hasChildren) {
+                const sub = e.currentTarget.querySelector<HTMLElement>(':scope > .site-nav__subdropdown')
+                checkFlip(sub)
+              }
+            }}
+          >
+            <div className="site-nav__item-row">
+              <NavTo item={item} className="site-nav__link" />
+              {hasChildren && <CaretRight size={12} aria-hidden className="site-nav__caret-right" />}
+            </div>
+            {hasChildren && (
+              <div className="site-nav__subdropdown">
+                <DesktopSubMenu items={item.children} level={level + 1} />
+              </div>
+            )}
+          </li>
+        )
+      })}
     </ul>
+  )
+}
+
+// Nhánh menu Mobile dạng cây thụt lề, đóng/mở độc lập từng nhánh
+function MobileNavBranch({ item, onNavigate }: { item: NavItem; onNavigate?: () => void }) {
+  const [open, setOpen] = useState(false)
+  const hasChildren = item.children && item.children.length > 0
+
+  return (
+    <div className="site-menu__branch">
+      <div className="site-menu__row">
+        <NavTo item={item} className="site-menu__link" onClick={onNavigate} />
+        {hasChildren && (
+          <button
+            type="button"
+            className="site-menu__toggle"
+            aria-expanded={open}
+            aria-label={`${open ? 'Thu gọn' : 'Mở rộng'} ${item.label}`}
+            onClick={(e) => {
+              e.preventDefault()
+              e.stopPropagation()
+              setOpen((v) => !v)
+            }}
+          >
+            <CaretDown size={14} aria-hidden className={`site-menu__caret ${open ? 'site-menu__caret--open' : ''}`} />
+          </button>
+        )}
+      </div>
+      {hasChildren && open && (
+        <div className="site-menu__children">
+          {item.children.map((child) => (
+            <MobileNavBranch key={child.id} item={child} onNavigate={onNavigate} />
+          ))}
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -93,6 +173,10 @@ export default function PublicLayout() {
     <Link to="/login" className={buttonClass('primary', 'sm')}>Đăng nhập</Link>
   )
 
+  const closeMobileMenu = () => {
+    if (menuRef.current) menuRef.current.open = false
+  }
+
   return (
     <>
       <a href="#main" className="skip-link">Bỏ qua điều hướng</a>
@@ -103,14 +187,24 @@ export default function PublicLayout() {
             <small>Trường ĐH Công nghệ Thông tin, ĐHQG-HCM</small>
           </Link>
 
-          <nav className="site-nav" aria-label="Điều hướng chính">
+          <nav
+            className="site-nav"
+            aria-label="Điều hướng chính"
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') {
+                (document.activeElement as HTMLElement)?.blur()
+              }
+            }}
+          >
             {nav.map((n) =>
               n.children.length ? (
-                // Mở bằng rê chuột hoặc Tab vào (focus-within), không cần JS.
+                // Mở bằng rê chuột hoặc Tab vào (focus-within), Esc để thoát.
                 <div key={n.id} className="site-nav__group">
                   <NavTo item={n} className="site-nav__parent" />
                   <CaretDown size={12} aria-hidden className="site-nav__caret" />
-                  <div className="site-nav__dropdown"><SubItems items={n.children} /></div>
+                  <div className="site-nav__dropdown">
+                    <DesktopSubMenu items={n.children} level={2} />
+                  </div>
                 </div>
               ) : (
                 <NavTo key={n.id} item={n} />
@@ -129,10 +223,7 @@ export default function PublicLayout() {
               </summary>
               <nav className="site-menu__panel" aria-label="Điều hướng chính trên di động">
                 {nav.map((n) => (
-                  <div key={n.id} className="site-menu__item">
-                    <NavTo item={n} />
-                    {n.children.length > 0 && <SubItems items={n.children} />}
-                  </div>
+                  <MobileNavBranch key={n.id} item={n} onNavigate={closeMobileMenu} />
                 ))}
                 <div className="site-menu__account">{account}</div>
               </nav>
