@@ -144,3 +144,43 @@ test('xóa thẻ: mở hộp thoại xác nhận, gọi DELETE, tải lại danh
   await waitFor(() => expect(deleted).toBe(1))
 })
 
+test('lọc chuyên mục theo locale: gửi query locale và tạo chuyên mục gửi kèm locale tương ứng', async () => {
+  let createdBody: Record<string, unknown> | null = null
+  const api = mockApi({
+    ...admin,
+    '/api/admin/categories/tree': (url) => {
+      const u = new URL(url, 'http://localhost')
+      const loc = u.searchParams.get('locale')
+      if (loc === 'en') return ok([cat('news', 'News', 5)])
+      return ok([cat('tin', 'Tin tức', 10)])
+    },
+    '/api/admin/categories': (_u, init) => {
+      if (init?.method === 'POST') {
+        createdBody = JSON.parse(String(init.body))
+        return ok({ id: 'c-new', name: 'Announcements', slug: 'announcements' })
+      }
+      return ok([])
+    },
+  })
+
+  // Mở tab Chuyên mục với locale=en
+  open('/admin/categories?locale=en&action=create')
+  expect(await screen.findByText('News')).toBeTruthy()
+  expect(String(api.calls('/api/admin/categories/tree')[0][0])).toContain('locale=en')
+
+  // Trong Drawer thêm chuyên mục: hiển thị tag English và submit gửi locale=en
+  const drawer = await screen.findByRole('dialog')
+  expect(within(drawer).getByText('English')).toBeTruthy()
+  await userEvent.type(within(drawer).getByLabelText('Tên chuyên mục'), 'Announcements')
+  await userEvent.click(within(drawer).getByRole('button', { name: 'Lưu' }))
+
+  await waitFor(() => expect(createdBody).not.toBeNull())
+  expect(createdBody).toMatchObject({ name: 'Announcements', locale: 'en' })
+
+  // Chuyển sang Tab Thẻ: không có bộ lọc locale
+  await userEvent.click(screen.getByText('Thẻ'))
+  await waitFor(() => {
+    expect(screen.queryByRole('radiogroup', { name: 'Lọc theo ngôn ngữ' })).toBeNull()
+  })
+})
+

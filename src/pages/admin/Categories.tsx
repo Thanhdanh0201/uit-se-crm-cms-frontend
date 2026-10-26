@@ -5,12 +5,13 @@ import { api, ApiError } from '../../lib/api'
 import { RequireRole } from '../../lib/auth'
 import { noIndex } from '../../lib/seo'
 import { useListParams } from '../../lib/useListParams'
+import { LOCALES, localeColor, localeLabel, parseLocale, type Locale } from '../../admin/locale'
 import { findNode, flatten, subtreeIds, viSearchMatch } from '../../admin/tree'
 
 export const meta = () => noIndex('Chuyên mục và thẻ')
 
 // DTO theo backend: CategoryTreeDto (GET /api/admin/categories/tree), TagDto (GET /api/admin/tags).
-export type Category = { id: string; parentId: string | null; name: string; slug: string; description: string | null; sortOrder: number; isVisible: boolean; postCount: number; children: Category[] }
+export type Category = { id: string; parentId: string | null; name: string; slug: string; locale?: 'vi' | 'en'; description: string | null; sortOrder: number; isVisible: boolean; postCount: number; children: Category[] }
 type Tag = { id: string; name: string; slug: string; postCount: number }
 type CategoryValues = { name: string; slug?: string; description?: string; parentId?: string | null; sortOrder: number; isVisible: boolean }
 type TagValues = { name: string; slug?: string }
@@ -69,6 +70,7 @@ const toRows = (nodes: Category[], parentHidden = false): Row[] =>
 function CategoriesTab({ keyword }: { keyword: string }) {
   const { message, modal } = App.useApp()
   const list = useListParams()
+  const locale = parseLocale(list.params.get('locale'))
   const [tree, setTree] = useState<Category[] | null>(null)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
@@ -79,11 +81,11 @@ function CategoriesTab({ keyword }: { keyword: string }) {
   useEffect(() => {
     const ctrl = new AbortController()
     setError('')
-    api<Category[]>('/api/admin/categories/tree', { signal: ctrl.signal })
+    api<Category[]>(`/api/admin/categories/tree?locale=${locale}`, { signal: ctrl.signal })
       .then(setTree)
       .catch((err) => !ctrl.signal.aborted && setError(errorMessage(err)))
     return () => ctrl.abort()
-  }, [reloadKey])
+  }, [reloadKey, locale])
 
   const rows = useMemo(() => toRows(filterTree(tree ?? [], keyword.toLowerCase())), [tree, keyword])
   const expandKeys = useMemo(() => flatten(tree ?? []).filter((f) => f.node.children.length).map((f) => f.node.id), [tree])
@@ -205,6 +207,7 @@ function CategoriesTab({ keyword }: { keyword: string }) {
           open={list.action === 'create' || !!editing}
           editing={editing}
           parentId={list.params.get('parent')}
+          locale={locale}
           onClose={() => list.update({ action: null, id: null, parent: null })}
           onSaved={() => (list.update({ action: null, id: null, parent: null }), reload())}
         />
@@ -216,7 +219,7 @@ function CategoriesTab({ keyword }: { keyword: string }) {
 
 const CATEGORY_FIELDS: Record<string, keyof CategoryValues> = { name: 'name', slug: 'slug', description: 'description', parentid: 'parentId', sortorder: 'sortOrder' }
 
-function CategoryDrawer({ tree, open, editing, parentId, onClose, onSaved }: { tree: Category[]; open: boolean; editing: Category | null; parentId: string | null; onClose: () => void; onSaved: () => void }) {
+function CategoryDrawer({ tree, open, editing, parentId, locale, onClose, onSaved }: { tree: Category[]; open: boolean; editing: Category | null; parentId: string | null; locale: Locale; onClose: () => void; onSaved: () => void }) {
   const { message } = App.useApp()
   const [form] = Form.useForm<CategoryValues>()
   const [busy, setBusy] = useState(false)
@@ -242,7 +245,15 @@ function CategoryDrawer({ tree, open, editing, parentId, onClose, onSaved }: { t
     if (busy) return
     setBusy(true)
     setError('')
-    const body = { name: v.name.trim(), slug: v.slug?.trim() || null, description: v.description?.trim() || null, parentId: v.parentId?.trim() || null, sortOrder: v.sortOrder, isVisible: v.isVisible }
+    const body = {
+      locale: editing ? undefined : locale,
+      name: v.name.trim(),
+      slug: v.slug?.trim() || null,
+      description: v.description?.trim() || null,
+      parentId: v.parentId?.trim() || null,
+      sortOrder: v.sortOrder,
+      isVisible: v.isVisible,
+    }
     try {
       if (editing) await api(`/api/admin/categories/${editing.id}`, { method: 'PUT', json: body })
       else await api('/api/admin/categories', { method: 'POST', json: body })
@@ -265,6 +276,9 @@ function CategoryDrawer({ tree, open, editing, parentId, onClose, onSaved }: { t
       footer={<Flex justify="flex-end" gap={8}><Button onClick={onClose}>Hủy</Button><Button type="primary" loading={busy} onClick={() => form.submit()}>Lưu</Button></Flex>}
     >
       {error && <Alert type="error" showIcon title="Chưa lưu được" description={error} style={{ marginBottom: 16 }} />}
+      <div style={{ marginBottom: 16 }}>
+        Ngôn ngữ: <Tag color={localeColor(locale)}>{localeLabel(locale)}</Tag>
+      </div>
       <Form form={form} layout="vertical" onFinish={onFinish} disabled={busy} requiredMark>
         <Form.Item name="name" label="Tên chuyên mục" rules={[{ required: true, whitespace: true, message: 'Nhập tên chuyên mục.' }, { max: 150, message: 'Tên tối đa 150 ký tự.' }]}>
           <Input maxLength={150} placeholder="Ví dụ: Thông báo học vụ" />
@@ -555,17 +569,28 @@ function CategoriesContent() {
   const list = useListParams()
   const tab = list.params.get('tab') === 'tags' ? 'tags' : 'categories'
   const isTags = tab === 'tags'
+  const locale = parseLocale(list.params.get('locale'))
   return (
     <>
       <h1 className="admin-page-title">Chuyên mục và thẻ</h1>
       <Card
         title={
-          <Segmented
-            value={tab}
-            aria-label="Chọn danh sách"
-            options={[{ value: 'categories', label: 'Chuyên mục' }, { value: 'tags', label: 'Thẻ' }]}
-            onChange={(v) => list.update({ tab: v === 'tags' ? 'tags' : null, keyword: null, action: null, id: null, parent: null })}
-          />
+          <Flex gap={12} align="center" wrap>
+            <Segmented
+              value={tab}
+              aria-label="Chọn danh sách"
+              options={[{ value: 'categories', label: 'Chuyên mục' }, { value: 'tags', label: 'Thẻ' }]}
+              onChange={(v) => list.update({ tab: v === 'tags' ? 'tags' : null, keyword: null, action: null, id: null, parent: null })}
+            />
+            {!isTags && (
+              <Segmented
+                value={locale}
+                aria-label="Lọc theo ngôn ngữ"
+                options={LOCALES}
+                onChange={(v) => list.update({ locale: v === 'vi' ? null : v, action: null, id: null, parent: null })}
+              />
+            )}
+          </Flex>
         }
         extra={
           <Space wrap>
