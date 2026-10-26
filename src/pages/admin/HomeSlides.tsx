@@ -9,6 +9,7 @@ import { useListParams } from '../../lib/useListParams'
 import { MediaPicker } from '../../admin/MediaPicker'
 import { utcToVnPicker, vnPickerToUtc } from '../../admin/vnTime'
 import { moveId } from './HomeSections'
+import { LOCALES, localeColor, localeLabel, parseLocale } from '../../admin/locale'
 
 export const meta = () => noIndex('Slider trang chủ')
 
@@ -28,6 +29,7 @@ export type HomeSlide = {
   startsAt: string | null
   endsAt: string | null
   status: SlideStatus
+  locale?: 'vi' | 'en'
 }
 type Image = { id: string; name: string; altText: string | null; url: string | null }
 type Values = { title: string; caption?: string; image?: Image | null; linkUrl?: string; buttonLabel?: string; position: Position; isVisible: boolean; startsAt?: Dayjs | null; endsAt?: Dayjs | null }
@@ -106,6 +108,7 @@ function ImageField({ value, onChange, id }: { value?: Image | null; onChange?: 
 function HomeSlidesContent() {
   const { message } = App.useApp()
   const list = useListParams()
+  const locale = parseLocale(list.params.get('locale'))
   const [form] = Form.useForm<Values>()
   const [slides, setSlides] = useState<HomeSlide[] | null>(null)
   const [error, setError] = useState('')
@@ -125,11 +128,11 @@ function HomeSlidesContent() {
   useEffect(() => {
     const ctrl = new AbortController()
     setError('')
-    api<HomeSlide[]>('/api/admin/home-slides', { signal: ctrl.signal })
+    api<HomeSlide[]>(`/api/admin/home-slides?locale=${locale}`, { signal: ctrl.signal })
       .then(setSlides)
       .catch((err) => !ctrl.signal.aborted && setError(errorMessage(err)))
     return () => ctrl.abort()
-  }, [reloadKey])
+  }, [locale, reloadKey])
 
   // Mở drawer: nạp slide đang sửa hoặc giá trị mặc định khi thêm.
   useEffect(() => {
@@ -194,12 +197,15 @@ function HomeSlidesContent() {
     if (busy) return
     setBusy(true)
     setDrawerError('')
-    const payload = body({
-      ...values,
-      mediaId: values.image!.id,
-      startsAt: values.startsAt ? vnPickerToUtc(values.startsAt) : null,
-      endsAt: values.endsAt ? vnPickerToUtc(values.endsAt) : null,
-    })
+    const payload = {
+      ...body({
+        ...values,
+        mediaId: values.image!.id,
+        startsAt: values.startsAt ? vnPickerToUtc(values.startsAt) : null,
+        endsAt: values.endsAt ? vnPickerToUtc(values.endsAt) : null,
+      }),
+      ...(editing ? {} : { locale }),
+    }
     try {
       if (editing) await api(`/api/admin/home-slides/${editing.id}`, { method: 'PUT', json: payload })
       else await api('/api/admin/home-slides', { method: 'POST', json: payload })
@@ -219,12 +225,19 @@ function HomeSlidesContent() {
   return (
     <Card
       title={
-        <Segmented
-          value={position}
-          aria-label="Vị trí slider"
-          options={POSITIONS.map((p) => ({ value: p.value, label: `${p.label} (${slides?.filter((s) => s.position === p.value).length ?? 0})` }))}
-          onChange={(v) => list.update({ position: v === 'top' ? null : v })}
-        />
+        <Flex gap={12} align="center" wrap="wrap">
+          <Segmented
+            value={locale}
+            onChange={(v) => list.update({ locale: v as 'vi' | 'en', action: null, id: null })}
+            options={LOCALES.map((l) => ({ value: l.code, label: l.label }))}
+          />
+          <Segmented
+            value={position}
+            aria-label="Vị trí slider"
+            options={POSITIONS.map((p) => ({ value: p.value, label: `${p.label} (${slides?.filter((s) => s.position === p.value).length ?? 0})` }))}
+            onChange={(v) => list.update({ position: v === 'top' ? null : v })}
+          />
+        </Flex>
       }
       extra={
         <Flex gap={8}>
@@ -255,7 +268,7 @@ function HomeSlidesContent() {
               {s.image?.url ? <img src={s.image.url} alt="" className="slide-row__thumb" /> : <span className="slide-row__thumb slide-image-field__empty" aria-hidden><ImageSquare size={20} /></span>}
               <div className="home-section-row__info">
                 <div style={{ fontWeight: 600 }}>
-                  {s.title} <Tag color={STATUS[s.status].color}>{STATUS[s.status].label}</Tag>
+                  {s.title} <Tag color={STATUS[s.status].color}>{STATUS[s.status].label}</Tag> <Tag color={localeColor(s.locale ?? locale)}>{localeLabel(s.locale ?? locale)}</Tag>
                 </div>
                 <div className="muted" style={{ fontSize: 'var(--text-sm)' }}>
                   {schedule(s)}
@@ -278,7 +291,12 @@ function HomeSlidesContent() {
 
       <Drawer
         open={list.action === 'create' || !!editing}
-        title={editing ? `Sửa slide "${editing.title}"` : 'Thêm slide'}
+        title={
+          <Flex gap={8} align="center">
+            <span>{editing ? `Sửa slide "${editing.title}"` : 'Thêm slide'}</span>
+            <Tag color={localeColor(editing?.locale ?? locale)}>{localeLabel(editing?.locale ?? locale)}</Tag>
+          </Flex>
+        }
         size={520}
         onClose={list.closeDrawer}
         footer={
