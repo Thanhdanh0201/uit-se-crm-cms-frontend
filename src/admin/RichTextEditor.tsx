@@ -144,6 +144,7 @@ export function RichTextEditor({
       {editor && editable && <Toolbar editor={editor} onImage={() => setPicker('image')} onVideo={() => setPicker('video')} onLink={() => setLinkOpen(true)} />}
       <EditorContent editor={editor} />
       <MediaPicker
+        key={picker ?? 'none'}
         open={picker !== null}
         kinds={picker === 'video' ? ['video'] : ['image']}
         title={picker === 'video' ? 'Chèn video' : 'Chèn ảnh'}
