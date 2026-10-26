@@ -268,7 +268,7 @@ function MenusContent() {
       <Segmented
         value={locale}
         onChange={(v) => list.update({ locale: v as 'vi' | 'en', menu: null, action: null, id: null, parent: null })}
-        options={LOCALES.map((l) => ({ value: l.code, label: l.label }))}
+        options={LOCALES}
         block
         style={{ marginBottom: 12 }}
       />

@@ -229,7 +229,7 @@ function HomeSlidesContent() {
           <Segmented
             value={locale}
             onChange={(v) => list.update({ locale: v as 'vi' | 'en', action: null, id: null })}
-            options={LOCALES.map((l) => ({ value: l.code, label: l.label }))}
+            options={LOCALES}
           />
           <Segmented
             value={position}
