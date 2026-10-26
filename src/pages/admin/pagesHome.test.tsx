@@ -51,7 +51,7 @@ test('moveId và firstText', () => {
 test('xóa trang đang có trong menu: hiện danh sách mục menu từ API, không xóa khỏi bảng', async () => {
   mockApi({
     ...admin,
-    '/api/admin/pages': () => ok({ items: [{ id: 'g1', title: 'Giới thiệu', slug: 'gioi-thieu', status: 'published', menuItemCount: 1, publishedAt: null, updatedAt: '2026-10-05T02:00:00Z' }], totalItems: 1, page: 1, pageSize: 20 }),
+    '/api/admin/pages': () => ok({ items: [{ id: 'g1', title: 'Giới thiệu', slug: 'gioi-thieu', locale: 'vi', status: 'published', menuItemCount: 1, publishedAt: null, updatedAt: '2026-10-05T02:00:00Z' }], totalItems: 1, page: 1, pageSize: 20 }),
     '/api/admin/pages/g1': () => reply(409, { title: 'Trang đang có trong menu', status: 409, code: 'page_in_menu', detail: '"Giới thiệu" đang được 1 mục menu trỏ tới.', menuItems: [{ id: 'm1', label: 'Giới thiệu', menuName: 'Menu chính' }] }),
   })
   open('/admin/pages', [{ path: '/admin/pages', element: <StaticPages /> }])
@@ -63,25 +63,52 @@ test('xóa trang đang có trong menu: hiện danh sách mục menu từ API, kh
 })
 
 const PAGE: PageDetail = {
-  id: 'g1', title: 'Giới thiệu', slug: 'gioi-thieu', status: 'draft', media: {}, publishedAt: null, expiresAt: null,
+  id: 'g1', title: 'Giới thiệu', slug: 'gioi-thieu', locale: 'vi', status: 'draft', media: {}, publishedAt: null, expiresAt: null,
   content: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Khoa thành lập năm 2006.' }] }] },
   menuItems: [{ id: 'm1', label: 'Giới thiệu', menuName: 'Menu chính' }], createdAt: '2026-10-01T02:00:00Z', updatedAt: '2026-10-05T02:00:00Z',
 }
 
-test('sửa trang: slug trùng hiện lỗi tại ô, trang nháp có trong menu thì cảnh báo', async () => {
+test('sửa trang: slug trùng hiện lỗi tại ô, trang nháp có trong menu thì cảnh báo, ngôn ngữ bị khóa', async () => {
   const api = mockApi({
     ...admin,
     '/api/admin/pages/g1': (_, init) => init?.method === 'PUT' ? reply(400, { title: 'Validation', status: 400, errors: { Slug: ['Đường dẫn này đã được trang khác dùng.'] } }) : ok(PAGE),
   })
   open('/admin/pages/g1/edit', [{ path: '/admin/pages/:id/edit', element: <PageEditor /> }])
   expect(await screen.findByText('Trang chưa xuất bản nhưng đang có trong menu')).toBeTruthy()
+  // Kiểm tra locale bị khóa
+  const viRadio = screen.getByRole('radio', { name: 'Tiếng Việt' }) as HTMLInputElement
+  expect(viRadio.disabled).toBe(true)
   const slug = screen.getByLabelText('Đường dẫn (slug)')
   await userEvent.clear(slug)
   await userEvent.type(slug, 'lien-he')
   await userEvent.click(screen.getByRole('button', { name: 'Lưu' }))
   expect(await screen.findByText('Đường dẫn này đã được trang khác dùng.')).toBeTruthy()
   const put = api.calls('/api/admin/pages/g1').find(([, i]) => i?.method === 'PUT')!
-  expect(JSON.parse(String(put[1]?.body))).toMatchObject({ title: 'Giới thiệu', slug: 'lien-he', status: 'draft', content: { type: 'doc' } })
+  expect(JSON.parse(String(put[1]?.body))).toMatchObject({ title: 'Giới thiệu', slug: 'lien-he', status: 'draft', content: { type: 'doc' }, locale: 'vi' })
+})
+
+test('tạo trang mới theo locale: nhận locale từ URL, tự sinh slug và gửi locale trong body', async () => {
+  let createdBody: Record<string, unknown> | null = null
+  const api = mockApi({
+    ...admin,
+    '/api/admin/pages': (_, init) => {
+      createdBody = JSON.parse(String(init?.body))
+      return ok({ ...PAGE, id: 'g-new', locale: 'en' })
+    },
+  })
+  open('/admin/pages/new?locale=en', [{ path: '/admin/pages/new', element: <PageEditor /> }, { path: '/admin/pages/:id/edit', element: <PageEditor /> }])
+  const enRadio = (await screen.findByRole('radio', { name: 'English' })) as HTMLInputElement
+  expect(enRadio.checked).toBe(true)
+
+  const title = screen.getByLabelText('Tiêu đề')
+  await userEvent.type(title, 'About Software Engineering')
+  await userEvent.tab()
+  const slug = screen.getByLabelText('Đường dẫn (slug)') as HTMLInputElement
+  expect(slug.value).toBe('about-software-engineering')
+
+  await userEvent.click(screen.getByRole('button', { name: 'Lưu' }))
+  await waitFor(() => expect(createdBody).not.toBeNull())
+  expect(createdBody).toMatchObject({ title: 'About Software Engineering', slug: 'about-software-engineering', locale: 'en' })
 })
 
 const S = (id: string, title: string, sortOrder: number): HomeSection => ({ id, title, categoryId: null, categoryName: null, sortOrder, itemLimit: 6, isVisible: true })
