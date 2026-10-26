@@ -136,6 +136,35 @@ test('thêm khối: validate số bài 1-12 trước khi gửi', async () => {
   expect(api.fetchMock.mock.calls.filter(([, i]) => i?.method === 'POST')).toHaveLength(0)
 })
 
+test('cấu hình trang chủ: lọc theo locale và tạo khối gửi kèm locale', async () => {
+  let createdBody: any = null
+  const api = mockApi({
+    ...admin,
+    '/api/admin/categories': () => ok([{ id: 'c-news', name: 'News EN' }]),
+    '/api/admin/home-sections': (url, init) => {
+      if (init?.method === 'POST') {
+        createdBody = JSON.parse(String(init.body))
+        return ok({ id: 's-new', title: createdBody.title, categoryId: null, categoryName: null, sortOrder: 0, itemLimit: 6, isVisible: true, locale: createdBody.locale })
+      }
+      if (url.includes('locale=en')) {
+        return ok([S('s-en', 'Academic Announcements', 0)])
+      }
+      return ok([S('s-vi', 'Thông báo học vụ', 0)])
+    },
+  })
+
+  open('/admin/home-sections?locale=en&action=create', [{ path: '/admin/home-sections', element: <HomeSections /> }])
+  expect(await screen.findByText('Academic Announcements')).toBeTruthy()
+
+  const drawer = await screen.findByRole('dialog')
+  expect(within(drawer).getByText('English')).toBeTruthy()
+  await userEvent.type(within(drawer).getByLabelText('Tiêu đề khối'), 'Latest News EN')
+  await userEvent.click(within(drawer).getByRole('button', { name: 'Lưu' }))
+
+  await waitFor(() => expect(createdBody).toBeTruthy())
+  expect(createdBody).toMatchObject({ title: 'Latest News EN', locale: 'en' })
+})
+
 test('tổng quan: admin thấy cảnh báo mục menu trỏ tới trang lỗi', async () => {
   const { default: Dashboard } = await import('./Dashboard')
   mockApi({
