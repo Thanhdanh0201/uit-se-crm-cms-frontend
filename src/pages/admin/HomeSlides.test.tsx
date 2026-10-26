@@ -114,7 +114,7 @@ test('slider cuối trang: tab theo vị trí trên URL, giới hạn tính riê
 
 test('lọc slide theo ngôn ngữ và tạo slide mới gửi kèm locale', async () => {
   let createdBody: any = null
-  const api = mockApi({
+  mockApi({
     ...admin, ...media,
     '/api/admin/home-slides': (url, init) => {
       if (init?.method === 'POST') {

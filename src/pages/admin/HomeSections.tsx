@@ -32,7 +32,7 @@ const errorMessage = (err: unknown) =>
           : err.message || 'Không thực hiện được lúc này. Vui lòng thử lại sau.'
 
 function HomeSectionsContent() {
-  const { message, modal } = App.useApp()
+  const { message } = App.useApp()
   const list = useListParams()
   const locale = parseLocale(list.params.get('locale'))
   const [form] = Form.useForm<Values>()

@@ -89,7 +89,7 @@ test('sửa trang: slug trùng hiện lỗi tại ô, trang nháp có trong menu
 
 test('tạo trang mới theo locale: nhận locale từ URL, tự sinh slug và gửi locale trong body', async () => {
   let createdBody: Record<string, unknown> | null = null
-  const api = mockApi({
+  mockApi({
     ...admin,
     '/api/admin/pages': (_, init) => {
       createdBody = JSON.parse(String(init?.body))
@@ -138,7 +138,7 @@ test('thêm khối: validate số bài 1-12 trước khi gửi', async () => {
 
 test('cấu hình trang chủ: lọc theo locale và tạo khối gửi kèm locale', async () => {
   let createdBody: any = null
-  const api = mockApi({
+  mockApi({
     ...admin,
     '/api/admin/categories': () => ok([{ id: 'c-news', name: 'News EN' }]),
     '/api/admin/home-sections': (url, init) => {

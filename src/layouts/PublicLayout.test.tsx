@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeAll, expect, test, vi } from 'vitest'
-import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
+import { cleanup, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { createMemoryRouter, RouterProvider } from 'react-router'
 import PublicLayout, { loader, type NavItem } from './PublicLayout'
@@ -83,6 +83,12 @@ function renderLayout(path = '/') {
         loader,
         element: <PublicLayout />,
         children: [{ index: true, element: <div>Nội dung trang chủ</div> }],
+      },
+      {
+        path: '/en',
+        loader,
+        element: <PublicLayout />,
+        children: [{ index: true, element: <div>English Home</div> }],
       },
     ],
     { initialEntries: [path] },
@@ -183,3 +189,69 @@ test('mobile menu: dạng cây thụt lề đóng/mở từng nhánh con độc 
   await userEvent.click(within(mobileNav).getByRole('button', { name: 'Thu gọn Đào tạo' }))
   expect(within(mobileNav).queryByRole('link', { name: 'Đại học' })).toBeNull()
 })
+
+test('combobox ngôn ngữ hiển thị và chuyển hướng về trang chủ tương ứng khi đổi ngôn ngữ', async () => {
+  mockApi({
+    ...guest,
+    '/api/public/menus/main': () => ok({ items: MULTI_LEVEL_NAV }),
+  })
+
+  const router = renderLayout('/')
+
+  const comboboxes = await screen.findAllByRole('combobox', { name: 'Chọn ngôn ngữ' })
+  const desktopCombobox = comboboxes[0]
+  expect(desktopCombobox).toBeTruthy()
+  expect((desktopCombobox as HTMLSelectElement).value).toBe('vi')
+
+  // Đổi sang tiếng Anh -> chuyển hướng sang /en
+  await userEvent.selectOptions(desktopCombobox, 'en')
+  expect(router.state.location.pathname).toBe('/en')
+})
+
+test('site tiếng Anh hiển thị nhãn tiếng Anh và nạp menu locale=en', async () => {
+  let calledUrl = ''
+  mockApi({
+    ...guest,
+    '/api/public/menus/main': (url) => {
+      calledUrl = url
+      return ok({ items: MULTI_LEVEL_NAV })
+    },
+  })
+
+  const router = createMemoryRouter(
+    [
+      {
+        path: '/en',
+        loader,
+        element: <PublicLayout />,
+        children: [{ index: true, element: <div>English Home</div> }],
+      },
+      {
+        path: '/',
+        loader,
+        element: <PublicLayout />,
+        children: [{ index: true, element: <div>Trang chủ</div> }],
+      },
+    ],
+    { initialEntries: ['/en'] },
+  )
+
+  render(
+    <AuthProvider>
+      <RouterProvider router={router} />
+    </AuthProvider>,
+  )
+
+  const nav = await screen.findByRole('navigation', { name: 'Main navigation' })
+  expect(nav).toBeTruthy()
+  expect(calledUrl).toContain('locale=en')
+
+  // Combobox có aria-label tiếng Anh và value là en
+  const comboboxes = await screen.findAllByRole('combobox', { name: 'Select language' })
+  expect((comboboxes[0] as HTMLSelectElement).value).toBe('en')
+
+  // Đổi từ en về vi -> chuyển về /
+  await userEvent.selectOptions(comboboxes[0], 'vi')
+  expect(router.state.location.pathname).toBe('/')
+})
+

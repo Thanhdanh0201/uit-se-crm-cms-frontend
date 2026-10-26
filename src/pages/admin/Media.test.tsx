@@ -146,7 +146,7 @@ test('them video: gui URL hoac ma nhung iframe len /api/media/videos', async () 
   const api = mockApi({
     ...me,
     '/api/media': () => page([]),
-    '/api/media/videos': (_, init) => ok(VIDEO_DTO),
+    '/api/media/videos': () => ok(VIDEO_DTO),
   })
   const user = userEvent.setup()
   open('/admin/media?action=video')
