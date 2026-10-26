@@ -46,10 +46,17 @@ export function MediaPicker({
     return () => ctrl.abort()
   }, [open, kind, search, page, reloadKey])
 
-  // Mở lại thì bắt đầu chọn mới.
+  const kindsKey = kinds.join(',')
+
+  // Mở lại hoặc đổi loại tài nguyên thì bắt đầu chọn mới và đồng bộ lại bộ lọc loại.
   useEffect(() => {
-    if (open) setSelected(null)
-  }, [open])
+    if (open) {
+      setSelected(null)
+      setKind(kinds.length === 1 ? kinds[0] : 'all')
+      setSearch('')
+      setPage(1)
+    }
+  }, [open, kindsKey])
 
   // ponytail: lọc nhiều loại ở client làm trang có thể ít hơn pageSize; nâng cấp khi backend nhận kind=image,video.
   const items = (data?.items ?? []).filter((m) => kinds.includes(m.kind))

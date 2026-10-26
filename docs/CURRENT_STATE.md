@@ -117,6 +117,12 @@
 - FR-AUTH-05: màn hình đổi mật khẩu (`POST /api/auth/change-password`).
 - Trang tĩnh và cấu hình trang chủ (backend đã có ở `feat/pages-home`, chưa có task FE).
 
+## Nhúng video YouTube trong bài viết (SCRUM-66, 26/10/2026)
+- Thư viện media (`src/pages/admin/Media.tsx`): ô nhập video chấp nhận cả URL (`youtube.com`, `youtu.be`, `/shorts/`) lẫn mã nhúng `<iframe>`. Nhận lỗi 422 `video_url_not_allowed` từ server và hiển thị trực tiếp dưới ô nhập.
+- Trình soạn thảo (`PostEditor.tsx`, `PageEditor.tsx`): hàm `videoIdOf` (trong `src/admin/media.ts`) trích xuất `videoId` từ `thumbnailUrl` hoặc `externalUrl` của media khi chèn vào bài (`onMediaAdded`), khắc phục lỗi video không hiển thị trong phần xem trước (do `videoId: null`).
+- Hiển thị video (`src/components/PostArticle.tsx`): render `<figure className="rich-text__video">` với `aspect-ratio: 16 / 9`, `<iframe>` nhúng an toàn qua `https://www.youtube-nocookie.com/embed/{id}`, thuộc tính `loading="lazy"`, `referrerPolicy="strict-origin-when-cross-origin"`, `title` từ tên media phục vụ a11y, không dùng `dangerouslySetInnerHTML`. Bỏ qua không render nếu media bị xóa hoặc thiếu videoId.
+- Test: `media.test.ts`, `PostArticle.test.tsx`, `PostEditor.test.tsx`, `Media.test.tsx`. Toàn bộ 172/172 tests pass trên 33 file test.
+
 ## Ghi chú
 - Refresh token và logout thu hồi session đã làm ở cả backend (chưa commit trong repo backend) và frontend (`api.ts` tự refresh khi 401).
 - Còn lại: sau logout, access token (JWT) vẫn qua được kiểm tra chữ ký ở backend đến khi hết hạn. Nên giảm JWT expiry trong Supabase xuống 10-15 phút (đã có refresh nên người dùng không bị đăng xuất sớm).
@@ -126,4 +132,4 @@
 - `GET /api/auth/me` chỉ trả `userId`, `role`, `email`; sau khi F5 chưa có `fullName`. Cần backend bổ sung nếu UI hiển thị tên.
 
 ## Cập nhật lần cuối
-12/10/2026 (Sprint 4)
+26/10/2026 (Sprint 5)

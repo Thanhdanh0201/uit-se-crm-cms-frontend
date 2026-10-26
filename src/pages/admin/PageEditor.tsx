@@ -8,7 +8,7 @@ import { RequireRole } from '../../lib/auth'
 import { noIndex } from '../../lib/seo'
 import { RichText } from '../../components/PostArticle'
 import { docSnapshot, RichTextEditor, withMediaUrls } from '../../admin/RichTextEditor'
-import type { MediaDto } from '../../admin/media'
+import { videoIdOf, type MediaDto } from '../../admin/media'
 import { formatDateTime, type PostMedia, type RichNode } from '../../admin/posts'
 import { SCHEDULE_LABEL, scheduleState, utcToVnPicker, vnPickerToUtc } from '../../admin/vnTime'
 import { PAGE_STATUS, pageErrorMessage, type PageStatus } from './StaticPages'
@@ -212,7 +212,7 @@ function PageEditorContent() {
                 setContentError('')
                 markDirty(doc)
               }}
-              onMediaAdded={(m: MediaDto) => setMedia((all) => ({ ...all, [m.id]: { id: m.id, kind: m.kind, name: m.name, altText: m.altText, url: m.url, videoId: null } }))}
+              onMediaAdded={(m: MediaDto) => setMedia((all) => ({ ...all, [m.id]: { id: m.id, kind: m.kind, name: m.name, altText: m.altText, url: m.url, videoId: videoIdOf(m) } }))}
             />
             {contentError && <div role="alert" style={{ color: 'var(--color-danger)', marginTop: 8 }}>{contentError}</div>}
           </Card>

@@ -48,3 +48,25 @@ test('thư viện rỗng: hiện hướng dẫn, không lỗi', async () => {
   render(<MediaPicker open onCancel={() => {}} onSelect={() => {}} />)
   expect(await screen.findByText(/Thư viện chưa có tài nguyên phù hợp/)).toBeTruthy()
 })
+
+test('chỉ video: lọc kind=video ở server và hiển thị video', async () => {
+  const VIDEO: MediaDto = {
+    ...ANH,
+    id: 'v1',
+    kind: 'video',
+    name: 'Video Gioi Thieu Khoa',
+    altText: null,
+    thumbnailUrl: 'https://img.youtube.com/vi/dQw4w9WgXcQ/hqdefault.jpg',
+    externalUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+  }
+  const api = mockApi({ '/api/media': () => ok({ items: [VIDEO], totalItems: 1, page: 1, pageSize: 24, totalPages: 1 }) })
+  const onSelect = vi.fn()
+  render(<MediaPicker open kinds={['video']} title="Chèn video" onCancel={() => {}} onSelect={onSelect} />)
+
+  const item = await screen.findByRole('button', { name: /Video Gioi Thieu Khoa/ })
+  expect(String(api.calls('/api/media')[0][0])).toContain('kind=video')
+  await userEvent.click(item)
+  await userEvent.click(screen.getByRole('button', { name: 'Chọn' }))
+  expect(onSelect).toHaveBeenCalledWith(VIDEO)
+})
+
