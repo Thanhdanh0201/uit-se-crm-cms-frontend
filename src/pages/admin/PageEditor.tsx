@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Link, useBlocker, useNavigate, useParams } from 'react-router'
-import { Alert, App, Button, Card, Col, DatePicker, Drawer, Flex, Form, Input, Row, Select, Skeleton, Tag } from 'antd'
+import { Link, useBlocker, useNavigate, useParams, useSearchParams } from 'react-router'
+import { Alert, App, Button, Card, Col, DatePicker, Drawer, Flex, Form, Input, Radio, Row, Select, Skeleton, Tag } from 'antd'
 import type { Dayjs } from 'dayjs'
 import { ArrowLeft, Eye } from '@phosphor-icons/react'
 import { api, ApiError } from '../../lib/api'
@@ -9,6 +9,7 @@ import { noIndex } from '../../lib/seo'
 import { RichText } from '../../components/PostArticle'
 import { docSnapshot, RichTextEditor, withMediaUrls } from '../../admin/RichTextEditor'
 import { videoIdOf, type MediaDto } from '../../admin/media'
+import { LOCALES, parseLocale, slugify, type Locale } from '../../admin/locale'
 import { formatDateTime, type PostMedia, type RichNode } from '../../admin/posts'
 import { SCHEDULE_LABEL, scheduleState, utcToVnPicker, vnPickerToUtc } from '../../admin/vnTime'
 import { PAGE_STATUS, pageErrorMessage, type PageStatus } from './StaticPages'
@@ -21,6 +22,7 @@ export type PageDetail = {
   id: string
   title: string
   slug: string
+  locale: 'vi' | 'en'
   content: RichNode
   status: PageStatus
   media: Record<string, PostMedia>
@@ -30,17 +32,19 @@ export type PageDetail = {
   createdAt: string
   updatedAt: string
 }
-type Values = { title: string; slug?: string; status: PageStatus; publishedAt?: Dayjs | null; expiresAt?: Dayjs | null }
+type Values = { locale: Locale; title: string; slug?: string; status: PageStatus; publishedAt?: Dayjs | null; expiresAt?: Dayjs | null }
 
 const EMPTY_DOC: RichNode = { type: 'doc', content: [{ type: 'paragraph' }] }
 
 // So sánh để biết có thay đổi chưa lưu: giá trị form theo thứ tự cố định.
 function snap(v: Partial<Values>, doc: RichNode) {
-  return JSON.stringify([v.title ?? '', v.slug ?? '', v.status ?? '', v.publishedAt?.valueOf() ?? null, v.expiresAt?.valueOf() ?? null, docSnapshot(doc)])
+  return JSON.stringify([v.locale ?? 'vi', v.title ?? '', v.slug ?? '', v.status ?? '', v.publishedAt?.valueOf() ?? null, v.expiresAt?.valueOf() ?? null, docSnapshot(doc)])
 }
 
 function PageEditorContent() {
   const { id } = useParams()
+  const [searchParams] = useSearchParams()
+  const initialLocale = parseLocale(searchParams.get('locale'))
   const navigate = useNavigate()
   const { message, modal } = App.useApp()
   const [form] = Form.useForm<Values>()
@@ -66,7 +70,7 @@ function PageEditorContent() {
   }
 
   const apply = useCallback((p: PageDetail) => {
-    form.setFieldsValue({ title: p.title, slug: p.slug, status: p.status, publishedAt: p.publishedAt ? utcToVnPicker(p.publishedAt) : null, expiresAt: p.expiresAt ? utcToVnPicker(p.expiresAt) : null })
+    form.setFieldsValue({ locale: p.locale ?? 'vi', title: p.title, slug: p.slug, status: p.status, publishedAt: p.publishedAt ? utcToVnPicker(p.publishedAt) : null, expiresAt: p.expiresAt ? utcToVnPicker(p.expiresAt) : null })
     const doc = withMediaUrls(p.content, p.media)
     setPage(p)
     setMedia(p.media)
@@ -79,7 +83,7 @@ function PageEditorContent() {
 
   const load = useCallback(async () => {
     if (!id) {
-      form.setFieldsValue({ title: '', slug: '', status: 'draft', publishedAt: null, expiresAt: null })
+      form.setFieldsValue({ locale: initialLocale, title: '', slug: '', status: 'draft', publishedAt: null, expiresAt: null })
       savedRef.current = snap(form.getFieldsValue(true), EMPTY_DOC)
       return
     }
@@ -92,7 +96,7 @@ function PageEditorContent() {
     } finally {
       setLoading(false)
     }
-  }, [id, apply, form])
+  }, [id, apply, form, initialLocale])
 
   useEffect(() => {
     load()
@@ -133,6 +137,7 @@ function PageEditorContent() {
     setSaveError('')
     setContentError('')
     const body = {
+      locale: page ? page.locale : (values.locale || initialLocale),
       title: values.title.trim(),
       slug: values.slug?.trim() || null,
       status: values.status,
@@ -194,7 +199,18 @@ function PageEditorContent() {
         <Col xs={24} lg={16}>
           <Card>
             <Form.Item name="title" label="Tiêu đề" rules={[{ required: true, whitespace: true, message: 'Nhập tiêu đề trang.' }, { max: 200, message: 'Tiêu đề tối đa 200 ký tự.' }]}>
-              <Input className="post-editor__title" maxLength={200} placeholder="Ví dụ: Giới thiệu Khoa Công nghệ Phần mềm" />
+              <Input
+                className="post-editor__title"
+                maxLength={200}
+                placeholder="Ví dụ: Giới thiệu Khoa Công nghệ Phần mềm"
+                onBlur={(e) => {
+                  const t = e.target.value.trim()
+                  if (t && !form.getFieldValue('slug')) {
+                    form.setFieldValue('slug', slugify(t))
+                    markDirty()
+                  }
+                }}
+              />
             </Form.Item>
             <div id="page-content-label" style={{ marginBottom: 8 }}>Nội dung</div>
             <RichTextEditor
@@ -219,6 +235,22 @@ function PageEditorContent() {
         </Col>
         <Col xs={24} lg={8}>
           <Flex vertical gap={16}>
+            <Card title="Ngôn ngữ trang" size="small">
+              <Form.Item
+                name="locale"
+                label="Website hiển thị"
+                extra={page ? 'Ngôn ngữ cố định sau khi tạo trang.' : 'Chọn website trang sẽ hiển thị.'}
+                style={{ marginBottom: 0 }}
+              >
+                <Radio.Group
+                  disabled={saving || !!page}
+                  options={LOCALES}
+                  optionType="button"
+                  buttonStyle="solid"
+                />
+              </Form.Item>
+            </Card>
+
             <Card title="Xuất bản" size="small">
               <Form.Item name="status" label="Trạng thái" extra="Chỉ trang Đã xuất bản mới xem được công khai.">
                 <Select options={(Object.keys(PAGE_STATUS) as PageStatus[]).map((s) => ({ value: s, label: PAGE_STATUS[s].label }))} />

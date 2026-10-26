@@ -1,18 +1,19 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router'
-import { Alert, App, Button, Card, Empty, Input, Popconfirm, Segmented, Space, Table, Tag, Tooltip } from 'antd'
+import { Alert, App, Button, Card, Empty, Flex, Input, Popconfirm, Segmented, Space, Table, Tag, Tooltip } from 'antd'
 import { ArrowSquareOut, PencilSimple, Plus, Trash } from '@phosphor-icons/react'
 import { api, ApiError } from '../../lib/api'
 import { RequireRole } from '../../lib/auth'
 import { noIndex } from '../../lib/seo'
 import { useListParams } from '../../lib/useListParams'
+import { LOCALES, localeColor, localeLabel, parseLocale } from '../../admin/locale'
 import { formatDateTime } from '../../admin/posts'
 
 export const meta = () => noIndex('Trang tĩnh')
 
 // DTO theo backend Business/DTOs/Pages/PageDtos.cs (SCRUM-17).
 export type PageStatus = 'draft' | 'published' | 'archived'
-type PageRow = { id: string; title: string; slug: string; status: PageStatus; menuItemCount: number; publishedAt: string | null; updatedAt: string }
+type PageRow = { id: string; title: string; slug: string; locale: 'vi' | 'en'; status: PageStatus; menuItemCount: number; publishedAt: string | null; updatedAt: string }
 type PagesPage = { items: PageRow[]; totalItems: number; page: number; pageSize: number }
 type MenuRef = { id: string; label: string; menuName: string }
 
@@ -35,6 +36,7 @@ function StaticPagesContent() {
   const { message, modal } = App.useApp()
   const navigate = useNavigate()
   const list = useListParams(20)
+  const locale = parseLocale(list.params.get('locale'))
   const status = list.params.get('status') ?? 'all'
   const [data, setData] = useState<PagesPage | null>(null)
   const [loading, setLoading] = useState(true)
@@ -45,7 +47,7 @@ function StaticPagesContent() {
 
   useEffect(() => {
     const ctrl = new AbortController()
-    const q = new URLSearchParams({ page: String(list.page), pageSize: String(list.pageSize) })
+    const q = new URLSearchParams({ page: String(list.page), pageSize: String(list.pageSize), locale })
     if (status !== 'all') q.set('status', status)
     if (list.keyword) q.set('search', list.keyword)
     setLoading(true)
@@ -92,17 +94,25 @@ function StaticPagesContent() {
     }
   }
 
-  const filtered = Boolean(list.keyword || status !== 'all')
+  const filtered = Boolean(list.keyword || status !== 'all' || list.params.get('locale'))
 
   return (
     <Card
       title={
-        <Segmented
-          value={status}
-          aria-label="Lọc theo trạng thái"
-          options={[{ value: 'all', label: 'Tất cả' }, ...(Object.keys(PAGE_STATUS) as PageStatus[]).map((s) => ({ value: s, label: PAGE_STATUS[s].label }))]}
-          onChange={(v) => list.update({ status: v === 'all' ? null : v })}
-        />
+        <Flex gap={12} align="center" wrap>
+          <Segmented
+            value={locale}
+            aria-label="Lọc theo ngôn ngữ"
+            options={LOCALES}
+            onChange={(v) => list.update({ locale: v === 'vi' ? null : v, page: 1 })}
+          />
+          <Segmented
+            value={status}
+            aria-label="Lọc theo trạng thái"
+            options={[{ value: 'all', label: 'Tất cả' }, ...(Object.keys(PAGE_STATUS) as PageStatus[]).map((s) => ({ value: s, label: PAGE_STATUS[s].label }))]}
+            onChange={(v) => list.update({ status: v === 'all' ? null : v })}
+          />
+        </Flex>
       }
       extra={
         <Space wrap>
@@ -116,7 +126,7 @@ function StaticPagesContent() {
             style={{ width: 240 }}
           />
           <Tooltip title="Thêm trang">
-            <Button type="primary" icon={<Plus size={16} />} aria-label="Thêm trang" onClick={() => navigate('/admin/pages/new')} />
+            <Button type="primary" icon={<Plus size={16} />} aria-label="Thêm trang" onClick={() => navigate(`/admin/pages/new?locale=${locale}`)} />
           </Tooltip>
         </Space>
       }
@@ -130,7 +140,7 @@ function StaticPagesContent() {
         locale={{
           emptyText: error ? ' ' : (
             <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={filtered ? 'Không có trang khớp bộ lọc.' : 'Chưa có trang tĩnh nào.'}>
-              {!filtered && <Button type="primary" onClick={() => navigate('/admin/pages/new')}>Tạo trang đầu tiên</Button>}
+              {!filtered && <Button type="primary" onClick={() => navigate(`/admin/pages/new?locale=${locale}`)}>Tạo trang đầu tiên</Button>}
             </Empty>
           ),
         }}
@@ -147,7 +157,10 @@ function StaticPagesContent() {
             key: 'title',
             render: (_, p) => (
               <div>
-                <Link to={`/admin/pages/${p.id}/edit`} style={{ fontWeight: 500 }}>{p.title}</Link>
+                <div style={{ fontWeight: 500 }}>
+                  <Tag color={localeColor(p.locale)} style={{ marginInlineEnd: 6 }}>{localeLabel(p.locale)}</Tag>
+                  <Link to={`/admin/pages/${p.id}/edit`}>{p.title}</Link>
+                </div>
                 <div className="muted" style={{ fontSize: 'var(--text-xs)' }}>/pages/{p.slug}</div>
               </div>
             ),

@@ -85,7 +85,7 @@ test('thêm slide: bắt buộc ảnh và tiêu đề, chặn link không an to�
   await userEvent.click(within(drawer).getByText('Lưu').closest('button')!)
   await waitFor(() => expect(api.calls('/api/admin/home-slides').some(([, i]) => (i as RequestInit)?.method === 'POST')).toBe(true))
   const post = api.calls('/api/admin/home-slides').find(([, i]) => (i as RequestInit)?.method === 'POST')!
-  expect(body(post)).toEqual({ title: 'Ngày hội việc làm SE 2026', caption: null, mediaId: 'm2', linkUrl: '/posts/ngay-hoi-viec-lam', buttonLabel: 'Đăng ký', position: 'top', isVisible: true, startsAt: null, endsAt: null })
+  expect(body(post)).toEqual({ title: 'Ngày hội việc làm SE 2026', caption: null, mediaId: 'm2', linkUrl: '/posts/ngay-hoi-viec-lam', buttonLabel: 'Đăng ký', position: 'top', isVisible: true, startsAt: null, endsAt: null, locale: 'vi' })
   expect(await screen.findByText('Ngày hội việc làm SE 2026')).toBeTruthy()
 })
 
@@ -110,4 +110,39 @@ test('slider cuối trang: tab theo vị trí trên URL, giới hạn tính riê
   await userEvent.click(screen.getByRole('button', { name: 'Đưa Cựu sinh viên tiêu biểu lên trên' }))
   await waitFor(() => expect(api.calls('/api/admin/home-slides/order')).toHaveLength(1))
   expect(body(api.calls('/api/admin/home-slides/order')[0]).ids.slice(-2)).toEqual(['s12', 's11'])
+})
+
+test('lọc slide theo ngôn ngữ và tạo slide mới gửi kèm locale', async () => {
+  let createdBody: any = null
+  const api = mockApi({
+    ...admin, ...media,
+    '/api/admin/home-slides': (url, init) => {
+      if (init?.method === 'POST') {
+        createdBody = JSON.parse(String(init.body))
+        return ok(slide(1, { title: createdBody.title, locale: createdBody.locale }), '', 201)
+      }
+      if (url.includes('locale=en')) {
+        return ok([slide(1, { title: 'SE Job Fair 2026', locale: 'en' })])
+      }
+      return ok([slide(1, { title: 'Ngày hội việc làm SE 2026', locale: 'vi' })])
+    },
+  })
+
+  open('/admin/home-slides?locale=en&action=create')
+  expect(await screen.findByText('SE Job Fair 2026')).toBeTruthy()
+
+  const drawer = await screen.findByRole('dialog')
+  expect(within(drawer).getByText('English')).toBeTruthy()
+
+  // Chọn ảnh
+  await userEvent.click(within(drawer).getByRole('button', { name: /Chọn ảnh từ thư viện/ }))
+  const picker = (await screen.findAllByRole('dialog')).at(-1)!
+  await userEvent.click(await within(picker).findByRole('button', { name: /Ngày hội việc làm/ }))
+  await userEvent.click(within(picker).getByRole('button', { name: 'Chọn' }))
+
+  await userEvent.type(within(drawer).getByLabelText('Tiêu đề'), 'Welcome Freshmen 2026')
+  await userEvent.click(within(drawer).getByRole('button', { name: 'Lưu' }))
+
+  await waitFor(() => expect(createdBody).toBeTruthy())
+  expect(createdBody).toMatchObject({ title: 'Welcome Freshmen 2026', locale: 'en' })
 })

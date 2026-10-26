@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { useBlocker, useNavigate, useParams } from 'react-router'
-import { Alert, App, Button, Card, Col, Drawer, Flex, Form, Input, Row, Select, Skeleton, Space, Tag } from 'antd'
+import { useBlocker, useNavigate, useParams, useSearchParams } from 'react-router'
+import { Alert, App, Button, Card, Col, Drawer, Flex, Form, Input, Radio, Row, Select, Skeleton, Space, Tag } from 'antd'
 import { Eye, ImageSquare, PaperPlaneTilt, X } from '@phosphor-icons/react'
 import { api, ApiError } from '../../lib/api'
 import { useAuth } from '../../lib/auth'
@@ -9,22 +9,23 @@ import { PostArticle } from '../../components/PostArticle'
 import { MediaPicker } from '../../admin/MediaPicker'
 import { docSnapshot, RichTextEditor, withMediaUrls } from '../../admin/RichTextEditor'
 import { videoIdOf, type MediaDto } from '../../admin/media'
+import { LOCALES, parseLocale, slugify, type Locale } from '../../admin/locale'
 import { canEdit, formatDateTime, postErrorMessage, STATUS_COLOR, statusLabel, type PostDetail, type PostMedia, type Ref, type RichNode } from '../../admin/posts'
 import { viSearchMatch } from '../../admin/tree'
 
 export const meta = () => noIndex('Soạn bài viết')
 
-type Values = { title: string; slug?: string; summary?: string; primaryCategoryId?: string; categoryIds: string[]; tagIds: string[] }
+type Values = { locale: Locale; title: string; slug?: string; summary?: string; primaryCategoryId?: string; categoryIds: string[]; tagIds: string[] }
 type Backup = { at: string; values: Values; content: RichNode; cover: PostMedia | null; media: Record<string, PostMedia> }
 
 const EMPTY_DOC: RichNode = { type: 'doc', content: [{ type: 'paragraph' }] }
-const EMPTY_VALUES: Values = { title: '', slug: '', summary: '', categoryIds: [], tagIds: [] }
+const EMPTY_VALUES: Values = { locale: 'vi', title: '', slug: '', summary: '', categoryIds: [], tagIds: [] }
 const backupKey = (id: string | undefined) => `post-backup:${id ?? 'new'}`
 
 // Ảnh chụp để so "có thay đổi chưa lưu".
 // Giá trị form lấy theo thứ tự key cố định: antd trả object với thứ tự key khác nhau tùy lúc.
 function snap(values: Partial<Values>, doc: RichNode, cover: PostMedia | null) {
-  const v = [values.title ?? '', values.slug ?? '', values.summary ?? '', values.primaryCategoryId ?? '', values.categoryIds ?? [], values.tagIds ?? []]
+  const v = [values.locale ?? 'vi', values.title ?? '', values.slug ?? '', values.summary ?? '', values.primaryCategoryId ?? '', values.categoryIds ?? [], values.tagIds ?? []]
   return JSON.stringify({ v, c: docSnapshot(doc), cv: cover?.id ?? null })
 }
 
@@ -47,10 +48,12 @@ function writeBackup(id: string | undefined, b: Backup | null) {
 }
 
 // Lỗi validation backend (key PascalCase) -> tên field của form.
-const FIELD: Record<string, keyof Values> = { title: 'title', slug: 'slug', summary: 'summary', primarycategoryid: 'primaryCategoryId', categoryids: 'categoryIds', tagids: 'tagIds' }
+const FIELD: Record<string, keyof Values> = { locale: 'locale', title: 'title', slug: 'slug', summary: 'summary', primarycategoryid: 'primaryCategoryId', categoryids: 'categoryIds', tagids: 'tagIds' }
 
 export default function PostEditor() {
   const { id } = useParams()
+  const [searchParams] = useSearchParams()
+  const initialLocale = parseLocale(searchParams.get('locale'))
   const navigate = useNavigate()
   const { message, modal } = App.useApp()
   const { user: me } = useAuth()
@@ -80,6 +83,8 @@ export default function PostEditor() {
   const [dirty, setDirty] = useState(false)
 
   const editable = !post || canEdit(post, me)
+  const formLocale = Form.useWatch('locale', form)
+  const currentLocale: Locale = post ? post.locale : (formLocale || initialLocale)
 
   const snapshot = useCallback(
     (c = content, cv = cover) => snap(form.getFieldsValue(true), c, cv),
@@ -90,6 +95,7 @@ export default function PostEditor() {
   const apply = useCallback(
     (p: PostDetail) => {
       const values: Values = {
+        locale: p.locale ?? 'vi',
         title: p.title,
         slug: p.slug,
         summary: p.summary,
@@ -113,7 +119,7 @@ export default function PostEditor() {
 
   const load = useCallback(async () => {
     if (!id) {
-      form.setFieldsValue(EMPTY_VALUES)
+      form.setFieldsValue({ ...EMPTY_VALUES, locale: initialLocale })
       savedRef.current = snap(form.getFieldsValue(true), EMPTY_DOC, null)
       setBackup(readBackup(undefined))
       return
@@ -131,18 +137,22 @@ export default function PostEditor() {
     } finally {
       setLoading(false)
     }
-  }, [id, apply, form])
+  }, [id, apply, form, initialLocale])
 
   useEffect(() => {
     load()
   }, [load])
 
+  // Nạp danh mục theo locale đang soạn (SCRUM-70).
   useEffect(() => {
-    api<Ref[]>('/api/admin/categories')
-      .catch(() => api<Ref[]>('/api/public/categories'))
+    api<Ref[]>(`/api/admin/categories?locale=${currentLocale}`)
+      .catch(() => api<Ref[]>(`/api/public/categories?locale=${currentLocale}`))
       .then((c) => setCategories(c.map((x) => ({ id: x.id, name: x.name }))))
       .catch(() => setCategories([]))
+  }, [currentLocale])
 
+  // Thẻ dùng chung 2 website (không theo locale).
+  useEffect(() => {
     api<Ref[]>('/api/admin/tags')
       .catch(() => api<Ref[]>('/api/public/tags'))
       .then((t) => setTags(t.map((x) => ({ id: x.id, name: x.name }))))
@@ -230,6 +240,7 @@ export default function PostEditor() {
     setCoverError('')
     setContentError('')
     const body = {
+      locale: post ? post.locale : (values.locale || currentLocale),
       title: values.title.trim(),
       slug: values.slug?.trim() || null,
       summary: values.summary?.trim() ?? '',
@@ -303,7 +314,19 @@ export default function PostEditor() {
   const categoryName = (cid?: string) => categories.find((c) => c.id === cid)?.name ?? null
 
   return (
-    <Form form={form} layout="vertical" disabled={!editable || saving} onValuesChange={() => onAnyChange()} requiredMark initialValues={EMPTY_VALUES}>
+    <Form
+      form={form}
+      layout="vertical"
+      disabled={!editable || saving}
+      onValuesChange={(changed) => {
+        if ('locale' in changed) {
+          form.setFieldsValue({ primaryCategoryId: undefined, categoryIds: [] })
+        }
+        onAnyChange()
+      }}
+      requiredMark
+      initialValues={EMPTY_VALUES}
+    >
       {!editable && post && (
         <Alert
           type="info"
@@ -344,7 +367,18 @@ export default function PostEditor() {
               label="Tiêu đề"
               rules={[{ required: true, whitespace: true, message: 'Nhập tiêu đề bài viết.' }, { max: 200, message: 'Tiêu đề tối đa 200 ký tự.' }]}
             >
-              <Input className="post-editor__title" maxLength={200} placeholder="Ví dụ: Thông báo nhận hồ sơ học bổng học kỳ 1" />
+              <Input
+                className="post-editor__title"
+                maxLength={200}
+                placeholder="Ví dụ: Thông báo nhận hồ sơ học bổng học kỳ 1"
+                onBlur={(e) => {
+                  const t = e.target.value.trim()
+                  if (t && !form.getFieldValue('slug')) {
+                    form.setFieldValue('slug', slugify(t))
+                    onAnyChange()
+                  }
+                }}
+              />
             </Form.Item>
             <div id="content-label" style={{ marginBottom: 8 }}>Nội dung</div>
             <RichTextEditor
@@ -371,6 +405,22 @@ export default function PostEditor() {
 
         <Col xs={24} lg={8}>
           <Flex vertical gap={16}>
+            <Card title="Ngôn ngữ bài viết" size="small">
+              <Form.Item
+                name="locale"
+                label="Website hiển thị"
+                extra={post ? 'Ngôn ngữ cố định sau khi tạo bài.' : 'Chọn website bài viết sẽ hiển thị.'}
+                style={{ marginBottom: 0 }}
+              >
+                <Radio.Group
+                  disabled={!editable || !!post}
+                  options={LOCALES}
+                  optionType="button"
+                  buttonStyle="solid"
+                />
+              </Form.Item>
+            </Card>
+
             <Card title="Xuất bản" size="small">
               <Flex vertical gap={12}>
                 <div>

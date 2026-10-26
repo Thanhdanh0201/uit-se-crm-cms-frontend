@@ -20,6 +20,14 @@ Endpoint chưa có trong backend → **không bịa DTO**. Hỏi nhóm backend h
 - Phân trang: `?page=&pageSize=`. Response: `{ items, totalItems, page, pageSize, totalPages }`. SRS đề xuất mặc định 20, tối đa 50 (users hiện mặc định 10).
 - Role: `"student" | "editor" | "admin"`.
 - Thời gian: ISO UTC. Hiển thị theo `Asia/Ho_Chi_Minh`.
+- **Đa ngôn ngữ (Song ngữ Việt - Anh, SCRUM-69)**:
+  - Hệ thống vận hành theo mô hình 2 website độc lập theo cột `locale` (`"vi"` | `"en"`), mặc định `"vi"`. Không có bảng phụ `*_translations`, không gọi dịch máy, tuyệt đối không fallback sang tiếng Việt (không tìm thấy trả 404).
+  - 6 thực thể nội dung độc lập mang `locale`: Bài viết (`posts`), Trang tĩnh (`pages`), Chuyên mục (`categories`), Menu (`menus`), Khối trang chủ (`home_sections`), Slide trang chủ (`home_slides`).
+  - Thẻ (`cms.tags`): DÙNG CHUNG giữa 2 website (không có cột locale, slug duy nhất toàn hệ thống).
+  - Locale **bất biến sau khi tạo**: Endpoint cập nhật bỏ qua/không cho phép sửa trường `locale`.
+  - **Validate liên kết cùng locale**: Bài viết/trang tĩnh trỏ chuyên mục, menu item trỏ chuyên mục/trang tĩnh, chuyên mục con trỏ chuyên mục cha, khối trang chủ trỏ chuyên mục phải cùng locale; vi phạm bị từ chối với **HTTP 422 ProblemDetails** (`code: "locale_mismatch"`).
+  - Unique composite: `(locale, slug)` và `(locale, code)` cho phép trùng slug/code giữa 2 website khác locale nhưng chặn trùng trong cùng một locale.
+  - Full-Text Search: Khi `locale == 'en'` dùng từ điển `'english'`; khi `locale == 'vi'` dùng từ điển không dấu `'simple'`.
 
 ## Auth — ĐÃ CÓ
 
@@ -87,103 +95,110 @@ Cần biết khi dùng:
 
 | Method | Path | Body / Query | Ghi chú |
 |---|---|---|---|
-| GET | `/api/posts` | `?status&search&categoryId&mine&page&pageSize` (mặc định 20, tối đa 50) | Editor luôn chỉ thấy bài của mình; `mine` cho admin |
+| GET | `/api/posts`, `/api/admin/posts` | `?locale&status&search&categoryId&mine&page&pageSize` (mặc định locale=vi) | Editor luôn chỉ thấy bài của mình; `mine` cho admin |
 | GET | `/api/posts/{id}` | – | `PostDetail` cho trình soạn thảo |
 | GET | `/api/posts/{id}/preview` | – | `PostView`, cùng dạng trang công khai. Chỉ tác giả hoặc admin |
-| POST | `/api/posts` | `{ title, slug?, summary, content, coverMediaId?, primaryCategoryId, categoryIds, tagIds }` | Luôn tạo nháp. Slug trống thì tự tạo |
-| PUT | `/api/posts/{id}` | như POST + `version` | Lệch version: 409 `version_conflict` (kèm `currentVersion`) |
+| POST | `/api/posts` | `{ locale?, title, slug?, summary, content, coverMediaId?, primaryCategoryId, categoryIds, tagIds }` | Mặc định `locale="vi"`. Lệch locale category: 422 `locale_mismatch` |
+| PUT | `/api/posts/{id}` | như POST + `version` | Lệch version: 409 `version_conflict`. Bỏ qua `locale` nếu gửi lên (locale bất biến) |
 | POST | `/api/posts/{id}/status` | `{ toStatus, version, reason?, publishedAt?, expiresAt? }` | Vòng đời bài. `reason` bắt buộc khi `changes_requested` |
 | PUT | `/api/posts/{id}/featured` | `{ isFeatured, priority }` | Chỉ admin. Không đổi version |
 | GET | `/api/posts/{id}/history` | – | `[{ id, fromStatus, toStatus, reason, actor: { id, name }, createdAt }]`, mới nhất trước |
-| GET | `/api/public/posts/{slug}` | – | Khách. Chỉ bài published, đã tới `publishedAt`, chưa `expiresAt`; còn lại 404 |
+| GET | `/api/public/posts/{slug}` | `?locale=vi\|en` (mặc định vi) | Khách. Chỉ bài published theo đúng locale; còn lại 404 (không fallback) |
+| POST | `/api/public/posts/{slug}/view` | `?locale=vi\|en` (mặc định vi) | Khách. Ghi nhận view theo đúng (locale, slug) |
 
 Type ở `src/admin/posts.ts`. Cần biết khi dùng:
 - `content` là JSON Tiptap. Backend lọc theo allowlist (`backend/Business/Services/RichTextContent.cs`): `paragraph`, `heading` (2-4), `bulletList`, `orderedList`, `listItem`, `blockquote`, `horizontalRule`, `hardBreak`, `text`, `image` (`attrs.mediaId`, `alt`), `video` (`attrs.mediaId`); mark `bold`, `italic`, `underline`, `strike`, `code`, `link` (http/https/mailto hoặc `/...`). Node, mark, thuộc tính khác bị bỏ.
 - Ảnh/video trong nội dung chỉ lưu `mediaId`. URL hiển thị nằm trong `media` (theo id) và `cover`, là signed URL có hạn, lấy mới mỗi lần đọc bài.
 - `allowedStatuses`: trạng thái người đang đăng nhập được chuyển tới. Nút thao tác hiện theo danh sách này, không tự suy luận.
-- Lỗi: 403 `not_owner` (bài người khác), 422 `post_locked` (editor sửa bài đang chờ duyệt/đã xuất bản), 403 `forbidden_transition` (editor tự duyệt), 422 `invalid_transition`, 400 `errors.Summary/CoverMediaId/Content` khi gửi duyệt hoặc xuất bản thiếu dữ liệu.
+- Lỗi: 403 `not_owner` (bài người khác), 422 `post_locked` (editor sửa bài đang chờ duyệt/đã xuất bản), 403 `forbidden_transition` (editor tự duyệt), 422 `invalid_transition`, 422 `locale_mismatch` (trỏ chuyên mục khác locale), 400 `errors.Summary/CoverMediaId/Content` khi gửi duyệt hoặc xuất bản thiếu dữ liệu.
 
 ## Trang tĩnh và trang chủ — ĐÃ CÓ ở branch backend `feat/pages-home` (`admin`)
 
-| Method | Path | Body / Query |
-|---|---|---|
-| GET | `/api/admin/pages` | `?status&search&page&pageSize` |
-| GET/PUT/DELETE | `/api/admin/pages/{id}` | PUT: `{ title, slug?, content, status, publishedAt?, expiresAt? }` |
-| POST | `/api/admin/pages` | như PUT |
-| GET/POST | `/api/admin/home-sections` | POST: `{ title, categoryId?, itemLimit, isVisible }` |
-| PUT/DELETE | `/api/admin/home-sections/{id}` | – |
-| PUT | `/api/admin/home-sections/order` | `{ ids }` (toàn bộ id theo thứ tự mới) |
-| GET | `/api/public/pages/{slug}` | Khách. Trang nháp/lưu trữ/hết hạn: 404 |
-| GET | `/api/public/home` | Khách. `{ featured, latest, sections: [{ title, categorySlug, posts }], events: [] }` |
+| Method | Path | Body / Query | Ghi chú |
+|---|---|---|---|
+| GET | `/api/admin/pages` | `?locale&status&search&page&pageSize` | Lọc trang tĩnh theo locale |
+| GET/PUT/DELETE | `/api/admin/pages/{id}` | PUT: `{ title, slug?, content, status, publishedAt?, expiresAt? }` | Bỏ qua `locale` khi PUT |
+| POST | `/api/admin/pages` | `{ locale?, title, slug?, content, status, publishedAt?, expiresAt? }` | Mặc định `locale="vi"` |
+| GET | `/api/admin/home-sections` | `?locale=vi\|en` | Danh sách khối trang chủ theo locale |
+| POST | `/api/admin/home-sections` | `{ locale?, title, categoryId?, itemLimit, isVisible }` | Lệch locale category: 422 `locale_mismatch` |
+| PUT/DELETE | `/api/admin/home-sections/{id}` | PUT: `{ title, categoryId?, itemLimit, isVisible }` | Bỏ qua `locale` khi PUT |
+| PUT | `/api/admin/home-sections/order` | `{ ids }` (toàn bộ id theo thứ tự mới) | |
+| GET | `/api/public/pages/{slug}` | `?locale=vi\|en` (mặc định vi) | Khách. Trang nháp/lưu trữ/hết hạn hoặc khác locale: 404 (không fallback) |
+| GET | `/api/public/home` | `?locale=vi\|en` (mặc định vi) | Khách. `{ slides, bottomSlides, featured, latest, sections: [{ title, categorySlug, posts }], events: [] }` lọc 100% theo locale |
 
-Xóa trang đang có trong menu: 409 `page_in_menu` kèm `menuItems`. Frontend chưa có màn hình trang tĩnh và cấu hình trang chủ (chưa có task FE trong Sprint 3).
+Xóa trang đang có trong menu: 409 `page_in_menu` kèm `menuItems`.
 
 ## Slider trang chủ — backend branch `feat/home-slides` (`admin`) — SCRUM-64, SCRUM-65
 
 | Method | Path | Body / Query | Ghi chú |
 |---|---|---|---|
-| GET | `/api/admin/home-slides` | – | `HomeSlideDto[]` theo thứ tự: `{ id, title, caption, image: { id, name, altText, url }, linkUrl, buttonLabel, position, sortOrder, isVisible, startsAt, endsAt, status }`. `status`: `showing` / `scheduled` / `expired` / `hidden` |
-| POST / PUT | `/api/admin/home-slides[/{id}]` | `{ title, caption?, mediaId, linkUrl?, buttonLabel?, position, isVisible, startsAt?, endsAt? }` | `position`: `top` (đầu trang) / `bottom` (cuối trang) |
+| GET | `/api/admin/home-slides` | `?locale=vi\|en` | `HomeSlideDto[]` theo thứ tự và locale |
+| POST / PUT | `/api/admin/home-slides[/{id}]` | `{ locale?, title, caption?, mediaId, linkUrl?, buttonLabel?, position, isVisible, startsAt?, endsAt? }` | PUT bỏ qua locale. Tối đa 10 slide bật mỗi vị trí theo locale |
 | DELETE | `/api/admin/home-slides/{id}` | – | Xóa hẳn, ảnh vẫn còn trong thư viện |
-| PUT | `/api/admin/home-slides/order` | `{ ids }` | Toàn bộ id slide (mọi vị trí) theo thứ tự mới |
-| GET | `/api/public/home` | – | Thêm `slides` (đầu trang) và `bottomSlides` (cuối trang): `[{ id, title, caption, imageUrl, imageAlt, linkUrl, buttonLabel }]`, chỉ slide đang hiện |
+| PUT | `/api/admin/home-slides/order` | `{ ids }` | Toàn bộ id slide theo thứ tự mới |
 
-Cần biết khi dùng:
-- Ảnh phải là media loại ảnh, còn trong thư viện, có alt text (400 `errors.MediaId`). Link chỉ `/...` hoặc http/https (400 `errors.LinkUrl`). Có `buttonLabel` thì bắt buộc `linkUrl`.
-- Tối đa 10 slide đang bật ở mỗi vị trí: 422 `too_many_slides` (`detail` tiếng Việt).
-- Ảnh đang làm slide tính vào `usageCount` và `usages.slides` của media: xóa ảnh trả 409 `media_in_use`.
-
-## Menu — ĐÃ CÓ (backend main, PR #1) — trang `/admin/menus` (SCRUM-35)
+## Menu — ĐÃ CÓ (backend main, PR #1) — trang `/admin/menus` (SCRUM-35, SCRUM-62)
 
 | Method | Path | Body / Query | Ghi chú |
 |---|---|---|---|
-| GET | `/api/admin/menus` | – | `MenuResponseDto[]`: `{ id, code, name, itemCount }` |
-| POST | `/api/admin/menus` | `{ code, name }` | `code` chỉ `a-z0-9-`, trùng mã: 400 |
-| PUT | `/api/admin/menus/{id}` | `{ code, name }` | Bắt buộc gửi cả `code` |
+| GET | `/api/admin/menus` | `?locale=vi\|en` | `MenuResponseDto[]`: `{ id, locale, code, name, maxDepth, itemCount }` |
+| GET | `/api/admin/menus/{id}` | – | `MenuDetailResponseDto`: `{ id, locale, code, name, maxDepth, items }` |
+| POST | `/api/admin/menus` | `{ locale?, code, name, maxDepth? }` | `code` duy nhất theo `(locale, code)`. `maxDepth` mặc định 3 (cho phép 1..10) |
+| PUT | `/api/admin/menus/{id}` | `{ code, name, maxDepth? }` | Bắt buộc gửi cả `code`. Bỏ qua `locale`. Giảm `maxDepth` nhỏ hơn độ sâu hiện tại của cây: **HTTP 422 ProblemDetails** `code: "menu_depth_exceeded"` kèm `invalidItems: [{ id, label, depth }]`, cây không đổi |
 | DELETE | `/api/admin/menus/{id}` | – | Xóa mềm menu và các mục |
-| GET | `/api/admin/menus/{id}/items` | – | Cây `MenuItemTreeDto[]` gồm cả mục ẩn: `{ id, parentId, label, kind, pageId, pageTitle, categoryId, categoryName, externalUrl, resolvedUrl, targetWarning, targetWarningMessage, sortOrder, isVisible, depth, children }` |
-| POST | `/api/admin/menus/{id}/items` | `{ label, kind, parentId?, pageId?, categoryId?, externalUrl?, sortOrder?, isVisible }` | `kind`: `page` / `category` / `external`; chỉ gửi đích đúng loại, còn lại `null` |
-| PUT | `/api/admin/menus/{id}/tree` | `{ items: [{ id, parentId, sortOrder }] }` | Lưu thứ tự và cấp cả cây trong một transaction, trả cây mới |
-| GET | `/api/admin/menu-items/{id}` | – | |
-| PUT | `/api/admin/menu-items/{id}` | như POST, `sortOrder` bắt buộc | |
+| GET | `/api/admin/menus/{id}/items` | – | Cây `MenuItemTreeDto[]` |
+| POST | `/api/admin/menus/{id}/items` | `{ label, kind, parentId?, pageId?, categoryId?, externalUrl?, sortOrder?, isVisible }` | Lệch locale: 422 `locale_mismatch`. Vượt `menu.maxDepth`: 400 Bad Request |
+| PUT | `/api/admin/menus/{id}/tree` | `{ items: [{ id, parentId, sortOrder }] }` | Lưu thứ tự và cấp cả cây trong 1 transaction có row lock. Vượt `menu.maxDepth`: 400 |
+| GET/PUT/DELETE | `/api/admin/menu-items/{id}` | – | Sửa cha làm vượt `menu.maxDepth` hoặc tạo vòng lặp: 400 |
 | PATCH | `/api/admin/menu-items/{id}/visibility` | `{ isVisible }` | |
-| DELETE | `/api/admin/menu-items/{id}` | – | Xóa mềm cả cây con |
-| GET | `/api/admin/menu-items/warnings` | – | Mục trỏ đích không xem được công khai (Dashboard) |
-| GET | `/api/public/menus/{code}` | – | Khách. Đã bỏ mục ẩn và nhánh con của mục ẩn, đã sắp xếp. Header public dùng mã `main` (loader SSR ở `PublicLayout`, lỗi thì dùng menu dự phòng) |
+| GET | `/api/admin/menu-items/warnings` | – | Mục trỏ đích không xem được công khai |
+| GET | `/api/public/menus/{code}` | `?locale=vi\|en` (mặc định vi) | Cả 2 website VI và EN đều dùng chung mã code `"main"`. Sai locale: 404 |
 
-Cần biết khi dùng:
-- Tối đa 3 cấp. Lỗi nghiệp vụ (vượt cấp, vòng lặp, đích bị xóa/ẩn, trùng mã) là **400 chỉ có `detail`**, không có `code`: `ArgumentException` / `InvalidOperationException` của backend. Frontend chặn trước ở client và vẫn hiện `detail` của server.
-- Chuyên mục đang ẩn không chọn làm đích được (400).
+**Lỗi nghiệp vụ giảm số cấp menu (`menu_depth_exceeded` — HTTP 422)**:
+```json
+{
+  "type": "https://tools.ietf.org/html/rfc7231#section-6.5.1",
+  "title": "Độ sâu menu vượt giới hạn",
+  "status": 422,
+  "detail": "Không thể giảm số cấp tối đa của menu xuống 2 vì cây menu hiện tại đang có 2 mục ở cấp sâu hơn.",
+  "instance": "/api/admin/menus/...",
+  "code": "menu_depth_exceeded",
+  "invalidItems": [
+    {
+      "id": "e4b0292d-965a-49e0-8f92-563b784a0d81",
+      "label": "Tuyển sinh cao học",
+      "depth": 3
+    }
+  ]
+}
+```
 
 ## Chuyên mục và thẻ — ĐÃ CÓ (backend main, PR #2) — trang `/admin/categories` (SCRUM-36)
 
 | Method | Path | Body / Query | Ghi chú |
 |---|---|---|---|
-| GET | `/api/admin/categories/tree` | – | `CategoryTreeDto[]`: `{ id, parentId, name, slug, description, sortOrder, isVisible, postCount, children }` |
-| GET | `/api/admin/categories` | `?search&parentId` | Danh sách phẳng, có `parentName` (bộ chọn chuyên mục ở trang khác) |
-| POST | `/api/admin/categories` | `{ name, slug?, description?, parentId?, sortOrder, isVisible }` | `slug` trống thì tự tạo từ tên |
-| PUT | `/api/admin/categories/{id}` | như POST | Không có API bật/tắt riêng: gửi lại đủ trường |
-| DELETE | `/api/admin/categories/{id}` | `?targetCategoryId=` | Còn bài hoặc con thì bắt buộc `targetCategoryId` (không phải chính nó/con cháu); chuyển rồi xóa mềm trong một transaction |
-| GET | `/api/admin/tags` | `?search` | `TagDto[]`: `{ id, name, slug, postCount }`. Chưa phân trang |
-| POST / PUT | `/api/admin/tags[/{id}]` | `{ name, slug? }` | |
-| DELETE | `/api/admin/tags/{id}` | – | Xóa hẳn, gỡ khỏi các bài |
-| GET | `/api/public/categories/tree`, `/api/public/categories/{slug}`, `/api/public/tags` | – | Khách |
-
-Cần biết khi dùng:
-- `slug` chỉ `a-z0-9-` (tối đa 150 với chuyên mục, 100 với thẻ). Trùng slug: 400 `detail` "Slug '...' đã tồn tại".
-- Chọn chính nó hoặc con cháu làm cha: 400 `detail`.
-- **Quyền cần backend sửa:** các controller menu, chuyên mục, thẻ đang `[Authorize(Roles = "admin,editor")]` cho cả thao tác ghi. SRS 3.2: quản lý menu và chuyên mục chỉ Admin. Frontend đã chỉ cho admin vào hai trang này.
+| GET | `/api/admin/categories/tree` | `?locale=vi\|en` | `CategoryTreeDto[]` theo locale |
+| GET | `/api/admin/categories` | `?locale&search&parentId` | Danh sách phẳng theo locale |
+| POST | `/api/admin/categories` | `{ locale?, name, slug?, description?, parentId?, sortOrder, isVisible }` | Chọn parentId khác locale: 422 `locale_mismatch` |
+| PUT | `/api/admin/categories/{id}` | như POST | Bỏ qua `locale` khi PUT |
+| DELETE | `/api/admin/categories/{id}` | `?targetCategoryId=` | Chuyển bài/con rồi xóa mềm |
+| GET | `/api/admin/tags` | `?search` | Thẻ dùng chung 2 website, không có locale |
+| POST / PUT / DELETE | `/api/admin/tags[/{id}]` | `{ name, slug? }` | Thẻ dùng chung |
+| GET | `/api/public/categories/tree` | `?locale=vi\|en` | Cây chuyên mục công khai theo locale |
+| GET | `/api/public/categories/{slug}` | `?locale=vi\|en` | Chi tiết chuyên mục theo locale; sai locale: 404 |
+| GET | `/api/public/categories/{slug}/posts` | `?locale&page&pageSize` | Bài viết thuộc chuyên mục theo locale |
+| GET | `/api/public/tags` | – | Khách, thẻ dùng chung |
 
 ## Website công khai — ĐÃ CÓ (backend main) — SCRUM-42, 43, 44, 53
 
 | Method | Path | Body / Query | Ghi chú |
 |---|---|---|---|
-| GET | `/api/public/posts` | `?keyword&categoryId&categorySlug&tagId&tagSlug&fromDate&toDate&page&pageSize` (tối đa 50) | `PostCardDto[]` phân trang, mới xuất bản trước. Trang `/search` |
-| GET | `/api/public/categories/{slug}/posts` | `?page&pageSize` (mặc định 10) | Chuyên mục ẩn/không tồn tại: 404. Trang `/categories/:slug` |
-| GET | `/api/public/categories` | – | Danh sách phẳng chuyên mục đang hiện (bộ lọc tìm kiếm) |
-| POST | `/api/public/posts/{slug}/view` | – | `{ viewCount }`. Server chống lặp theo cookie phiên. Frontend gọi một lần mỗi bài mở ở trình duyệt |
-| GET | `/api/me/bookmarks` | `?page&pageSize` | Đăng nhập. Chỉ trả bài còn công khai. Trang `/me/saved` |
-| GET / PUT / DELETE | `/api/me/bookmarks/{postId}` | – | `{ bookmarked }`. Bài không công khai: 404 |
+| GET | `/api/public/posts` | `?locale&keyword&categoryId&categorySlug&tagId&tagSlug&fromDate&toDate&page&pageSize` | Lọc 100% bài theo `locale` (mặc định vi). FTS keyword dùng từ điển `'english'` khi locale=en, `'simple'` khi locale=vi |
+| GET | `/api/public/categories/{slug}/posts` | `?locale&page&pageSize` | Chuyên mục ẩn/khác locale: 404 |
+| GET | `/api/public/categories` | `?locale=vi\|en` | Danh sách phẳng chuyên mục theo locale |
+| POST | `/api/public/posts/{slug}/view` | `?locale=vi\|en` | Ghi nhận view theo (locale, slug) |
+| GET | `/api/me/bookmarks` | `?page&pageSize` | Đăng nhập |
+| GET / PUT / DELETE | `/api/me/bookmarks/{postId}` | – | Đăng nhập |
 
 `PostCardDto`: `{ id, slug, title, summary, coverUrl, coverAlt, publishedAt, categoryName, categorySlug }`. `id` thêm ở backend branch `feat/post-card-id` (chờ merge) để bỏ lưu từ danh sách. Type ở `src/components/PostList.tsx`.
 

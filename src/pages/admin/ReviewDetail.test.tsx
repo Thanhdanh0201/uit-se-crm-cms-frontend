@@ -24,7 +24,7 @@ const admin = { '/api/auth/me': () => ok({ id: 'ad', username: 'admin.khoa', ful
 const editor = { '/api/auth/me': () => ok({ id: 'me', username: 'ha.le', fullName: 'Lê Thu Hà', role: 'editor', email: 'ha@uit.edu.vn' }) }
 
 const POST: PostDetail = {
-  id: 'p1', title: 'Thông báo học bổng học kỳ 1', slug: 'thong-bao-hoc-bong', summary: 'Hạn nộp 30/10.', status: 'pending', version: 2,
+  id: 'p1', title: 'Thông báo học bổng học kỳ 1', slug: 'thong-bao-hoc-bong', locale: 'vi', summary: 'Hạn nộp 30/10.', status: 'pending', version: 2,
   author: { id: 'me', name: 'Lê Thu Hà' }, primaryCategoryId: 'c1', categories: [{ id: 'c1', name: 'Thông báo' }], tags: [],
   content: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Sinh viên nộp hồ sơ tại văn phòng Khoa.' }] }] },
   cover: null, media: {}, reviewReason: null, isFeatured: false, priority: 0, publishedAt: null, expiresAt: null,

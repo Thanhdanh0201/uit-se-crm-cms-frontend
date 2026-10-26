@@ -25,7 +25,7 @@ const admin = { '/api/auth/me': () => ok({ id: 'ad', username: 'admin.khoa', ful
 const categories = { '/api/admin/categories': () => ok([{ id: 'c1', name: 'Thông báo' }]) }
 
 const NHAP: PostListItem = {
-  id: 'p1', title: 'Thông báo học bổng học kỳ 1', slug: 'thong-bao-hoc-bong', status: 'draft', author: { id: 'me', name: 'Lê Thu Hà' },
+  id: 'p1', title: 'Thông báo học bổng học kỳ 1', slug: 'thong-bao-hoc-bong', locale: 'vi', status: 'draft', author: { id: 'me', name: 'Lê Thu Hà' },
   primaryCategory: { id: 'c1', name: 'Thông báo' }, isFeatured: false, priority: 0, reviewReason: null, version: 3,
   publishedAt: null, expiresAt: null, updatedAt: '2026-10-05T02:00:00Z', allowedStatuses: ['pending'],
 }
@@ -35,8 +35,9 @@ const page = (items: PostListItem[]) => ok({ items, totalItems: items.length, pa
 const open = (path = '/admin/posts') => renderPage(path, '/admin/posts', <App><Posts /></App>)
 
 test('postsQuery: URL sang query API, bỏ giá trị lạ', () => {
-  expect(postsQuery(new URLSearchParams('status=pending&keyword= thi &category=c1&mine=1&page=2'))).toBe('page=2&pageSize=20&status=pending&search=thi&categoryId=c1&mine=true')
-  expect(postsQuery(new URLSearchParams('status=xoa&pageSize=999'))).toBe('page=1&pageSize=20')
+  expect(postsQuery(new URLSearchParams('status=pending&keyword= thi &category=c1&mine=1&page=2'))).toBe('page=2&pageSize=20&locale=vi&status=pending&search=thi&categoryId=c1&mine=true')
+  expect(postsQuery(new URLSearchParams('status=pending&locale=en'))).toBe('page=1&pageSize=20&locale=en&status=pending')
+  expect(postsQuery(new URLSearchParams('status=xoa&pageSize=999'))).toBe('page=1&pageSize=20&locale=vi')
 })
 
 test('editor: chỉ sửa bài nháp của mình, bài chờ duyệt không có nút sửa, không có cột tác giả', async () => {
@@ -86,4 +87,23 @@ test('admin: có cột tác giả, lọc "Của tôi", nút duyệt bài chờ d
   expect(await screen.findByRole('button', { name: 'Duyệt Lịch thi cuối kỳ' })).toBeTruthy()
   expect(screen.getByRole('columnheader', { name: 'Tác giả' })).toBeTruthy()
   expect(String(api.calls('/api/posts')[0][0])).toContain('mine=true')
+})
+
+test('chuyển đổi locale: gọi API với query locale tương ứng và hiển thị tag ngôn ngữ', async () => {
+  const EN_POST: PostListItem = {
+    ...NHAP,
+    id: 'p-en',
+    title: 'Admissions 2026',
+    slug: 'admissions-2026',
+    locale: 'en',
+  }
+  const api = mockApi({
+    ...editor,
+    '/api/admin/categories': () => ok([{ id: 'c1', name: 'Notice' }]),
+    '/api/posts': () => page([EN_POST]),
+  })
+  open('/admin/posts?locale=en')
+  expect(await screen.findByText('Admissions 2026')).toBeTruthy()
+  expect(within(screen.getByRole('row', { name: /Admissions 2026/ })).getByText('English')).toBeTruthy()
+  expect(String(api.calls('/api/posts')[0][0])).toContain('locale=en')
 })

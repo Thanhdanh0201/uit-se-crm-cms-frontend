@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router'
-import { Alert, Button, Card, Empty, Input, Segmented, Table, Tag } from 'antd'
+import { Alert, Button, Card, Empty, Flex, Input, Segmented, Table, Tag } from 'antd'
 import { api } from '../../lib/api'
 import { RequireRole } from '../../lib/auth'
 import { noIndex } from '../../lib/seo'
 import { useListParams } from '../../lib/useListParams'
+import { LOCALES, localeColor, localeLabel, parseLocale } from '../../admin/locale'
 import { formatDateTime, postErrorMessage, STATUS_COLOR, statusLabel, type PostListItem, type PostPage, type PostStatus } from '../../admin/posts'
 
 export const meta = () => noIndex('Duyệt bài')
@@ -18,6 +19,7 @@ const TABS: { value: PostStatus; label: string }[] = [
 
 function ReviewList() {
   const list = useListParams(20)
+  const locale = parseLocale(list.params.get('locale'))
   const status = (TABS.find((t) => t.value === list.params.get('status'))?.value ?? 'pending') as PostStatus
   const [data, setData] = useState<PostPage | null>(null)
   const [loading, setLoading] = useState(true)
@@ -26,7 +28,7 @@ function ReviewList() {
 
   useEffect(() => {
     const ctrl = new AbortController()
-    const q = new URLSearchParams({ status, page: String(list.page), pageSize: String(list.pageSize) })
+    const q = new URLSearchParams({ status, locale, page: String(list.page), pageSize: String(list.pageSize) })
     if (list.keyword) q.set('search', list.keyword)
     setLoading(true)
     setError('')
@@ -39,11 +41,26 @@ function ReviewList() {
       })
       .finally(() => !ctrl.signal.aborted && setLoading(false))
     return () => ctrl.abort()
-  }, [status, list.page, list.pageSize, list.keyword, reloadKey])
+  }, [status, locale, list.page, list.pageSize, list.keyword, reloadKey])
 
   return (
     <Card
-      title={<Segmented value={status} options={TABS} aria-label="Lọc theo trạng thái" onChange={(v) => list.update({ status: v === 'pending' ? null : v })} />}
+      title={
+        <Flex gap={12} align="center" wrap>
+          <Segmented
+            value={locale}
+            options={LOCALES}
+            aria-label="Lọc theo ngôn ngữ"
+            onChange={(v) => list.update({ locale: v === 'vi' ? null : v, page: 1 })}
+          />
+          <Segmented
+            value={status}
+            options={TABS}
+            aria-label="Lọc theo trạng thái"
+            onChange={(v) => list.update({ status: v === 'pending' ? null : v, page: 1 })}
+          />
+        </Flex>
+      }
       extra={
         <Input.Search
           key={list.keyword}
@@ -75,7 +92,16 @@ function ReviewList() {
           onChange: (page) => list.update({ page }),
         }}
         columns={[
-          { title: 'Tiêu đề', key: 'title', render: (_, p) => <Link to={`/admin/review/${p.id}`}>{p.title}</Link> },
+          {
+            title: 'Tiêu đề',
+            key: 'title',
+            render: (_, p) => (
+              <div>
+                <Tag color={localeColor(p.locale)} style={{ marginInlineEnd: 6 }}>{localeLabel(p.locale)}</Tag>
+                <Link to={`/admin/review/${p.id}`}>{p.title}</Link>
+              </div>
+            ),
+          },
           { title: 'Tác giả', key: 'author', render: (_, p) => p.author.name },
           { title: 'Chuyên mục', key: 'category', render: (_, p) => p.primaryCategory.name },
           { title: 'Trạng thái', dataIndex: 'status', render: (s: PostStatus) => <Tag color={STATUS_COLOR[s]}>{statusLabel(s)}</Tag> },

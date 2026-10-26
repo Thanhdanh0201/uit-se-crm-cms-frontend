@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Alert, App, Button, Card, Drawer, Empty, Flex, Form, Input, InputNumber, Popconfirm, Select, Skeleton, Switch, Tag, Tooltip } from 'antd'
+import { Alert, App, Button, Card, Drawer, Empty, Flex, Form, Input, InputNumber, Popconfirm, Segmented, Select, Skeleton, Switch, Tag, Tooltip } from 'antd'
 import { ArrowDown, ArrowSquareOut, ArrowUp, Info, PencilSimple, Plus, Trash } from '@phosphor-icons/react'
 import { api, ApiError } from '../../lib/api'
 import { RequireRole } from '../../lib/auth'
@@ -7,11 +7,12 @@ import { noIndex } from '../../lib/seo'
 import { useListParams } from '../../lib/useListParams'
 import { viSearchMatch } from '../../admin/tree'
 import type { Ref } from '../../admin/posts'
+import { LOCALES, localeColor, localeLabel, parseLocale } from '../../admin/locale'
 
 export const meta = () => noIndex('Cấu hình trang chủ')
 
 // DTO theo backend HomeSectionDto (SCRUM-17).
-export type HomeSection = { id: string; title: string; categoryId: string | null; categoryName: string | null; sortOrder: number; itemLimit: number; isVisible: boolean }
+export type HomeSection = { id: string; title: string; categoryId: string | null; categoryName: string | null; sortOrder: number; itemLimit: number; isVisible: boolean; locale?: 'vi' | 'en' }
 type Values = { title: string; categoryId?: string | null; itemLimit: number; isVisible: boolean }
 
 // Đổi chỗ phần tử index với phần tử kề (dir = -1 lên, 1 xuống), trả về danh sách id theo thứ tự mới.
@@ -31,8 +32,9 @@ const errorMessage = (err: unknown) =>
           : err.message || 'Không thực hiện được lúc này. Vui lòng thử lại sau.'
 
 function HomeSectionsContent() {
-  const { message } = App.useApp()
+  const { message, modal } = App.useApp()
   const list = useListParams()
+  const locale = parseLocale(list.params.get('locale'))
   const [form] = Form.useForm<Values>()
   const [sections, setSections] = useState<HomeSection[] | null>(null)
   const [categories, setCategories] = useState<Ref[]>([])
@@ -46,15 +48,15 @@ function HomeSectionsContent() {
   useEffect(() => {
     const ctrl = new AbortController()
     setError('')
-    api<HomeSection[]>('/api/admin/home-sections', { signal: ctrl.signal })
+    api<HomeSection[]>(`/api/admin/home-sections?locale=${locale}`, { signal: ctrl.signal })
       .then(setSections)
       .catch((err) => !ctrl.signal.aborted && setError(errorMessage(err)))
     return () => ctrl.abort()
-  }, [reloadKey])
+  }, [locale, reloadKey])
 
   useEffect(() => {
-    api<Ref[]>('/api/admin/categories').then((c) => setCategories(c.map((x) => ({ id: x.id, name: x.name })))).catch(() => setCategories([]))
-  }, [])
+    api<Ref[]>(`/api/admin/categories?locale=${locale}`).then((c) => setCategories(c.map((x) => ({ id: x.id, name: x.name })))).catch(() => setCategories([]))
+  }, [locale])
 
   // Mở drawer: nạp giá trị khối đang sửa hoặc mặc định khi thêm.
   useEffect(() => {
@@ -90,7 +92,9 @@ function HomeSectionsContent() {
     if (busy) return
     setBusy(true)
     setDrawerError('')
-    const body = { title: values.title.trim(), categoryId: values.categoryId ?? null, itemLimit: values.itemLimit, isVisible: values.isVisible }
+    const body = editing
+      ? { title: values.title.trim(), categoryId: values.categoryId ?? null, itemLimit: values.itemLimit, isVisible: values.isVisible }
+      : { title: values.title.trim(), categoryId: values.categoryId ?? null, itemLimit: values.itemLimit, isVisible: values.isVisible, locale }
     try {
       if (editing) await api(`/api/admin/home-sections/${editing.id}`, { method: 'PUT', json: body })
       else await api('/api/admin/home-sections', { method: 'POST', json: body })
@@ -108,7 +112,16 @@ function HomeSectionsContent() {
 
   return (
     <Card
-      title="Khối nội dung trang chủ"
+      title={
+        <Flex gap={12} align="center" wrap="wrap">
+          <span>Khối nội dung trang chủ</span>
+          <Segmented
+            value={locale}
+            onChange={(v) => list.update({ locale: v as 'vi' | 'en', action: null, id: null })}
+            options={LOCALES}
+          />
+        </Flex>
+      }
       extra={
         <Flex gap={8}>
           <Button icon={<ArrowSquareOut size={16} />} href="/" target="_blank" rel="noopener noreferrer">Xem trang chủ</Button>
@@ -135,7 +148,9 @@ function HomeSectionsContent() {
             <li key={s.id} className="home-section-row" style={{ opacity: s.isVisible ? 1 : 0.65 }}>
               <span className="muted home-section-row__index">{i + 1}</span>
               <div className="home-section-row__info">
-                <div style={{ fontWeight: 600 }}>{s.title} {!s.isVisible && <Tag>Đang ẩn</Tag>}</div>
+                <div style={{ fontWeight: 600 }}>
+                  {s.title} {!s.isVisible && <Tag>Đang ẩn</Tag>} <Tag color={localeColor(s.locale ?? locale)}>{localeLabel(s.locale ?? locale)}</Tag>
+                </div>
                 <div className="muted" style={{ fontSize: 'var(--text-sm)' }}>
                   {s.categoryName ? `Chuyên mục: ${s.categoryName}` : 'Bài mới nhất mọi chuyên mục'} · tối đa {s.itemLimit} bài
                 </div>
@@ -156,7 +171,12 @@ function HomeSectionsContent() {
 
       <Drawer
         open={list.action === 'create' || !!editing}
-        title={editing ? `Sửa khối "${editing.title}"` : 'Thêm khối trang chủ'}
+        title={
+          <Flex gap={8} align="center">
+            <span>{editing ? `Sửa khối "${editing.title}"` : 'Thêm khối trang chủ'}</span>
+            <Tag color={localeColor(editing?.locale ?? locale)}>{localeLabel(editing?.locale ?? locale)}</Tag>
+          </Flex>
+        }
         size={480}
         onClose={list.closeDrawer}
         footer={

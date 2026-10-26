@@ -36,7 +36,7 @@ const TREE = () => [
 const admin = { '/api/auth/me': () => ok({ id: 'ad', username: 'admin', fullName: 'Quản trị', role: 'admin', email: 'ad@uit.edu.vn' }) }
 const base = (tree = TREE) => ({
   ...admin,
-  '/api/admin/menus': () => ok([{ id: 'm1', code: 'main', name: 'Menu chính', itemCount: 5 }]),
+  '/api/admin/menus': () => ok([{ id: 'm1', code: 'main', name: 'Menu chính', itemCount: 5, maxDepth: 3 }]),
   '/api/admin/menus/m1/items': () => ok(tree()),
   '/api/admin/pages': () => ok({ items: [], totalItems: 0, page: 1, pageSize: 50 }),
   '/api/admin/categories': () => ok([{ id: 'c-new', name: 'Lịch thi bổ sung', slug: 'lich-thi-bo-sung', isVisible: true, parentName: null }]),
@@ -164,5 +164,99 @@ test('xóa menu: mở hộp thoại xác nhận, gọi DELETE, tải lại danh 
   expect((await screen.findAllByText('Xóa menu "Menu chính"?')).length).toBeGreaterThan(0)
   await userEvent.click(screen.getByRole('button', { name: 'Xóa' }))
   await waitFor(() => expect(deleted).toBe(1))
+})
+
+test('lọc menu theo ngôn ngữ và tạo menu mới gửi kèm locale', async () => {
+  let createdMenu: any = null
+  mockApi({
+    ...base(),
+    '/api/admin/menus': (url, init) => {
+      if (init?.method === 'POST') {
+        createdMenu = JSON.parse(String(init.body))
+        return ok({ id: 'm-en', code: createdMenu.code, name: createdMenu.name, itemCount: 0, locale: createdMenu.locale })
+      }
+      if (url.includes('locale=en')) {
+        return ok([{ id: 'm-en', code: 'main-en', name: 'Main Menu EN', itemCount: 0, locale: 'en' }])
+      }
+      return ok([{ id: 'm1', code: 'main', name: 'Menu chính', itemCount: 5, locale: 'vi' }])
+    },
+    '/api/admin/menus/m-en/items': () => ok([]),
+  })
+
+  open('/admin/menus?locale=en')
+  expect((await screen.findAllByText(/Main Menu EN/)).length).toBeGreaterThan(0)
+
+  // Bấm Thêm menu
+  await userEvent.click(screen.getByRole('button', { name: 'Thêm menu' }))
+  const modal = await screen.findByRole('dialog')
+  expect(within(modal).getByText('English')).toBeTruthy()
+  await userEvent.type(within(modal).getByLabelText('Tên menu'), 'Footer Menu EN')
+  await userEvent.type(within(modal).getByLabelText('Mã menu'), 'footer-en')
+  await userEvent.click(within(modal).getByRole('button', { name: 'Lưu' }))
+
+  await waitFor(() => expect(createdMenu).toBeTruthy())
+  expect(createdMenu).toEqual({ name: 'Footer Menu EN', code: 'footer-en', maxDepth: 3, locale: 'en' })
+})
+
+test('giới hạn động: menu maxDepth = 2 khóa nút thêm mục con ở cấp 2', async () => {
+  mockApi({
+    ...base(),
+    '/api/admin/menus': () => ok([{ id: 'm1', code: 'main', name: 'Menu chính', itemCount: 5, maxDepth: 2 }]),
+  })
+  open()
+  // Ở maxDepth = 2: 'Học bổng' (cấp 2) bị khóa nút thêm con, 'Tin tức' (cấp 1) vẫn mở
+  expect(await screen.findByText('Tin tức')).toBeTruthy()
+  expect((screen.getByLabelText('Thêm mục con cho "Học bổng"') as HTMLButtonElement).disabled).toBe(true)
+  expect((screen.getByLabelText('Thêm mục con cho "Tin tức"') as HTMLButtonElement).disabled).toBe(false)
+  expect(screen.getByText(/Tối đa 2 cấp\./)).toBeTruthy()
+})
+
+test('giới hạn động: menu maxDepth = 4 cho phép thêm mục con ở cấp 3', async () => {
+  mockApi({
+    ...base(),
+    '/api/admin/menus': () => ok([{ id: 'm1', code: 'main', name: 'Menu chính', itemCount: 5, maxDepth: 4 }]),
+  })
+  open()
+  // Ở maxDepth = 4: 'Lịch thi' (cấp 3) chưa đạt tối đa nên nút thêm con vẫn mở
+  expect(await screen.findByText('Lịch thi')).toBeTruthy()
+  expect((screen.getByLabelText('Thêm mục con cho "Lịch thi"') as HTMLButtonElement).disabled).toBe(false)
+  expect(screen.getByText(/Tối đa 4 cấp\./)).toBeTruthy()
+})
+
+test('sửa menu giảm maxDepth gặp lỗi 422 menu_depth_exceeded: hiển thị thông báo kèm invalidItems', async () => {
+  mockApi({
+    ...base(),
+    '/api/admin/menus/m1': (_u, init) => {
+      if (init?.method === 'PUT') {
+        return reply(422, {
+          title: 'Unprocessable Entity',
+          status: 422,
+          code: 'menu_depth_exceeded',
+          detail: 'Không thể giảm số cấp tối đa của menu xuống 2 vì cây menu hiện tại đang có 1 mục ở cấp sâu hơn.',
+          invalidItems: [{ id: 'lich-thi', label: 'Lịch thi', depth: 3 }],
+        })
+      }
+      return ok({})
+    },
+  })
+  open()
+  // Bấm sửa menu
+  await userEvent.click(await screen.findByRole('button', { name: /Sửa menu/ }))
+  const modal = await screen.findByRole('dialog')
+  expect(within(modal).getByText(/Sửa menu "Menu chính"/)).toBeTruthy()
+
+  // Chỉnh số cấp tối đa xuống 2
+  const maxDepthInput = within(modal).getByLabelText('Số cấp tối đa')
+  await userEvent.clear(maxDepthInput)
+  await userEvent.type(maxDepthInput, '2')
+  await userEvent.click(within(modal).getByRole('button', { name: 'Lưu' }))
+
+  // Kiểm tra hiển thị thông báo lỗi 422 kèm danh sách invalidItems
+  expect(await within(modal).findByText(/Không thể giảm số cấp tối đa của menu xuống 2/)).toBeTruthy()
+  expect(within(modal).getByText('Các mục cần điều chỉnh:')).toBeTruthy()
+  expect(within(modal).getByText('Lịch thi')).toBeTruthy()
+  expect(within(modal).getByText(/cấp 3/)).toBeTruthy()
+  // Modal vẫn mở, không đóng
+  expect(screen.queryByRole('dialog')).toBeTruthy()
 })
 
