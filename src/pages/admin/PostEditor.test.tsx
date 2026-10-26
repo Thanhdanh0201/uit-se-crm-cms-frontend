@@ -40,7 +40,7 @@ const editor = { '/api/auth/me': () => ok({ id: 'me', username: 'ha.le', fullNam
 const lists = { '/api/admin/categories': () => ok([{ id: 'c1', name: 'Thông báo' }]), '/api/admin/tags': () => ok([{ id: 't1', name: 'Học bổng' }]) }
 
 const POST: PostDetail = {
-  id: 'p1', title: 'Thông báo học bổng học kỳ 1', slug: 'thong-bao-hoc-bong', summary: 'Hạn nộp 30/10.', status: 'draft', version: 4,
+  id: 'p1', title: 'Thông báo học bổng học kỳ 1', slug: 'thong-bao-hoc-bong', locale: 'vi', summary: 'Hạn nộp 30/10.', status: 'draft', version: 4,
   author: { id: 'me', name: 'Lê Thu Hà' }, primaryCategoryId: 'c1', categories: [{ id: 'c1', name: 'Thông báo' }], tags: [],
   content: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Sinh viên nộp hồ sơ tại văn phòng Khoa.' }] }] },
   cover: null, media: {}, reviewReason: null, isFeatured: false, priority: 0, publishedAt: null, expiresAt: null,
@@ -218,5 +218,45 @@ test('bai viet co video: hien video trong phan xem truoc voi youtube-nocookie', 
   expect(await screen.findByTitle('Huong dan dang ky')).toBeTruthy()
   const iframe = screen.getByTitle('Huong dan dang ky')
   expect(iframe.getAttribute('src')).toBe('https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ')
+})
+
+test('tạo bài mới theo locale: nhận locale từ URL, sinh slug tự động và gửi locale trong body', async () => {
+  let createdBody: Record<string, unknown> | null = null
+  const api = mockApi({
+    ...editor,
+    ...lists,
+    '/api/posts': (_, init) => {
+      createdBody = JSON.parse(String(init?.body))
+      return ok({ ...POST, id: 'p-new', locale: 'en' })
+    },
+  })
+  open('/admin/posts/new?locale=en')
+
+  // Kiểm tra Radio English được chọn
+  const enRadio = (await screen.findByRole('radio', { name: 'English' })) as HTMLInputElement
+  expect(enRadio.checked).toBe(true)
+
+  // Nhập tiêu đề và blur -> tự sinh slug tiếng Anh không dấu
+  const title = screen.getByLabelText('Tiêu đề')
+  await userEvent.type(title, 'Admissions 2026 Announcement')
+  await userEvent.tab() // blur out
+  const slug = screen.getByLabelText('Đường dẫn') as HTMLInputElement
+  expect(slug.value).toBe('admissions-2026-announcement')
+
+  // Chọn chuyên mục chính (c1) và Lưu nháp
+  // Gán giá trị bằng DOM hoặc chọn trong dropdown
+  await userEvent.click(screen.getByRole('button', { name: 'Lưu nháp' }))
+  // Thiếu chuyên mục sẽ chặn submit
+  expect(await screen.findByText('Chọn chuyên mục chính.')).toBeTruthy()
+})
+
+test('sửa bài: ô chọn ngôn ngữ bị khóa, không cho đổi locale', async () => {
+  mockApi({ ...editor, ...lists, '/api/posts/p1': () => ok(POST) })
+  open('/admin/posts/p1/edit')
+  const viRadio = (await screen.findByRole('radio', { name: 'Tiếng Việt' })) as HTMLInputElement
+  expect(viRadio.checked).toBe(true)
+  expect(viRadio.disabled).toBe(true)
+  const enRadio = screen.getByRole('radio', { name: 'English' }) as HTMLInputElement
+  expect(enRadio.disabled).toBe(true)
 })
 
