@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, NavLink, Outlet, useLoaderData, useLocation, useNavigate } from 'react-router'
-import { CaretDown, CaretRight, EnvelopeSimple, List, MagnifyingGlass, MapPin, Phone } from '@phosphor-icons/react'
+import { CaretDown, CaretRight, EnvelopeSimple, Globe, List, MagnifyingGlass, MapPin, Phone } from '@phosphor-icons/react'
 import { api } from '../lib/api'
 import { useAuth } from '../lib/auth'
+import { getLocaleFromPath, useDictionary } from '../lib/locale'
+import type { Locale } from '../lib/dictionary'
 import { buttonClass } from '../components/ui/Button'
 import './layout.css'
 
@@ -10,28 +12,30 @@ import './layout.css'
 export type NavItem = { id: string; label: string; kind: string; url: string | null; children: NavItem[] }
 
 // Menu dự phòng khi chưa tạo menu "main" trong trang quản trị hoặc không gọi được API.
-// Chỉ gồm route của ứng dụng, không cố định slug chuyên mục/trang tĩnh (Admin có thể đổi hoặc xóa).
-const FALLBACK: NavItem[] = [
-  ['Trang chủ', '/'],
-  ['Tin tức', '/search'],
+const getFallback = (locale: Locale): NavItem[] => [
+  [locale === 'en' ? 'Home' : 'Trang chủ', locale === 'en' ? '/en' : '/'],
+  [locale === 'en' ? 'News' : 'Tin tức', locale === 'en' ? '/en/search' : '/search'],
 ].map(([label, url]) => ({ id: url, label, kind: 'route', url, children: [] }))
 
-// Menu chính do Admin cấu hình (FR-MENU), mã "main". Nạp theo locale của trang.
+// Menu chính do Admin cấu hình (FR-MENU), mã "main". Nạp theo locale của URL.
 export async function loader({ request }: { request?: Request } = {}) {
-  let locale = 'vi'
+  let locale: Locale = 'vi'
   if (request?.url) {
     try {
       const url = new URL(request.url)
-      locale = url.searchParams.get('locale') || 'vi'
+      const q = url.searchParams.get('locale')
+      if (q === 'en' || q === 'vi') locale = q
+      else locale = getLocaleFromPath(url.pathname)
     } catch {
       // ignore
     }
   }
+  const fallback = getFallback(locale)
   try {
     const menu = await api<{ items: NavItem[] }>(`/api/public/menus/main?locale=${locale}`)
-    return { nav: menu.items.length ? menu.items : FALLBACK }
+    return { nav: menu.items.length ? menu.items : fallback, locale }
   } catch {
-    return { nav: FALLBACK }
+    return { nav: fallback, locale }
   }
 }
 
@@ -149,7 +153,9 @@ export default function PublicLayout() {
   const navigate = useNavigate()
   const menuRef = useRef<HTMLDetailsElement>(null)
   const { pathname } = useLocation()
-  const nav = useLoaderData<typeof loader>()?.nav ?? FALLBACK
+  const { locale, t, lPath } = useDictionary()
+  const loaderData = useLoaderData<typeof loader>()
+  const nav = loaderData?.nav ?? getFallback(locale)
 
   // Đóng menu mobile sau khi chuyển trang.
   useEffect(() => {
@@ -158,19 +164,49 @@ export default function PublicLayout() {
 
   async function onLogout() {
     await logout()
-    navigate('/login', { replace: true })
+    navigate(lPath('/login'), { replace: true })
   }
+
+  const handleLanguageChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const nextLocale = e.target.value as Locale
+    if (nextLocale === 'en') {
+      navigate('/en')
+    } else {
+      navigate('/')
+    }
+  }
+
+  const languageSwitcher = (idPrefix = 'site') => (
+    <div className="site-lang">
+      <label htmlFor={`${idPrefix}-lang-select`} className="sr-only">
+        {t.selectLanguage}
+      </label>
+      <div className="site-lang__wrapper">
+        <Globe size={16} aria-hidden className="site-lang__icon" />
+        <select
+          id={`${idPrefix}-lang-select`}
+          className="site-lang__select"
+          value={locale}
+          aria-label={t.selectLanguage}
+          onChange={handleLanguageChange}
+        >
+          <option value="vi">Tiếng Việt</option>
+          <option value="en">English</option>
+        </select>
+      </div>
+    </div>
+  )
 
   const account = user ? (
     <>
-      {user.role !== 'student' && <Link to="/admin" className={buttonClass('secondary', 'sm')}>Quản trị</Link>}
-      <Link to="/me" className={buttonClass('ghost', 'sm')}>Tài khoản</Link>
+      {user.role !== 'student' && <Link to="/admin" className={buttonClass('secondary', 'sm')}>{t.admin}</Link>}
+      <Link to={lPath('/me')} className={buttonClass('ghost', 'sm')}>{t.account}</Link>
       <button type="button" className={buttonClass('ghost', 'sm')} onClick={onLogout} disabled={loggingOut} aria-busy={loggingOut || undefined}>
-        {loggingOut ? 'Đang đăng xuất' : 'Đăng xuất'}
+        {loggingOut ? t.signingOut : t.signOut}
       </button>
     </>
   ) : (
-    <Link to="/login" className={buttonClass('primary', 'sm')}>Đăng nhập</Link>
+    <Link to={lPath('/login')} className={buttonClass('primary', 'sm')}>{t.signIn}</Link>
   )
 
   const closeMobileMenu = () => {
@@ -179,17 +215,17 @@ export default function PublicLayout() {
 
   return (
     <>
-      <a href="#main" className="skip-link">Bỏ qua điều hướng</a>
+      <a href="#main" className="skip-link">{t.skipLink}</a>
       <header className="site-header">
         <div className="site-header__inner">
-          <Link to="/" className="brand">
-            <strong>Khoa Công nghệ Phần mềm</strong>
-            <small>Trường ĐH Công nghệ Thông tin, ĐHQG-HCM</small>
+          <Link to={locale === 'en' ? '/en' : '/'} className="brand">
+            <strong>{t.brandName}</strong>
+            <small>{t.brandSub}</small>
           </Link>
 
           <nav
             className="site-nav"
-            aria-label="Điều hướng chính"
+            aria-label={t.navMain}
             onKeyDown={(e) => {
               if (e.key === 'Escape') {
                 (document.activeElement as HTMLElement)?.blur()
@@ -213,15 +249,19 @@ export default function PublicLayout() {
           </nav>
 
           <div className="site-actions">
-            <Link to="/search" className={`${buttonClass('ghost', 'sm')} ui-btn--icon`} aria-label="Tìm kiếm" title="Tìm kiếm">
+            <Link to={lPath('/search')} className={`${buttonClass('ghost', 'sm')} ui-btn--icon`} aria-label={t.search} title={t.search}>
               <MagnifyingGlass size={18} aria-hidden />
             </Link>
+            {languageSwitcher('header')}
             <span className="site-actions__account">{account}</span>
             <details ref={menuRef} className="site-menu">
-              <summary className={`${buttonClass('ghost', 'sm')} ui-btn--icon`} aria-label="Mở menu">
+              <summary className={`${buttonClass('ghost', 'sm')} ui-btn--icon`} aria-label={t.openMenu}>
                 <List size={20} aria-hidden />
               </summary>
-              <nav className="site-menu__panel" aria-label="Điều hướng chính trên di động">
+              <nav className="site-menu__panel" aria-label={t.navMobile}>
+                <div className="site-menu__lang-mobile">
+                  {languageSwitcher('mobile')}
+                </div>
                 {nav.map((n) => (
                   <MobileNavBranch key={n.id} item={n} onNavigate={closeMobileMenu} />
                 ))}
@@ -239,15 +279,15 @@ export default function PublicLayout() {
       <footer className="site-footer">
         <div className="site-footer__inner">
           <div className="site-footer__about">
-            <strong>Khoa Công nghệ Phần mềm</strong>
-            <p>Trường Đại học Công nghệ Thông tin, Đại học Quốc gia Thành phố Hồ Chí Minh</p>
+            <strong>{t.brandName}</strong>
+            <p>{t.brandFullUni}</p>
             <ul className="site-footer__contact">
               <li><MapPin size={16} aria-hidden /> Phòng E7.2, tòa nhà E, Trường Đại học Công nghệ Thông tin, Khu phố 34, Phường Linh Xuân, TP. Hồ Chí Minh</li>
               <li><Phone size={16} aria-hidden /> <a href="tel:+842837252002">(028) 3725 2002</a>, số nội bộ 120</li>
               <li><EnvelopeSimple size={16} aria-hidden /> <a href="mailto:se@uit.edu.vn">se@uit.edu.vn</a></li>
             </ul>
           </div>
-          <nav className="site-footer__links" aria-label="Liên kết cuối trang">
+          <nav className="site-footer__links" aria-label={t.footerLinks}>
             {/* Mục cấp 1 của menu chính, cùng nguồn với header. */}
             {nav.map((n) => <NavTo key={n.id} item={n} />)}
           </nav>

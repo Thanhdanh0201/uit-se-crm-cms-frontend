@@ -1,6 +1,7 @@
 import { Link } from 'react-router'
 import { BookmarkSimple, CalendarCheck, ChatCircleText, Key, SquaresFour, type Icon } from '@phosphor-icons/react'
 import { RequireRole, useAuth } from '../../lib/auth'
+import { useDictionary } from '../../lib/locale'
 import { noIndex } from '../../lib/seo'
 import { ROLE_LABEL } from '../../admin/roles'
 import Badge from '../../components/ui/Badge'
@@ -21,13 +22,14 @@ const ITEMS: Item[] = [
 
 function AccountContent() {
   const { user } = useAuth()
+  const { t, lPath } = useDictionary()
   if (!user) return null
   const items: Item[] = user.role === 'student' ? ITEMS : [{ label: 'Trang quản trị', hint: 'Bài viết, media và cấu hình website', icon: SquaresFour, to: '/admin' }, ...ITEMS]
 
   return (
     <div className="me">
       <header className="me__head">
-        <h1>Tài khoản của tôi</h1>
+        <h1>{t.myAccount}</h1>
         <p className="muted">
           {user.email} <Badge tone="brand">{ROLE_LABEL[user.role]}</Badge>
         </p>
@@ -41,12 +43,13 @@ function AccountContent() {
                 <strong>{label}</strong>
                 <small>{hint}</small>
               </span>
-              {!to && <Badge>Sắp có</Badge>}
+              {!to && <Badge>{t.soon}</Badge>}
             </>
           )
+          const href = to ? (to.startsWith('/admin') ? to : lPath(to)) : undefined
           return (
             <li key={label}>
-              {to ? <Link to={to} className="me__item">{body}</Link> : <div className="me__item me__item--soon" aria-disabled="true">{body}</div>}
+              {href ? <Link to={href} className="me__item">{body}</Link> : <div className="me__item me__item--soon" aria-disabled="true">{body}</div>}
             </li>
           )
         })}

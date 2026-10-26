@@ -1,6 +1,8 @@
 import { useState, type ReactNode } from 'react'
 import { Link } from 'react-router'
 import { Newspaper } from '@phosphor-icons/react'
+import { formatDate } from '../lib/dictionary'
+import { useDictionary } from '../lib/locale'
 import './post-list.css'
 
 // Thẻ bài công khai (backend PostCardDto): trang chủ, chuyên mục, tìm kiếm, bài đã lưu.
@@ -15,8 +17,6 @@ export type PostCard = {
   categoryName: string | null
   categorySlug?: string | null
 }
-
-const dateFmt = new Intl.DateTimeFormat('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', day: '2-digit', month: '2-digit', year: 'numeric' })
 
 // Ảnh bìa là signed URL có hạn: hết hạn hoặc lỗi tải thì hiện ô thay thế, không để ảnh vỡ.
 export function CoverThumb({ src, className }: { src: string | null; className: string }) {
@@ -33,20 +33,24 @@ export function CoverThumb({ src, className }: { src: string | null; className: 
 
 // Danh sách bài dạng hàng: ảnh trái, tiêu đề, tóm tắt, ngày. action: nút thao tác cuối mỗi hàng (bỏ lưu).
 export function PostList({ posts, action }: { posts: PostCard[]; action?: (post: PostCard) => ReactNode }) {
+  const { locale, lPath } = useDictionary()
+
   return (
     <ul className="post-list">
       {posts.map((p) => (
         <li key={p.id} className="post-row">
-          <Link to={`/posts/${p.slug}`} className="post-row__link" tabIndex={-1} aria-hidden>
+          <Link to={lPath(`/posts/${p.slug}`)} className="post-row__link" tabIndex={-1} aria-hidden>
             <CoverThumb src={p.coverUrl} className="post-row__thumb" />
           </Link>
           <div className="post-row__body">
             {p.categoryName && <span className="post-row__category">{p.categoryName}</span>}
             <h2 className="post-row__title">
-              <Link to={`/posts/${p.slug}`}>{p.title}</Link>
+              <Link to={lPath(`/posts/${p.slug}`)}>{p.title}</Link>
             </h2>
             {p.summary && <p className="post-row__summary">{p.summary}</p>}
-            <time className="post-row__date" dateTime={p.publishedAt}>{dateFmt.format(new Date(p.publishedAt))}</time>
+            <time className="post-row__date" dateTime={p.publishedAt}>
+              {formatDate(p.publishedAt, locale)}
+            </time>
           </div>
           {action && <div className="post-row__action">{action(p)}</div>}
         </li>

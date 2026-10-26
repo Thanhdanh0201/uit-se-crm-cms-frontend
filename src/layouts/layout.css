@@ -114,6 +114,41 @@
 .site-actions { display: flex; align-items: center; gap: var(--space-2); margin-left: auto; }
 .site-actions__account { display: none; gap: var(--space-2); }
 
+/* Combobox chuyển đổi ngôn ngữ (NFR-07: thao tác bàn phím, focus outline rõ ràng) */
+.site-lang { display: flex; align-items: center; }
+.site-lang__wrapper { position: relative; display: inline-flex; align-items: center; }
+.site-lang__icon { position: absolute; left: 8px; pointer-events: none; color: var(--color-text-muted); }
+.site-lang__select {
+  appearance: none;
+  -webkit-appearance: none;
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  padding: var(--space-1) var(--space-3) var(--space-1) var(--space-6);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--color-text);
+  cursor: pointer;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%2364748b' viewBox='0 0 256 256'%3E%3Cpath d='M213.66,101.66l-80,80a8,8,0,0,1-11.32,0l-80-80A8,8,0,0,1,53.66,90.34L128,164.69l74.34-74.35a8,8,0,0,1,11.32,11.32Z'%3E%3C/path%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 6px center;
+  padding-right: 22px;
+  height: 32px;
+}
+.site-lang__select:hover { border-color: var(--color-primary); }
+.site-lang__select:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+  border-color: var(--color-primary);
+}
+
+.site-menu__lang-mobile {
+  padding: var(--space-2) var(--space-3);
+  margin-bottom: var(--space-2);
+  border-bottom: 1px solid var(--color-border);
+}
+.site-menu__lang-mobile .site-lang__select { width: 100%; }
+
 /* Menu mobile: <details> gốc, mở được cả khi JS chưa tải, hỗ trợ tốt từ 360px */
 .site-menu { position: relative; }
 .site-menu summary { list-style: none; }

@@ -4,6 +4,8 @@ import { MagnifyingGlass } from '@phosphor-icons/react'
 import type { Route } from './+types/Search'
 import { api } from '../../lib/api'
 import { seo, siteUrl } from '../../lib/seo'
+import type { Locale } from '../../lib/dictionary'
+import { getLocaleFromPath, useDictionary } from '../../lib/locale'
 import Alert from '../../components/ui/Alert'
 import Button from '../../components/ui/Button'
 import { Select, TextField } from '../../components/ui/Field'
@@ -11,7 +13,7 @@ import Pagination from '../../components/ui/Pagination'
 import { EmptyState } from '../../components/ui/States'
 import { PostList, type PostCard } from '../../components/PostList'
 
-// GET /api/public/posts (PublicPostQueryDto): keyword, categoryId, tagId, fromDate, toDate, page, pageSize.
+// GET /api/public/posts (PublicPostQueryDto): keyword, categoryId, tagId, fromDate, toDate, page, pageSize, locale.
 // Lọc và phân trang ở server, mới xuất bản trước. Tiêu chí nằm trên URL (F5, chia sẻ link, Back/Forward).
 type Page = { items: PostCard[]; totalItems: number; page: number; pageSize: number; totalPages: number }
 type Ref = { id: string; name: string }
@@ -31,12 +33,12 @@ function readCriteria(params: URLSearchParams) {
     from,
     to,
     page: Math.max(1, Number(params.get('page')) || 1),
-    dateError: from && to && from > to ? 'Ngày bắt đầu phải trước hoặc bằng ngày kết thúc.' : '',
+    dateError: from && to && from > to,
   }
 }
 
-function apiQuery(c: ReturnType<typeof readCriteria>) {
-  const q = new URLSearchParams({ page: String(c.page), pageSize: String(PAGE_SIZE) })
+function apiQuery(c: ReturnType<typeof readCriteria>, locale: Locale) {
+  const q = new URLSearchParams({ page: String(c.page), pageSize: String(PAGE_SIZE), locale })
   if (c.q) q.set('keyword', c.q)
   if (c.category) q.set('categoryId', c.category)
   if (c.tag) q.set('tagId', c.tag)
@@ -47,32 +49,40 @@ function apiQuery(c: ReturnType<typeof readCriteria>) {
 
 export async function loader({ request }: Route.LoaderArgs) {
   const url = new URL(request.url)
+  const locale = getLocaleFromPath(url.pathname)
   const criteria = readCriteria(url.searchParams)
   // signal: người dùng đổi tiêu chí khi request cũ chưa xong thì hủy request cũ, kết quả cũ không đè kết quả mới.
   const { signal } = request
   const [results, categories, tags] = await Promise.all([
-    criteria.dateError ? null : api<Page>(`/api/public/posts?${apiQuery(criteria)}`, { signal }).catch(() => undefined),
-    api<Ref[]>('/api/public/categories', { signal }).catch(() => [] as Ref[]),
+    criteria.dateError ? null : api<Page>(`/api/public/posts?${apiQuery(criteria, locale)}`, { signal }).catch(() => undefined),
+    api<Ref[]>(`/api/public/categories?locale=${locale}`, { signal }).catch(() => [] as Ref[]),
     api<Ref[]>('/api/public/tags', { signal }).catch(() => [] as Ref[]),
   ])
   return {
+    locale,
     criteria,
     results: results ?? null,
     failed: results === undefined,
     categories: categories.map(({ id, name }) => ({ id, name })),
     tags: tags.map(({ id, name }) => ({ id, name })),
-    url: `${siteUrl(request)}/search`,
+    url: `${siteUrl(request)}${locale === 'en' ? '/en/search' : '/search'}`,
   }
 }
 
 export const meta: Route.MetaFunction = ({ loaderData: d }) =>
   seo({
-    title: d?.criteria.q ? `Tìm kiếm: ${d.criteria.q}` : 'Tin tức và tìm kiếm',
-    description: 'Tìm tin tức, thông báo của Khoa Công nghệ Phần mềm theo từ khóa, chuyên mục, thẻ và thời gian.',
+    title: d?.criteria.q
+      ? (d?.locale === 'en' ? `Search: ${d.criteria.q}` : `Tìm kiếm: ${d.criteria.q}`)
+      : (d?.locale === 'en' ? 'News and Search' : 'Tin tức và tìm kiếm'),
+    description: d?.locale === 'en'
+      ? 'Search news and announcements of Faculty of Software Engineering by keywords, categories, tags, and dates.'
+      : 'Tìm tin tức, thông báo của Khoa Công nghệ Phần mềm theo từ khóa, chuyên mục, thẻ và thời gian.',
     url: d?.url,
+    locale: d?.locale,
   })
 
 export default function Search({ loaderData: { criteria: c, results, failed, categories, tags } }: Route.ComponentProps) {
+  const { t, lPath, locale } = useDictionary()
   const [params, setParams] = useSearchParams()
   const form = useRef<HTMLFormElement>(null)
   const loading = useNavigation().state === 'loading'
@@ -106,44 +116,44 @@ export default function Search({ loaderData: { criteria: c, results, failed, cat
   return (
     <div className="list-page">
       <header className="list-page__head">
-        <h1>Tin tức và tìm kiếm</h1>
-        <p>Tìm thông báo, tin tức của Khoa theo từ khóa, chuyên mục, thẻ hoặc khoảng thời gian.</p>
+        <h1>{t.newsAndSearch}</h1>
+        <p>{t.newsAndSearchDesc}</p>
       </header>
 
       <form key={formKey} ref={form} className="search-form" role="search" onSubmit={submit} noValidate>
         <div className="search-form__query">
-          <TextField label="Từ khóa" name="q" type="search" defaultValue={c.q} maxLength={200} placeholder="Ví dụ: học bổng, lịch thi" />
-          <Button type="submit" icon={<MagnifyingGlass size={18} aria-hidden />} loading={loading}>Tìm</Button>
+          <TextField label={t.keyword} name="q" type="search" defaultValue={c.q} maxLength={200} placeholder={t.keywordPlaceholder} />
+          <Button type="submit" icon={<MagnifyingGlass size={18} aria-hidden />} loading={loading}>{t.searchAction}</Button>
         </div>
         <div className="search-form__filters">
-          <Select label="Chuyên mục" name="category" defaultValue={c.category}>
-            <option value="">Tất cả chuyên mục</option>
+          <Select label={t.category} name="category" defaultValue={c.category}>
+            <option value="">{t.allCategories}</option>
             {categories.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}
           </Select>
-          <Select label="Thẻ" name="tag" defaultValue={c.tag}>
-            <option value="">Tất cả thẻ</option>
+          <Select label={t.tag} name="tag" defaultValue={c.tag}>
+            <option value="">{t.allTags}</option>
             {tags.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}
           </Select>
-          <TextField label="Từ ngày" name="from" type="date" defaultValue={c.from} error={c.dateError || undefined} />
-          <TextField label="Đến ngày" name="to" type="date" defaultValue={c.to} />
+          <TextField label={t.fromDate} name="from" type="date" defaultValue={c.from} error={c.dateError ? t.searchDateError : undefined} />
+          <TextField label={t.toDate} name="to" type="date" defaultValue={c.to} />
         </div>
-        {filtered && <Link to="/search" className="search-form__reset">Xóa tiêu chí</Link>}
+        {filtered && <Link to={lPath('/search')} className="search-form__reset">{t.clearFilters}</Link>}
       </form>
 
       <div aria-live="polite" aria-busy={loading || undefined} className={loading ? 'search-results is-loading' : 'search-results'}>
         {failed ? (
-          <Alert tone="danger" title="Chưa tìm được">Máy chủ đang bận hoặc mất kết nối. Thử lại sau ít phút.</Alert>
+          <Alert tone="danger" title={t.searchFailedTitle}>{t.searchFailedDesc}</Alert>
         ) : results && results.items.length ? (
           <>
             <p className="list-page__count">
-              {c.q ? `Tìm thấy ${results.totalItems} bài cho "${c.q}"` : `${results.totalItems} bài viết`}
+              {c.q ? (locale === 'en' ? `Found ${results.totalItems} articles for "${c.q}"` : `Tìm thấy ${results.totalItems} bài cho "${c.q}"`) : t.postCountHint(results.totalItems)}
             </p>
             <PostList posts={results.items} />
             <Pagination page={results.page} totalPages={results.totalPages} onPageChange={goTo} />
           </>
         ) : results ? (
-          <EmptyState icon={<MagnifyingGlass size={32} />} title={c.page > 1 ? 'Trang này không có bài' : 'Không có bài phù hợp'}>
-            {c.page > 1 ? 'Quay lại trang trước hoặc đổi tiêu chí tìm kiếm.' : 'Thử từ khóa ngắn hơn, bỏ bớt bộ lọc hoặc mở rộng khoảng thời gian.'}
+          <EmptyState icon={<MagnifyingGlass size={32} />} title={c.page > 1 ? t.emptySearchPageTitle : t.emptySearchTitle}>
+            {c.page > 1 ? t.emptySearchPageDesc : t.emptySearchDesc}
           </EmptyState>
         ) : null}
       </div>
