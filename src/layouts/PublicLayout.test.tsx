@@ -130,7 +130,7 @@ test('nạp menu theo locale từ query param', async () => {
 
   renderLayout('/?locale=en')
 
-  await screen.findByRole('navigation', { name: 'Điều hướng chính' })
+  await screen.findByRole('navigation', { name: /Điều hướng chính|Main navigation/ })
   expect(calledUrl).toContain('locale=en')
 })
 
@@ -253,5 +253,41 @@ test('site tiếng Anh hiển thị nhãn tiếng Anh và nạp menu locale=en',
   // Đổi từ en về vi -> chuyển về /
   await userEvent.selectOptions(comboboxes[0], 'vi')
   expect(router.state.location.pathname).toBe('/')
+})
+
+test('chuyển đổi ngôn ngữ cập nhật menu theo locale tương ứng', async () => {
+  const EN_NAV: NavItem[] = [
+    {
+      id: 'en-home',
+      label: 'Homepage',
+      kind: 'external',
+      url: '/en',
+      children: [],
+    },
+  ]
+  let lastLocale = ''
+  mockApi({
+    ...guest,
+    '/api/public/menus/main': (url) => {
+      if (url.includes('locale=en')) {
+        lastLocale = 'en'
+        return ok({ items: EN_NAV })
+      }
+      lastLocale = 'vi'
+      return ok({ items: MULTI_LEVEL_NAV })
+    },
+  })
+
+  renderLayout('/')
+
+  const initialNav = await screen.findByRole('navigation', { name: 'Điều hướng chính' })
+  expect(within(initialNav).getByRole('link', { name: 'Đào tạo' })).toBeTruthy()
+
+  const comboboxes = await screen.findAllByRole('combobox', { name: 'Chọn ngôn ngữ' })
+  await userEvent.selectOptions(comboboxes[0], 'en')
+
+  const enNav = await screen.findByRole('navigation', { name: 'Main navigation' })
+  expect(await within(enNav).findByRole('link', { name: 'Homepage' })).toBeTruthy()
+  expect(lastLocale).toBe('en')
 })
 

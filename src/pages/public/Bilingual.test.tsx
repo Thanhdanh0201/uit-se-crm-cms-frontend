@@ -21,6 +21,9 @@ test('getLocaleFromPath và localePath xử lý đúng quy tắc tiền tố URL
   expect(getLocaleFromPath('/en/')).toBe('en')
   expect(getLocaleFromPath('/en/posts/article-1')).toBe('en')
   expect(getLocaleFromPath('/en/search?q=test')).toBe('en')
+  expect(getLocaleFromPath('/en.data')).toBe('en')
+  expect(getLocaleFromPath('/en/posts/article-1.data')).toBe('en')
+  expect(getLocaleFromPath('/posts/bai-viet-1.data')).toBe('vi')
 
   // localePath
   expect(localePath('/', 'vi')).toBe('/')

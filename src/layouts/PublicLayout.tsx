@@ -29,6 +29,8 @@ export async function loader({ request }: { request?: Request } = {}) {
     } catch {
       // ignore
     }
+  } else if (typeof window !== 'undefined') {
+    locale = getLocaleFromPath(window.location.pathname)
   }
   const fallback = getFallback(locale)
   try {
@@ -39,15 +41,41 @@ export async function loader({ request }: { request?: Request } = {}) {
   }
 }
 
-function parseAppUrl(url: string) {
-  if (!url) return { isExternal: false, path: '/' }
-  if (!/^https?:\/\//i.test(url)) return { isExternal: false, path: url.startsWith('/') ? url : `/${url}` }
+// Tự động revalidate layout loader khi chuyển giữa site tiếng Việt (/) và tiếng Anh (/en)
+export function shouldRevalidate({
+  currentUrl,
+  nextUrl,
+  defaultShouldRevalidate,
+}: {
+  currentUrl: URL
+  nextUrl: URL
+  defaultShouldRevalidate: boolean
+}) {
+  if (getLocaleFromPath(currentUrl.pathname) !== getLocaleFromPath(nextUrl.pathname)) {
+    return true
+  }
+  return defaultShouldRevalidate
+}
+
+function parseAppUrl(url: string, locale: Locale) {
+  if (!url) return { isExternal: false, path: locale === 'en' ? '/en' : '/' }
+  if (!/^https?:\/\//i.test(url)) {
+    let p = url.startsWith('/') ? url : `/${url}`
+    if (locale === 'en' && !p.startsWith('/en') && !p.startsWith('/admin') && !p.startsWith('/api')) {
+      p = p === '/' ? '/en' : `/en${p}`
+    }
+    return { isExternal: false, path: p }
+  }
   try {
     const target = new URL(url)
     const isLocal = target.hostname === 'localhost' || target.hostname === '127.0.0.1'
     const isSameOrigin = typeof window !== 'undefined' && target.origin === window.location.origin
     if (isLocal || isSameOrigin) {
-      return { isExternal: false, path: (target.pathname || '/') + target.search + target.hash }
+      let p = (target.pathname || '/') + target.search + target.hash
+      if (locale === 'en' && !p.startsWith('/en') && !p.startsWith('/admin') && !p.startsWith('/api')) {
+        p = p === '/' ? '/en' : `/en${p}`
+      }
+      return { isExternal: false, path: p }
     }
   } catch {
     return { isExternal: true, path: url }
@@ -55,16 +83,16 @@ function parseAppUrl(url: string) {
   return { isExternal: true, path: url }
 }
 
-function NavTo({ item, className, onClick }: { item: NavItem; className?: string; onClick?: () => void }) {
+function NavTo({ item, locale, className, onClick }: { item: NavItem; locale: Locale; className?: string; onClick?: () => void }) {
   if (!item.url) return <span className={className}>{item.label}</span>
-  const { isExternal, path } = parseAppUrl(item.url)
+  const { isExternal, path } = parseAppUrl(item.url, locale)
   if (isExternal)
     return <a href={item.url} className={className} target="_blank" rel="noopener noreferrer" onClick={onClick}>{item.label}</a>
   return <NavLink to={path} className={className} onClick={onClick}>{item.label}</NavLink>
 }
 
 // Menu con Desktop đa tầng (cấp 2 xổ xuống, cấp 3 trở đi mở sang bên, tự đảo hướng khi chạm mép màn hình)
-function DesktopSubMenu({ items, level = 2 }: { items: NavItem[]; level?: number }) {
+function DesktopSubMenu({ items, locale, level = 2 }: { items: NavItem[]; locale: Locale; level?: number }) {
   const checkFlip = (el: HTMLElement | null) => {
     if (!el || typeof window === 'undefined') return
     const rect = el.getBoundingClientRect()
@@ -97,12 +125,12 @@ function DesktopSubMenu({ items, level = 2 }: { items: NavItem[]; level?: number
             }}
           >
             <div className="site-nav__item-row">
-              <NavTo item={item} className="site-nav__link" />
+              <NavTo item={item} locale={locale} className="site-nav__link" />
               {hasChildren && <CaretRight size={12} aria-hidden className="site-nav__caret-right" />}
             </div>
             {hasChildren && (
               <div className="site-nav__subdropdown">
-                <DesktopSubMenu items={item.children} level={level + 1} />
+                <DesktopSubMenu items={item.children} locale={locale} level={level + 1} />
               </div>
             )}
           </li>
@@ -113,14 +141,14 @@ function DesktopSubMenu({ items, level = 2 }: { items: NavItem[]; level?: number
 }
 
 // Nhánh menu Mobile dạng cây thụt lề, đóng/mở độc lập từng nhánh
-function MobileNavBranch({ item, onNavigate }: { item: NavItem; onNavigate?: () => void }) {
+function MobileNavBranch({ item, locale, onNavigate }: { item: NavItem; locale: Locale; onNavigate?: () => void }) {
   const [open, setOpen] = useState(false)
   const hasChildren = item.children && item.children.length > 0
 
   return (
     <div className="site-menu__branch">
       <div className="site-menu__row">
-        <NavTo item={item} className="site-menu__link" onClick={onNavigate} />
+        <NavTo item={item} locale={locale} className="site-menu__link" onClick={onNavigate} />
         {hasChildren && (
           <button
             type="button"
@@ -140,7 +168,7 @@ function MobileNavBranch({ item, onNavigate }: { item: NavItem; onNavigate?: () 
       {hasChildren && open && (
         <div className="site-menu__children">
           {item.children.map((child) => (
-            <MobileNavBranch key={child.id} item={child} onNavigate={onNavigate} />
+            <MobileNavBranch key={child.id} item={child} locale={locale} onNavigate={onNavigate} />
           ))}
         </div>
       )}
@@ -155,7 +183,34 @@ export default function PublicLayout() {
   const { pathname } = useLocation()
   const { locale, t, lPath } = useDictionary()
   const loaderData = useLoaderData<typeof loader>()
-  const nav = loaderData?.nav ?? getFallback(locale)
+  const [clientNav, setClientNav] = useState<NavItem[] | null>(() => (loaderData?.locale === locale ? loaderData.nav : null))
+
+  // Đồng bộ và tải lại menu khi locale thay đổi (ví dụ khi chuyển ngôn ngữ trên trình duyệt)
+  useEffect(() => {
+    if (loaderData?.locale === locale) {
+      setClientNav(loaderData.nav)
+      return
+    }
+
+    let cancelled = false
+    api<{ items: NavItem[] }>(`/api/public/menus/main?locale=${locale}`)
+      .then((menu) => {
+        if (!cancelled) {
+          setClientNav(menu?.items && menu.items.length ? menu.items : getFallback(locale))
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setClientNav(getFallback(locale))
+        }
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [locale, loaderData])
+
+  const nav = (loaderData?.locale === locale ? loaderData.nav : clientNav) ?? getFallback(locale)
 
   // Đóng menu mobile sau khi chuyển trang.
   useEffect(() => {
@@ -236,14 +291,14 @@ export default function PublicLayout() {
               n.children.length ? (
                 // Mở bằng rê chuột hoặc Tab vào (focus-within), Esc để thoát.
                 <div key={n.id} className="site-nav__group">
-                  <NavTo item={n} className="site-nav__parent" />
+                  <NavTo item={n} locale={locale} className="site-nav__parent" />
                   <CaretDown size={12} aria-hidden className="site-nav__caret" />
                   <div className="site-nav__dropdown">
-                    <DesktopSubMenu items={n.children} level={2} />
+                    <DesktopSubMenu items={n.children} locale={locale} level={2} />
                   </div>
                 </div>
               ) : (
-                <NavTo key={n.id} item={n} />
+                <NavTo key={n.id} item={n} locale={locale} />
               ),
             )}
           </nav>
@@ -263,7 +318,7 @@ export default function PublicLayout() {
                   {languageSwitcher('mobile')}
                 </div>
                 {nav.map((n) => (
-                  <MobileNavBranch key={n.id} item={n} onNavigate={closeMobileMenu} />
+                  <MobileNavBranch key={n.id} item={n} locale={locale} onNavigate={closeMobileMenu} />
                 ))}
                 <div className="site-menu__account">{account}</div>
               </nav>
@@ -289,7 +344,7 @@ export default function PublicLayout() {
           </div>
           <nav className="site-footer__links" aria-label={t.footerLinks}>
             {/* Mục cấp 1 của menu chính, cùng nguồn với header. */}
-            {nav.map((n) => <NavTo key={n.id} item={n} />)}
+            {nav.map((n) => <NavTo key={n.id} item={n} locale={locale} />)}
           </nav>
         </div>
       </footer>
