@@ -1,4 +1,5 @@
 import { CaretLeft, CaretRight } from '@phosphor-icons/react'
+import { useDictionary } from '../../lib/locale'
 
 // Trang đầu, trang cuối, và 1 trang mỗi bên trang hiện tại. 'gap' là dấu ba chấm.
 export function pageItems(page: number, total: number): (number | 'gap')[] {
@@ -10,10 +11,22 @@ export function pageItems(page: number, total: number): (number | 'gap')[] {
 type Props = { page: number; totalPages: number; onPageChange: (page: number) => void }
 
 export default function Pagination({ page, totalPages, onPageChange }: Props) {
+  let prevLabel = 'Trang trước'
+  let nextLabel = 'Trang sau'
+  let navLabel = 'Phân trang'
+  try {
+    const { t } = useDictionary()
+    prevLabel = t.paginationPrev
+    nextLabel = t.paginationNext
+    navLabel = t.paginationPrev ? 'Pagination' : 'Phân trang'
+  } catch {
+    // ngoài router context
+  }
+
   if (totalPages <= 1) return null
   return (
-    <nav className="ui-pagination" aria-label="Phân trang">
-      <button type="button" className="ui-pagination__page" disabled={page <= 1} onClick={() => onPageChange(page - 1)} aria-label="Trang trước">
+    <nav className="ui-pagination" aria-label={navLabel}>
+      <button type="button" className="ui-pagination__page" disabled={page <= 1} onClick={() => onPageChange(page - 1)} aria-label={prevLabel}>
         <CaretLeft size={14} aria-hidden />
       </button>
       {pageItems(page, totalPages).map((p, i) =>
@@ -31,7 +44,7 @@ export default function Pagination({ page, totalPages, onPageChange }: Props) {
           </button>
         ),
       )}
-      <button type="button" className="ui-pagination__page" disabled={page >= totalPages} onClick={() => onPageChange(page + 1)} aria-label="Trang sau">
+      <button type="button" className="ui-pagination__page" disabled={page >= totalPages} onClick={() => onPageChange(page + 1)} aria-label={nextLabel}>
         <CaretRight size={14} aria-hidden />
       </button>
     </nav>

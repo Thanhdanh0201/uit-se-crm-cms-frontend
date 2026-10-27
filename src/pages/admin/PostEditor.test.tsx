@@ -221,14 +221,10 @@ test('bai viet co video: hien video trong phan xem truoc voi youtube-nocookie', 
 })
 
 test('tạo bài mới theo locale: nhận locale từ URL, sinh slug tự động và gửi locale trong body', async () => {
-  let createdBody: Record<string, unknown> | null = null
-  const api = mockApi({
+  mockApi({
     ...editor,
     ...lists,
-    '/api/posts': (_, init) => {
-      createdBody = JSON.parse(String(init?.body))
-      return ok({ ...POST, id: 'p-new', locale: 'en' })
-    },
+    '/api/posts': () => ok({ ...POST, id: 'p-new', locale: 'en' }),
   })
   open('/admin/posts/new?locale=en')
 

@@ -1,11 +1,22 @@
 import { data, Link } from 'react-router'
+import type { Locale } from '../../lib/dictionary'
+import { getLocaleFromPath, useDictionary } from '../../lib/locale'
 import { noIndex } from '../../lib/seo'
 
 // Trả HTTP 404 thật để Google không index URL sai.
-export const loader = () => data(null, { status: 404 })
+export const loader = ({ request }: { request: Request }) => {
+  const locale = getLocaleFromPath(new URL(request.url).pathname)
+  return data({ locale }, { status: 404 })
+}
 
-export const meta = () => noIndex('Không tìm thấy trang')
+export const meta = ({ data }: { data?: { locale?: Locale } }) =>
+  noIndex(data?.locale === 'en' ? 'Page Not Found' : 'Không tìm thấy trang', data?.locale)
 
 export default function NotFound() {
-  return <p>Không tìm thấy trang. <Link to="/">Về trang chủ</Link></p>
+  const { t, lPath } = useDictionary()
+  return (
+    <p>
+      {t.pageNotFound}. <Link to={lPath('/')}>{t.backToHome}</Link>
+    </p>
+  )
 }

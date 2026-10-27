@@ -8,6 +8,7 @@ import { focusFirstError, PASSWORD_MIN_LENGTH, validateChangePassword, type Chan
 import Alert from '../../components/ui/Alert'
 import Button from '../../components/ui/Button'
 import { PasswordField } from '../../components/ui/Field'
+import { useDictionary } from '../../lib/locale'
 import '../../styles/auth.css'
 
 export const meta = () => noIndex('Đổi mật khẩu')
@@ -32,6 +33,7 @@ export function changePasswordErrors(err: unknown): Errors {
 
 function ChangePasswordForm() {
   const { user, passwordChanged } = useAuth()
+  const { t, lPath } = useDictionary()
   const navigate = useNavigate()
   const [params] = useSearchParams()
   // Đang dùng mật khẩu admin cấp: đổi xong mới vào được các trang khác.
@@ -64,7 +66,7 @@ function ChangePasswordForm() {
       if (required) {
         passwordChanged()
         // Đổi lần đầu xong: vào trang định vào lúc đăng nhập.
-        navigate(safeNext(params.get('next')) ?? (user?.role === 'student' ? '/me' : '/admin'), { replace: true, state: { passwordChanged: true } })
+        navigate(safeNext(params.get('next')) ?? (user?.role === 'student' ? lPath('/me') : '/admin'), { replace: true, state: { passwordChanged: true } })
         return
       }
       setDone(true)
@@ -105,7 +107,7 @@ function ChangePasswordForm() {
       </fieldset>
 
       <Button type="submit" size="lg" block loading={pending}>{pending ? 'Đang đổi mật khẩu' : 'Đổi mật khẩu'}</Button>
-      {!required && <p className="auth__help"><Link to="/me">Về tài khoản của tôi</Link></p>}
+      {!required && <p className="auth__help"><Link to={lPath('/me')}>{t.myAccount}</Link></p>}
     </form>
   )
 }

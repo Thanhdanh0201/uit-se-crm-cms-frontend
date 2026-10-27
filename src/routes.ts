@@ -1,4 +1,4 @@
-import { index, layout, route, type RouteConfig } from '@react-router/dev/routes'
+import { index, layout, prefix, route, type RouteConfig } from '@react-router/dev/routes'
 
 // Route public: SSR (có loader + meta). Route /admin: chỉ client (AdminRoute).
 // Mỗi file route export default component; loader/meta nếu cần dữ liệu hoặc thẻ SEO.
@@ -21,6 +21,7 @@ const devRoutes =
 
 export default [
   layout('layouts/PublicLayout.tsx', [
+    // Site Tiếng Việt (gốc)
     index('pages/public/Home.tsx'),
     route('login', 'pages/public/Login.tsx'),
     route('categories/:slug', 'pages/public/Category.tsx'),
@@ -31,6 +32,22 @@ export default [
     route('me/password', 'pages/me/ChangePassword.tsx'),
     route('me/saved', 'pages/me/SavedPosts.tsx'),
     route('403', 'pages/public/Forbidden.tsx'),
+
+    // Site Tiếng Anh (tiền tố /en)
+    ...prefix('en', [
+      index('pages/public/Home.tsx', { id: 'en-home' }),
+      route('categories/:slug', 'pages/public/Category.tsx', { id: 'en-category' }),
+      route('posts/:slug', 'pages/public/PostDetail.tsx', { id: 'en-post-detail' }),
+      route('search', 'pages/public/Search.tsx', { id: 'en-search' }),
+      route('pages/:slug', 'pages/public/StaticPage.tsx', { id: 'en-static-page' }),
+      route('me', 'pages/me/Account.tsx', { id: 'en-me' }),
+      route('me/password', 'pages/me/ChangePassword.tsx', { id: 'en-me-password' }),
+      route('me/saved', 'pages/me/SavedPosts.tsx', { id: 'en-me-saved' }),
+      route('403', 'pages/public/Forbidden.tsx', { id: 'en-403' }),
+      route('*', 'pages/public/NotFound.tsx', { id: 'en-not-found' }),
+    ]),
+
+    // 404 cho site Tiếng Việt
     route('*', 'pages/public/NotFound.tsx'),
   ]),
   route('admin', 'admin/AdminRoute.tsx', [

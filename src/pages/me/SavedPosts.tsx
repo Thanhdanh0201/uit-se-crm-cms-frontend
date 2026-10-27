@@ -9,6 +9,7 @@ import Button, { buttonClass } from '../../components/ui/Button'
 import Pagination from '../../components/ui/Pagination'
 import { EmptyState, Skeleton } from '../../components/ui/States'
 import { PostList, type PostCard } from '../../components/PostList'
+import { useDictionary } from '../../lib/locale'
 
 export const meta = () => noIndex('Bài đã lưu')
 
@@ -18,6 +19,7 @@ type Page = { items: PostCard[]; totalItems: number; page: number; pageSize: num
 const PAGE_SIZE = 10
 
 function SavedPostsContent() {
+  const { t, lPath } = useDictionary()
   const [params, setParams] = useSearchParams()
   const page = Math.max(1, Number(params.get('page')) || 1)
   const [data, setData] = useState<Page | null>(null)
@@ -65,7 +67,7 @@ function SavedPostsContent() {
     <div className="list-page">
       <header className="list-page__head">
         <nav className="list-page__crumbs" aria-label="Vị trí trang">
-          <Link to="/me">Tài khoản của tôi</Link>
+          <Link to={lPath('/me')}>{t.myAccount}</Link>
         </nav>
         <h1>Bài đã lưu</h1>
         {data && data.totalItems > 0 && <span className="list-page__count">{data.totalItems} bài</span>}
@@ -92,7 +94,7 @@ function SavedPostsContent() {
         <EmptyState
           icon={<BookmarkSimple size={32} />}
           title="Chưa có bài nào được lưu"
-          action={<Link to="/search" className={buttonClass('secondary')}>Xem tin mới</Link>}
+          action={<Link to={lPath('/search')} className={buttonClass('secondary')}>Xem tin mới</Link>}
         >
           Bấm "Lưu bài" ở cuối bài viết để đọc lại sau. Bài bị gỡ hoặc hết hạn sẽ tự ẩn khỏi danh sách.
         </EmptyState>
