@@ -35,7 +35,7 @@ export async function loader({ request }: Route.LoaderArgs) {
     ...data,
     slides: data.slides ?? [],
     bottomSlides: data.bottomSlides ?? [],
-    events: data.events.map((e) => ({ ...e, status: eventStatus(e, now) })),
+    events: data.events.map((e) => ({ ...e, status: eventStatus(e, now, locale) })),
     categories: categories.map(({ id, name, slug, description, postCount }) => ({ id, name, slug, description, postCount })),
   }
 }
