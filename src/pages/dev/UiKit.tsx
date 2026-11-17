@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Plus, Trash } from '@phosphor-icons/react'
 import Alert from '../../components/ui/Alert'
-import Badge, { POST_STATUS, PostStatusBadge, type PostStatus } from '../../components/ui/Badge'
+import Badge, { CONTACT_STATUS, ContactStatusBadge, POST_STATUS, PostStatusBadge, type ContactStatus, type PostStatus } from '../../components/ui/Badge'
 import Button from '../../components/ui/Button'
 import Card from '../../components/ui/Card'
 import ConfirmDialog from '../../components/ui/ConfirmDialog'
@@ -68,6 +68,7 @@ export default function UiKit() {
       <Card title="Nhãn trạng thái">
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)' }}>
           {(Object.keys(POST_STATUS) as PostStatus[]).map((s) => <PostStatusBadge key={s} status={s} />)}
+          {(Object.keys(CONTACT_STATUS) as ContactStatus[]).map((s) => <ContactStatusBadge key={`c-${s}`} status={s} />)}
           <Badge tone="solid">Tin mới</Badge>
           <Badge tone="danger">Đã khóa</Badge>
         </div>

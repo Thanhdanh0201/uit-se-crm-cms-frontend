@@ -121,7 +121,7 @@
 - Hạn chế: `/me/events` chưa song ngữ, nội dung vẫn tiếng Việt trên `/en/me/events` (giống `/me/saved`).
 
 ## Kế tiếp
-- Sprint 5 còn lại: yêu cầu đã gửi (SCRUM-55).
+- Sprint 5 frontend đã đủ: sự kiện (SCRUM-46), liên hệ (SCRUM-48), yêu cầu đã gửi (SCRUM-55).
 - FR-AUTH-05: màn hình đổi mật khẩu (`POST /api/auth/change-password`).
 - Trang tĩnh và cấu hình trang chủ (backend đã có ở `feat/pages-home`, chưa có task FE).
 
@@ -201,3 +201,9 @@
 - Validate ở client bằng `validateContact()` trong `src/lib/validate.ts`, cùng giới hạn và câu lỗi với `SubmitContactRequestValidator` (họ tên 100, email 254, chủ đề 200, nội dung 5000 ký tự). `focusFirstError()` nay focus được cả textarea.
 - Gửi thành công: thông báo kèm mã rút gọn (8 ký tự đầu), trạng thái, thời điểm gửi, nút Gửi câu hỏi khác; form được làm trống. Đã đăng nhập thì điền sẵn họ tên và email, vẫn sửa được.
 - Còn kiểm thử với backend thật (rate limit 5 lần/10 phút).
+
+## Yêu cầu đã gửi (SCRUM-55, FR-CON-04, 17/11/2026)
+- Trang `/me/contacts` (và `/en/me/contacts`), cần đăng nhập: danh sách yêu cầu liên hệ của chính người dùng (`GET /api/me/contact-requests`), tiêu đề, ngày gửi, nhãn trạng thái tiếng Việt (Mới, Đang xử lý, Đã giải quyết, Đóng), mới nhất trước. Phân trang 10 mục, trang hiện tại trên URL (`?page=`). Có trạng thái đang tải, rỗng ("Chưa gửi yêu cầu nào"), lỗi.
+- Trang chi tiết `/me/contacts/:id` (`GET /api/me/contact-requests/{id}`): tiêu đề, nội dung giữ xuống dòng (text thuần), trạng thái, ngày gửi, ngày cập nhật; không hiện ghi chú nội bộ, người phụ trách, phân loại. 403/404 báo "Không tìm thấy yêu cầu hoặc bạn không có quyền xem" kèm link về danh sách.
+- Khu tài khoản `/me`: mục "Yêu cầu đã gửi" thành link, không còn "Sắp có".
+- `ContactStatusBadge` và `CONTACT_STATUS` trong `src/components/ui/Badge.tsx` (nhãn lấy từ `CONTACT_STATUS_LABEL` của `src/admin/labels.ts`), có mẫu ở `/dev/ui`.

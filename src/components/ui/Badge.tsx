@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { CONTACT_STATUS_LABEL } from '../../admin/labels'
 
 export type Tone = 'neutral' | 'brand' | 'solid' | 'success' | 'warning' | 'danger'
 
@@ -19,5 +20,20 @@ export const POST_STATUS: Record<PostStatus, { label: string; tone: Tone }> = {
 
 export function PostStatusBadge({ status }: { status: PostStatus }) {
   const s = POST_STATUS[status]
+  return <Badge tone={s.tone}>{s.label}</Badge>
+}
+
+// Trạng thái yêu cầu liên hệ (FR-CON-02). Nhãn dùng chung với trang quản trị.
+export type ContactStatus = keyof typeof CONTACT_STATUS_LABEL
+
+export const CONTACT_STATUS: Record<ContactStatus, { label: string; tone: Tone }> = {
+  new: { label: CONTACT_STATUS_LABEL.new, tone: 'brand' },
+  in_progress: { label: CONTACT_STATUS_LABEL.in_progress, tone: 'warning' },
+  resolved: { label: CONTACT_STATUS_LABEL.resolved, tone: 'success' },
+  closed: { label: CONTACT_STATUS_LABEL.closed, tone: 'neutral' },
+}
+
+export function ContactStatusBadge({ status }: { status: ContactStatus }) {
+  const s = CONTACT_STATUS[status] ?? { label: status, tone: 'neutral' as Tone }
   return <Badge tone={s.tone}>{s.label}</Badge>
 }
