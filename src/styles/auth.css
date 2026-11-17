@@ -6,6 +6,7 @@
   max-width: 420px;
   margin: var(--space-6) auto;
 }
+.auth--wide { max-width: 640px; }
 .auth__intro {
   display: flex;
   flex-direction: column;

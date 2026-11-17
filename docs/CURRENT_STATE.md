@@ -121,8 +121,7 @@
 - Hạn chế: `/me/events` chưa song ngữ, nội dung vẫn tiếng Việt trên `/en/me/events` (giống `/me/saved`).
 
 ## Kế tiếp
-- Sprint 5 còn lại: form liên hệ công khai `/contact` (SCRUM-48), yêu cầu đã gửi (SCRUM-55).
-- Các trang được trang chủ liên kết tới nhưng chưa có (đang trả 404): `/contact`.
+- Sprint 5 còn lại: yêu cầu đã gửi (SCRUM-55).
 - FR-AUTH-05: màn hình đổi mật khẩu (`POST /api/auth/change-password`).
 - Trang tĩnh và cấu hình trang chủ (backend đã có ở `feat/pages-home`, chưa có task FE).
 
@@ -196,3 +195,9 @@
 ## Cập nhật lần cuối
 17/11/2026 (SCRUM-46)
 
+## Form liên hệ công khai (SCRUM-48 phần public, FR-CON-01, FR-CON-02, 17/11/2026)
+- Trang `/contact` và `/en/contact` (`src/pages/public/Contact.tsx`, branch `feat/scrum-48-public-contact`): SSR có h1, bốn ô Họ và tên, Email, Chủ đề, Nội dung; `seo()` với canonical đúng từng site. Bản tiếng Anh dùng nhãn, nút, tiêu đề tiếng Anh; lỗi từng ô giữ câu tiếng Việt của server.
+- Gửi `POST /api/contact-requests` với đúng bốn trường, kèm header `Idempotency-Key` (`crypto.randomUUID()` tạo ở lần gửi đầu). Lỗi mạng, 5xx, 429 giữ nguyên dữ liệu và key để gửi lại không tạo trùng; 409 `idempotency_conflict` báo gửi lại và dùng key mới; 400 gắn lỗi vào từng ô rồi focus ô sai đầu tiên.
+- Validate ở client bằng `validateContact()` trong `src/lib/validate.ts`, cùng giới hạn và câu lỗi với `SubmitContactRequestValidator` (họ tên 100, email 254, chủ đề 200, nội dung 5000 ký tự). `focusFirstError()` nay focus được cả textarea.
+- Gửi thành công: thông báo kèm mã rút gọn (8 ký tự đầu), trạng thái, thời điểm gửi, nút Gửi câu hỏi khác; form được làm trống. Đã đăng nhập thì điền sẵn họ tên và email, vẫn sửa được.
+- Còn kiểm thử với backend thật (rate limit 5 lần/10 phút).
