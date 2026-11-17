@@ -35,6 +35,8 @@ export default [
     route('me/password', 'pages/me/ChangePassword.tsx'),
     route('me/saved', 'pages/me/SavedPosts.tsx'),
     route('me/events', 'pages/me/MyEvents.tsx'),
+    route('me/contacts', 'pages/me/MyContacts.tsx'),
+    route('me/contacts/:id', 'pages/me/MyContactDetail.tsx'),
     route('403', 'pages/public/Forbidden.tsx'),
 
     // Site Tiếng Anh (tiền tố /en)
@@ -51,6 +53,8 @@ export default [
       route('me/password', 'pages/me/ChangePassword.tsx', { id: 'en-me-password' }),
       route('me/saved', 'pages/me/SavedPosts.tsx', { id: 'en-me-saved' }),
       route('me/events', 'pages/me/MyEvents.tsx', { id: 'en-me-events' }),
+      route('me/contacts', 'pages/me/MyContacts.tsx', { id: 'en-me-contacts' }),
+      route('me/contacts/:id', 'pages/me/MyContactDetail.tsx', { id: 'en-me-contact-detail' }),
       route('403', 'pages/public/Forbidden.tsx', { id: 'en-403' }),
       route('*', 'pages/public/NotFound.tsx', { id: 'en-not-found' }),
     ]),

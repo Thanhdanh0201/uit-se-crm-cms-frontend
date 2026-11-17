@@ -125,7 +125,8 @@ test('Khu tài khoản: mục chưa có API không phải link, admin có lối 
   expect(screen.getByRole('link', { name: /Trang quản trị/ }).getAttribute('href')).toBe('/admin')
   expect(screen.getByRole('link', { name: /Bài đã lưu/ }).getAttribute('href')).toBe('/me/saved')
   expect(screen.getByRole('link', { name: /Sự kiện đã đăng ký/ }).getAttribute('href')).toBe('/me/events')
-  expect(screen.getAllByText('Sắp có')).toHaveLength(1)
+  expect(screen.getByRole('link', { name: /Yêu cầu đã gửi/ }).getAttribute('href')).toBe('/me/contacts')
+  expect(screen.queryByText('Sắp có')).toBeNull()
 })
 
 test('AdminRoute clientLoader: khách bị redirect về /login?next=, không tải chunk admin', async () => {

@@ -207,12 +207,25 @@ Cần biết khi dùng:
 - `keyword` dùng full-text Postgres (`simple`) trên tiêu đề, tóm tắt, nội dung.
 - `PostViewDto` (chi tiết bài) có `id`, `tags: [{ id, name }]`, `viewCount`; `category` chỉ có `{ id, name }` (không có slug) nên link "bài cùng chuyên mục" và thẻ đi tới `/search?category=<id>` / `/search?tag=<id>`.
 
+## Sự kiện, liên hệ, dashboard — ĐÃ CÓ (backend main, Sprint 5)
+
+| Method | Path | Ghi chú |
+|---|---|---|
+| GET | `/api/public/events` | `?upcoming=true\|false&page&pageSize`. Khách. Chỉ sự kiện published/closed. Trang `/events` |
+| GET | `/api/public/events/{id}` | Khách. Có `myRegistration` (`active`/`cancelled`/null) khi gửi kèm cookie. Trang `/events/:id` |
+| POST | `/api/events/{id}/registrations` | Đăng nhập. Lỗi 422 `event_closed`/`registration_closed`/`event_full`, 409 `already_registered` |
+| DELETE | `/api/events/{id}/registrations/me` | Đăng nhập. Lỗi 404 `not_registered`, 422 `cancel_closed` |
+| GET | `/api/me/registrations` | Đăng nhập, gồm cả lượt đã hủy. Trang `/me/events` |
+| * | `/api/admin/events[...]` | Admin. Trang `/admin/events`, `/admin/events/:id` (đăng ký, CSV) |
+| POST | `/api/contact-requests` | Khách. `{ senderName, senderEmail, subject, message }`, header `Idempotency-Key`, rate limit 5 lần/10 phút/IP (429 `rate_limited`). Trang `/contact` |
+| GET | `/api/me/contact-requests` | Đăng nhập. `?page&pageSize` (mặc định 20, tối đa 50). Chỉ yêu cầu gửi khi đã đăng nhập. Trang `/me/contacts` |
+| GET | `/api/me/contact-requests/{id}` | `MyContactDto { id, subject, message, status, createdAt, updatedAt }`, không có ghi chú nội bộ. Không thuộc mình: 404. Trang `/me/contacts/:id` |
+| * | `/api/admin/contact-requests[...]` | Admin. Danh sách, chi tiết, đổi trạng thái, ghi chú nội bộ, người phụ trách. Trang `/admin/contacts` |
+| GET | `/api/admin/dashboard`, `/api/admin/activity-logs`, `/api/admin/activity-logs/filters` | Admin. Không có xóa log |
+
 ## Đề xuất — CHƯA CÓ (theo tài liệu hướng dẫn dev)
 
 - **Ảnh bìa bài public cần URL công khai, không hết hạn** (bucket public cho ảnh bài đã xuất bản, hoặc endpoint backend trả ảnh). URL ký 60 giây không dùng được cho `og:image`: Facebook/Zalo tải ảnh sau đó và cache lại.
-- `/api/admin/events`, `POST /api/events/{id}/registrations`, `DELETE /api/events/{id}/registrations/me`.
-- `POST /api/contact-requests` (khách được gửi), `/api/admin/contact-requests`, `GET /api/me/contact-requests` (Should).
-- `GET /api/admin/dashboard`, `GET /api/admin/activity-logs` (không có xóa log).
 
 ## Luật frontend khi gọi API
 
