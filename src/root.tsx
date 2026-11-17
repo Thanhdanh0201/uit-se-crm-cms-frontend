@@ -16,13 +16,7 @@ import { seo } from './lib/seo'
 export const meta: Route.MetaFunction = () => seo()
 
 export function Layout({ children }: { children: ReactNode }) {
-  let locale = 'vi'
-  try {
-    const loc = useLocation()
-    if (loc?.pathname) locale = getLocaleFromPath(loc.pathname)
-  } catch {
-    // Khi ngoài router context
-  }
+  const locale = getLocaleFromPath(useLocation().pathname)
 
   return (
     <html lang={locale}>
@@ -51,13 +45,7 @@ export default function Root() {
 }
 
 export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
-  let locale = 'vi'
-  try {
-    const loc = useLocation()
-    if (loc?.pathname) locale = getLocaleFromPath(loc.pathname)
-  } catch {
-    // ignore
-  }
+  const locale = getLocaleFromPath(useLocation().pathname)
   const isEn = locale === 'en'
   const notFound = isRouteErrorResponse(error) && error.status === 404
 

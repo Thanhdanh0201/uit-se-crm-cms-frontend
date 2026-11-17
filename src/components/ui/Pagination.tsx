@@ -11,17 +11,10 @@ export function pageItems(page: number, total: number): (number | 'gap')[] {
 type Props = { page: number; totalPages: number; onPageChange: (page: number) => void }
 
 export default function Pagination({ page, totalPages, onPageChange }: Props) {
-  let prevLabel = 'Trang trước'
-  let nextLabel = 'Trang sau'
-  let navLabel = 'Phân trang'
-  try {
-    const { t } = useDictionary()
-    prevLabel = t.paginationPrev
-    nextLabel = t.paginationNext
-    navLabel = t.paginationPrev ? 'Pagination' : 'Phân trang'
-  } catch {
-    // ngoài router context
-  }
+  const { locale, t } = useDictionary()
+  const prevLabel = t.paginationPrev
+  const nextLabel = t.paginationNext
+  const navLabel = locale === 'en' ? 'Pagination' : 'Phân trang'
 
   if (totalPages <= 1) return null
   return (
