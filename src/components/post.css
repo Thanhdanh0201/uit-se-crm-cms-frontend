@@ -50,3 +50,17 @@
 .post-article__meta a { color: var(--color-primary); }
 .post-article__save { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); }
 .post-article__footer > a { align-self: flex-start; display: inline-flex; align-items: center; gap: var(--space-2); }
+
+/* Bảng trong bài (SCRUM-68): viền nhẹ, hàng tiêu đề nền nhạt, cuộn ngang trong khung khi bảng rộng hơn màn hình */
+.rich-text__table { overflow-x: auto; border: 1px solid var(--color-border); border-radius: var(--radius-card); }
+.rich-text__table:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+.rich-text__table table { width: 100%; border-collapse: collapse; font-size: var(--text-sm); }
+.rich-text__table th, .rich-text__table td { min-width: 6rem; padding: var(--space-2) var(--space-3); border: 1px solid var(--color-border); vertical-align: top; text-align: left; overflow-wrap: normal; word-break: normal; }
+.rich-text__table tr:first-child > * { border-top: 0; }
+.rich-text__table tr > :first-child { border-left: 0; }
+.rich-text__table tr > :last-child { border-right: 0; }
+.rich-text__table tr:last-child > * { border-bottom: 0; }
+.rich-text__table th { background: var(--color-surface-muted); font-weight: 600; }
+.rich-text__table td > * + *, .rich-text__table th > * + * { margin-top: var(--space-2); }
+.rich-text__table p, .rich-text__table ul, .rich-text__table ol { margin: 0; }
+.rich-text mark { color: inherit; padding: 0 2px; border-radius: 2px; }

@@ -120,6 +120,12 @@
 - Hạn chế: `GET /api/public/events/{id}` là `AllowAnonymous`, nên khi access token đã hết hạn server vẫn trả 200 với `myRegistration: null` (không 401, `api.ts` không refresh). Người đã đăng ký có thể thấy nút Đăng ký; bấm vào thì nhận 401, `api.ts` refresh rồi gửi lại, server trả 409 `already_registered`, trang báo "Bạn đã đăng ký sự kiện này rồi" và tự đồng bộ lại.
 - Hạn chế: `/me/events` chưa song ngữ, nội dung vẫn tiếng Việt trên `/en/me/events` (giống `/me/saved`).
 
+## Trình soạn thảo: bảng và định dạng kiểu Word (SCRUM-68, 20/10/2026)
+- `src/admin/RichTextEditor.tsx` thêm extension Tiptap chính thức (ghim 3.31.4): bảng (chèn theo số hàng/cột, thêm/xóa hàng cột, gộp/tách ô, bật hàng tiêu đề, kéo độ rộng cột), căn lề, màu chữ và tô nền theo bảng màu cố định `src/components/richTextPalette.ts`, chỉ số trên/dưới. Công cụ bảng chỉ hiện khi con trỏ ở trong bảng. Dán bảng từ Word/Google Docs giữ được cấu trúc; màu ngoài bảng màu bị bỏ. Áp dụng cho bài viết và trang tĩnh.
+- Renderer công khai `src/components/PostArticle.tsx` hiển thị bảng (cuộn ngang trong khung ở màn hẹp, cuộn được bằng bàn phím), căn lề, màu, `sub`/`sup`; màu được kiểm tra lại theo bảng màu.
+- Sửa so sánh "Chưa lưu": `docSnapshot` bỏ thuộc tính null mặc định của Tiptap (textAlign, colwidth); backend gộp text liền kề cùng định dạng để nội dung lưu và nội dung mở lại giống nhau.
+- Test: `src/admin/RichTextEditor.test.tsx`, `src/components/PostArticle.test.tsx`, `PostEditor.test.tsx`. Cần backend branch `feat/rich-text-tables`.
+
 ## Kế tiếp
 - Sprint 5 frontend đã đủ: sự kiện (SCRUM-46), liên hệ (SCRUM-48), yêu cầu đã gửi (SCRUM-55).
 - FR-AUTH-05: màn hình đổi mật khẩu (`POST /api/auth/change-password`).

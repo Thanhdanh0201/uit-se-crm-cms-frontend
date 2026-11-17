@@ -67,3 +67,48 @@ test('video YouTube duoc nhung qua youtube-nocookie voi thuoc tinh bao mat va a1
   expect(html).toContain('allow="encrypted-media; picture-in-picture; fullscreen"')
 })
 
+test('bảng và định dạng kiểu Word: gộp ô, căn lề, màu trong bảng màu, chỉ số; màu lạ bị bỏ', () => {
+  const p = (text: string) => ({ type: 'paragraph', content: [{ type: 'text', text }] })
+  const doc: RichNode = {
+    type: 'doc',
+    content: [
+      {
+        type: 'table',
+        content: [
+          { type: 'tableRow', content: [{ type: 'tableHeader', attrs: { colspan: 1, rowspan: 1 }, content: [p('Môn')] }, { type: 'tableHeader', content: [p('Phòng')] }] },
+          { type: 'tableRow', content: [{ type: 'tableCell', attrs: { colspan: 2, rowspan: 1, colwidth: [120, 200] }, content: [p('Nhập môn CNPM')] }] },
+        ],
+      },
+      {
+        type: 'paragraph',
+        attrs: { textAlign: 'center' },
+        content: [
+          { type: 'text', text: 'đỏ', marks: [{ type: 'textStyle', attrs: { color: '#B91C1C' } }] },
+          { type: 'text', text: 'tím', marks: [{ type: 'textStyle', attrs: { color: 'url(javascript:x)' } }] },
+          { type: 'text', text: 'vàng', marks: [{ type: 'highlight' }] },
+          { type: 'text', text: 'H' }, { type: 'text', text: '2', marks: [{ type: 'subscript' }] }, { type: 'text', text: 'O' },
+          { type: 'text', text: 'm', marks: [{ type: 'superscript' }] },
+        ],
+      },
+      { type: 'heading', attrs: { level: 2, textAlign: 'evil' }, content: [{ type: 'text', text: 'Lịch thi' }] },
+    ],
+  }
+  const html = renderToStaticMarkup(<RichText doc={doc} media={{}} />)
+  expect(html).toContain('<div class="rich-text__table" role="region"')
+  expect(html).toContain('<th scope="col"><p>Môn</p></th>')
+  expect(html).toContain('<td colSpan="2" style="min-width:320px"><p>Nhập môn CNPM</p></td>')
+  expect(html).toContain('<p style="text-align:center">')
+  expect(html).toContain('<span style="color:#b91c1c">đỏ</span>')
+  expect(html).toContain('tím') // giữ chữ, bỏ màu lạ
+  expect(html).not.toContain('javascript')
+  expect(html).toContain('<mark style="background:#fef08a">vàng</mark>')
+  expect(html).toContain('H<sub>2</sub>O<sup>m</sup>')
+  expect(html).toContain('<h2>Lịch thi</h2>')
+})
+
+test('màu dán từ Word dạng rgb(...) cùng bảng màu vẫn hiện ở xem trước', async () => {
+  const { normalizeColor } = await import('./richTextPalette')
+  expect(['rgb(185, 28, 28)', '#FFF', 'rgba(1, 2, 3, 0.5)', 'rgb(300,0,0)', 'red'].map(normalizeColor)).toEqual(['#b91c1c', '#ffffff', null, null, null])
+  const html = renderToStaticMarkup(<RichText doc={{ type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'đỏ', marks: [{ type: 'textStyle', attrs: { color: 'rgb(185, 28, 28)' } }] }] }] }} media={{}} />)
+  expect(html).toContain('<span style="color:#b91c1c">đỏ</span>')
+})

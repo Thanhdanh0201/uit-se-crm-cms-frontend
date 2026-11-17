@@ -1,4 +1,5 @@
-import { useState, type ReactNode } from 'react'
+import { useState, type CSSProperties, type ReactNode } from 'react'
+import { safeHighlight, safeTextColor } from './richTextPalette'
 import './post.css'
 
 // Kiểu tối thiểu, khớp DTO backend (PostViewDto / PostDetailDto). Khai báo ở đây để trang public không phụ thuộc src/admin.
@@ -62,7 +63,8 @@ function Cover({ src, alt }: { src: string; alt: string }) {
   return failed ? null : <img className="post-article__cover" src={src} alt={alt} onError={() => setFailed(true)} />
 }
 
-// Renderer JSON Tiptap sang React. Chỉ hiểu các node/mark trong allowlist của backend (RichTextContent.cs);
+// Renderer JSON Tiptap sang React. Chỉ hiểu các node/mark trong allowlist của backend (RichTextContent.cs), gồm bảng,
+// căn lề, màu chữ, tô nền, chỉ số trên/dưới;
 // node lạ bị bỏ qua. Không dùng dangerouslySetInnerHTML (NFR-05).
 export function RichText({ doc, media }: { doc: RichNode; media: Record<string, ContentMedia> }) {
   return <div className="rich-text">{renderChildren(doc, media)}</div>
@@ -72,15 +74,44 @@ function renderChildren(node: RichNode, media: Record<string, ContentMedia>): Re
   return (node.content ?? []).map((child, i) => renderNode(child, media, i))
 }
 
+// Căn lề (SCRUM-68): chỉ nhận giá trị trong allowlist backend.
+const ALIGNS = new Set(['center', 'right', 'justify'])
+const alignStyle = (node: RichNode): CSSProperties | undefined =>
+  typeof node.attrs?.textAlign === 'string' && ALIGNS.has(node.attrs.textAlign) ? { textAlign: node.attrs.textAlign as CSSProperties['textAlign'] } : undefined
+
+const span = (v: unknown, max: number) => (typeof v === 'number' && v > 1 ? Math.min(Math.floor(v), max) : undefined)
+
 function renderNode(node: RichNode, media: Record<string, ContentMedia>, key: number): ReactNode {
   const children = () => renderChildren(node, media)
   switch (node.type) {
     case 'paragraph':
-      return <p key={key}>{children()}</p>
+      return <p key={key} style={alignStyle(node)}>{children()}</p>
     case 'heading': {
       const level = node.attrs?.level
       const Tag = level === 3 ? 'h3' : level === 4 ? 'h4' : 'h2'
-      return <Tag key={key}>{children()}</Tag>
+      return <Tag key={key} style={alignStyle(node)}>{children()}</Tag>
+    }
+    case 'table':
+      // Bảng rộng cuộn ngang trong khung riêng, không làm vỡ trang trên điện thoại. tabIndex để cuộn được bằng bàn phím.
+      return (
+        <div key={key} className="rich-text__table" role="region" aria-label="Bảng (cuộn ngang nếu không đủ chỗ)" tabIndex={0}>
+          <table>
+            <tbody>{children()}</tbody>
+          </table>
+        </div>
+      )
+    case 'tableRow':
+      return <tr key={key}>{children()}</tr>
+    case 'tableHeader':
+    case 'tableCell': {
+      const Tag = node.type === 'tableHeader' ? 'th' : 'td'
+      const widths = Array.isArray(node.attrs?.colwidth) ? (node.attrs.colwidth as unknown[]).filter((w): w is number => typeof w === 'number') : []
+      const width = widths.length ? widths.reduce((a, b) => a + b, 0) : undefined
+      return (
+        <Tag key={key} colSpan={span(node.attrs?.colspan, 20)} rowSpan={span(node.attrs?.rowspan, 50)} style={width ? { minWidth: width } : undefined} scope={Tag === 'th' ? 'col' : undefined}>
+          {children()}
+        </Tag>
+      )
     }
     case 'bulletList':
       return <ul key={key}>{children()}</ul>
@@ -134,6 +165,10 @@ function Marks({ node }: { node: RichNode }) {
     else if (mark.type === 'underline') out = <u>{out}</u>
     else if (mark.type === 'strike') out = <s>{out}</s>
     else if (mark.type === 'code') out = <code>{out}</code>
+    else if (mark.type === 'subscript') out = <sub>{out}</sub>
+    else if (mark.type === 'superscript') out = <sup>{out}</sup>
+    else if (mark.type === 'textStyle' && safeTextColor(mark.attrs?.color)) out = <span style={{ color: safeTextColor(mark.attrs?.color)! }}>{out}</span>
+    else if (mark.type === 'highlight' && safeHighlight(mark.attrs?.color)) out = <mark style={{ background: safeHighlight(mark.attrs?.color)! }}>{out}</mark>
     else if (mark.type === 'link') out = <SafeLink href={mark.attrs?.href}>{out}</SafeLink>
   }
   return <>{out}</>
