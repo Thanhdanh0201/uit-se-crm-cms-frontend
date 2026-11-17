@@ -161,6 +161,10 @@
   padding-right: 22px;
   height: 32px;
 }
+/* Màn hẹp: header không đủ chỗ (ô bị cắt chữ), dùng ô chọn ngôn ngữ trong menu mobile. */
+@media (max-width: 479px) {
+  .site-actions > .site-lang { display: none; }
+}
 .site-lang__select:hover { border-color: var(--color-primary); }
 .site-lang__select:focus-visible {
   outline: 2px solid var(--color-primary);

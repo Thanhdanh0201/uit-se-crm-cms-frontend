@@ -251,6 +251,13 @@ test('lưu bài: khách được mời đăng nhập rồi quay lại đúng bà
   expect(link.getAttribute('href')).toBe('/login?next=%2Fposts%2Flich-thi-hk1')
 })
 
+test('lưu bài ở site tiếng Anh: link tới /login (không có /en/login), next giữ tiền tố /en', async () => {
+  mockApi({ ...guest, ...menu, '/api/public/posts/lich-thi-hk1': () => ok(post), '/api/public/posts/lich-thi-hk1/view': () => ok({ viewCount: 42 }) })
+  openPublic('/en/posts/lich-thi-hk1', { ...postRoute, path: 'en/posts/:slug' })
+  const link = await screen.findByRole('link', { name: 'Sign in to save post' })
+  expect(link.getAttribute('href')).toBe('/login?next=%2Fen%2Fposts%2Flich-thi-hk1')
+})
+
 test('lưu bài: bấm nhiều lần chỉ gửi một request, chỉ đổi trạng thái khi API thành công', async () => {
   const put = deferred<Response>()
   const api = mockApi({

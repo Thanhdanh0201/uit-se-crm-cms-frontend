@@ -55,7 +55,7 @@ export const meta: Route.MetaFunction = ({ loaderData: data }) =>
 function BookmarkButton({ postId }: { postId: string }) {
   const { user, loading } = useAuth()
   const { pathname } = useLocation()
-  const { t, lPath } = useDictionary()
+  const { t } = useDictionary()
   const [saved, setSaved] = useState<boolean | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
@@ -75,7 +75,7 @@ function BookmarkButton({ postId }: { postId: string }) {
   if (loading) return null
   if (!user)
     return (
-      <Link to={lPath(`/login?next=${encodeURIComponent(pathname)}`)} className={buttonClass('secondary', 'sm')}>
+      <Link to={`/login?next=${encodeURIComponent(pathname)}`} className={buttonClass('secondary', 'sm')}>
         <BookmarkSimple size={16} aria-hidden /> {t.signInToSave}
       </Link>
     )
