@@ -111,9 +111,18 @@
 - Thư viện media: ảnh đang làm slide hiện trong danh sách nơi đang dùng.
 - Test: `src/pages/admin/HomeSlides.test.tsx`, `src/pages/public/public.test.tsx`. Cần backend branch `feat/home-slides`.
 
+## Sự kiện cho người dùng (SCRUM-46, FR-EVT-01..03, AT-07, 17/11/2026)
+- `/events` và `/en/events` (`src/pages/public/Events.tsx`): SSR, phân trang 10 mục, tab Sắp diễn ra / Đã diễn ra trên URL (`?past=1`, `?page=`), ngày giờ theo giờ Việt Nam, địa điểm, nhãn trạng thái (Còn N chỗ, Đã đủ chỗ, Hết hạn đăng ký, Ngừng nhận đăng ký, Sự kiện đã hủy). Rỗng hiện trạng thái rỗng, API lỗi hiện thông báo lỗi mà không vỡ trang.
+- `/events/:id` và `/en/events/:id` (`src/pages/public/EventDetail.tsx`): SSR, 404 khi sự kiện nháp hoặc không tồn tại. Mô tả hiển thị dạng text thuần (`white-space: pre-line`). Khách thấy link "Đăng nhập để đăng ký" (`/login?next=<trang đang xem>`). Đã đăng nhập: client gọi lại chi tiết để biết trạng thái đăng ký của mình; Đăng ký / Hủy đăng ký (có xác nhận) chống bấm lặp, chỉ đổi giao diện theo response của server; lỗi `event_full`, `registration_closed`, `event_closed`, `already_registered`, `cancel_closed`, `not_registered` có thông báo riêng rồi đồng bộ lại; lỗi mạng/5xx không tự gửi lại.
+- `/me/events` và `/en/me/events` (`src/pages/me/MyEvents.tsx`): danh sách lượt đăng ký (cả lượt đã hủy) có phân trang, hủy đăng ký có xác nhận khi còn hạn. Mục "Sự kiện đã đăng ký" ở `/me` đã là link.
+- Logic dùng chung: `src/pages/public/events.data.ts` (type `PublicEvent`, `eventStatus`, `canRegister`, `canCancel`, `eventErrorMessage`, định dạng ngày giờ). `home.data.ts` re-export `eventStatus` cho trang chủ.
+- Hạn chế: dữ liệu sự kiện chưa song ngữ (API không có tham số locale, site `/en` hiện nội dung sự kiện như site Việt); khối sự kiện trang chủ backend chưa đổ dữ liệu (`events: []`); `PostDetail` tạo link `/en/login` không tồn tại cho khách trên site Anh (cần task riêng).
+- Hạn chế: `GET /api/public/events/{id}` là `AllowAnonymous`, nên khi access token đã hết hạn server vẫn trả 200 với `myRegistration: null` (không 401, `api.ts` không refresh). Người đã đăng ký có thể thấy nút Đăng ký; bấm vào thì nhận 401, `api.ts` refresh rồi gửi lại, server trả 409 `already_registered`, trang báo "Bạn đã đăng ký sự kiện này rồi" và tự đồng bộ lại.
+- Hạn chế: `/me/events` chưa song ngữ, nội dung vẫn tiếng Việt trên `/en/me/events` (giống `/me/saved`).
+
 ## Kế tiếp
-- Sprint 5 còn lại: form liên hệ công khai `/contact` (SCRUM-48), phía sinh viên đăng ký sự kiện và yêu cầu đã gửi (SCRUM-46, 55).
-- Các trang được trang chủ liên kết tới nhưng chưa có (đang trả 404): `/events`, `/events/:id`, `/contact`.
+- Sprint 5 còn lại: form liên hệ công khai `/contact` (SCRUM-48), yêu cầu đã gửi (SCRUM-55).
+- Các trang được trang chủ liên kết tới nhưng chưa có (đang trả 404): `/contact`.
 - FR-AUTH-05: màn hình đổi mật khẩu (`POST /api/auth/change-password`).
 - Trang tĩnh và cấu hình trang chủ (backend đã có ở `feat/pages-home`, chưa có task FE).
 
@@ -185,5 +194,5 @@
 - `GET /api/auth/me` chỉ trả `userId`, `role`, `email`; sau khi F5 chưa có `fullName`. Cần backend bổ sung nếu UI hiển thị tên.
 
 ## Cập nhật lần cuối
-26/10/2026 (Sprint 5)
+17/11/2026 (SCRUM-46)
 

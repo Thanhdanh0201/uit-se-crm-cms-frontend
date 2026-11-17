@@ -9,15 +9,9 @@ export type HomeSlide = { id: string; title: string; caption: string | null; ima
 
 export type HomeSection = { title: string; categorySlug: string | null; posts: PostCard[] }
 
-export type EventCard = {
-  id: string
-  title: string
-  startAt: string
-  venue: string
-  registrationDeadline: string
-  capacity: number
-  registeredCount: number
-}
+// Sự kiện: type và nhãn trạng thái nằm ở events.data.ts (SCRUM-46), giữ export cũ cho nơi đang dùng.
+import type { EventCard } from './events.data'
+export { eventStatus, type EventCard, type EventStatus } from './events.data'
 
 export type HomeData = {
   slides?: HomeSlide[]
@@ -29,13 +23,3 @@ export type HomeData = {
 }
 
 export const EMPTY_HOME: HomeData = { slides: [], bottomSlides: [], featured: [], latest: [], sections: [], events: [] }
-
-export type EventStatus = { label: string; tone: 'success' | 'warning' | 'neutral' }
-
-// Tính ở loader (server) để HTML server và client giống nhau khi hydrate.
-export function eventStatus(e: EventCard, now = new Date()): EventStatus {
-  if (now > new Date(e.registrationDeadline)) return { label: 'Hết hạn đăng ký', tone: 'neutral' }
-  const left = e.capacity - e.registeredCount
-  if (left <= 0) return { label: 'Đã đủ chỗ', tone: 'warning' }
-  return { label: `Còn ${left} chỗ`, tone: 'success' }
-}
