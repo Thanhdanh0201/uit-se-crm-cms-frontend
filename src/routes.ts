@@ -42,6 +42,7 @@ export default [
     // Site Tiếng Anh (tiền tố /en)
     ...prefix('en', [
       index('pages/public/Home.tsx', { id: 'en-home' }),
+      route('login', 'pages/public/Login.tsx', { id: 'en-login' }),
       route('categories/:slug', 'pages/public/Category.tsx', { id: 'en-category' }),
       route('posts/:slug', 'pages/public/PostDetail.tsx', { id: 'en-post-detail' }),
       route('search', 'pages/public/Search.tsx', { id: 'en-search' }),

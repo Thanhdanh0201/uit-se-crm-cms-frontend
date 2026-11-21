@@ -89,3 +89,41 @@ test('đăng nhập bằng mật khẩu admin cấp: chuyển tới trang đổi
 
   await waitFor(() => expect(screen.getByTestId('path').textContent).toBe('/me/password?next=%2Fadmin%2Fusers'))
 })
+
+// Các test case cho Tiếng Anh (/en/login)
+test('tiếng Anh (/en/login): hiển thị giao diện tiếng Anh, validate lỗi tiếng Anh', async () => {
+  mockApi(guest)
+  renderPage('/en/login', '/en/login', <Login />)
+
+  expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Sign In')
+  expect(screen.getByLabelText(/Username or email/)).toBeTruthy()
+  expect(screen.getByLabelText(/^Password/)).toBeTruthy()
+
+  const submit = screen.getByRole('button', { name: 'Sign In' })
+  await userEvent.click(submit)
+
+  expect(screen.getByText('Enter username or email.')).toBeTruthy()
+  expect(screen.getByText('Enter password.')).toBeTruthy()
+})
+
+test('tiếng Anh (/en/login): đăng nhập thành công sinh viên chuyển hướng về /en', async () => {
+  mockApi({ ...guest, '/api/auth/login': () => ok({ accessToken: 'x', expiresIn: 3600, user }, 'Login success.') })
+  renderPage('/en/login', '/en/login', <Login />)
+
+  await userEvent.type(screen.getByLabelText(/Username or email/), 'sv24520264')
+  await userEvent.type(screen.getByLabelText(/^Password/), 'correct-pass')
+  await userEvent.click(screen.getByRole('button', { name: 'Sign In' }))
+
+  await waitFor(() => expect(screen.getByTestId('path').textContent).toBe('/en'))
+})
+
+test('tiếng Anh (/en/login): sai mật khẩu hiển thị thông báo tiếng Anh', async () => {
+  mockApi({ ...guest, '/api/auth/login': () => reply(401, { message: 'Bad credentials' }) })
+  renderPage('/en/login', '/en/login', <Login />)
+
+  await userEvent.type(screen.getByLabelText(/Username or email/), 'sv24520264')
+  await userEvent.type(screen.getByLabelText(/^Password/), 'wrong-pass')
+  await userEvent.click(screen.getByRole('button', { name: 'Sign In' }))
+
+  expect((await screen.findByRole('alert')).textContent).toBe('Incorrect username, email, or password.')
+})
