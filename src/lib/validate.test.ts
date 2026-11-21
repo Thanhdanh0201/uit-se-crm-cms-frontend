@@ -43,8 +43,8 @@ test('liên hệ: biên độ dài, đúng giới hạn thì qua, vượt 1 thì
   expect(validateContact({ ...validContact, message: 'a'.repeat(5001) }).message).toMatch(/tối đa 5000/)
 })
 
-test('liên hệ: email thiếu @, @ ở đầu, @ ở cuối, hai @ đều sai định dạng', () => {
-  for (const senderEmail of ['anhuit.edu.vn', '@uit.edu.vn', 'anh@', 'a@b@uit.edu.vn']) {
+test('liên hệ: email thiếu @, @ ở đầu, @ ở cuối, hai @, hoặc domain thiếu TLD (như admin@g) đều sai định dạng', () => {
+  for (const senderEmail of ['anhuit.edu.vn', '@uit.edu.vn', 'anh@', 'a@b@uit.edu.vn', 'admin@g', 'user@domain', 'test@.com']) {
     expect(validateContact({ ...validContact, senderEmail }).senderEmail, senderEmail).toBe('Email chưa đúng định dạng.')
   }
 })

@@ -32,10 +32,17 @@ export const CONTACT_LIMITS = { senderName: 100, senderEmail: 254, subject: 200,
 
 export type ContactInput = { senderName: string; senderEmail: string; subject: string; message: string }
 
-// EmailAddress() của FluentValidation 12: đúng một '@', không nằm đầu, không nằm cuối.
+// Kiểm tra email chặt chẽ: có đúng 1 '@', không khoảng trắng, domain có ít nhất 1 dấu chấm và đuôi tên miền (TLD) tối thiểu 2 ký tự.
 function isEmail(value: string) {
   const at = value.indexOf('@')
-  return at > 0 && at === value.lastIndexOf('@') && at < value.length - 1
+  if (at <= 0 || at !== value.lastIndexOf('@') || at >= value.length - 1) return false
+  if (/\s/.test(value)) return false
+
+  const domain = value.slice(at + 1)
+  const dot = domain.lastIndexOf('.')
+  if (dot <= 0 || dot >= domain.length - 2) return false
+
+  return true
 }
 
 export function validateContact({ senderName, senderEmail, subject, message }: ContactInput): FieldErrors<keyof ContactInput> {
